@@ -3,12 +3,16 @@
  *
  * Estructura en la base de datos:
  *   salas/{sala}/ciclistas/{uid} = { nombre, vatios, velocidad, cadencia, distancia, t }
+ *   salas/{sala}/avatares/{uid}  = { maillot, franja, culotte, casco, bici, piel }
+ * El avatar va aparte: si las reglas de Firebase aún no lo permiten, falla solo
+ * esa escritura y la salida en grupo sigue funcionando (con avatar por defecto).
  *
  * - Cada ciclista escribe solo su nodo (lo imponen las reglas) una vez por segundo.
  * - onDisconnect() borra el nodo si se cierra la web o se pierde la conexión.
  * - Al reconectar se vuelve a registrar onDisconnect y a escribir el nodo completo.
  */
 import { useEffect, useRef, useState } from 'react';
+import { avatarValido, type Avatar } from '../recorrido/avatar';
 
 export const SALA_POR_DEFECTO = 'general';
 const CLAVE_NOMBRE = 'rodillos.nombreCiclista';
@@ -65,12 +69,16 @@ function mensaje(e: unknown) {
   return e instanceof Error ? e.message : String(e);
 }
 
-export function useSalida(leerMisDatos: () => MisDatos) {
+export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
   const [estado, setEstado] = useState<EstadoSalida>('fuera');
   const [error, setError] = useState<string | null>(null);
   const [ciclistas, setCiclistas] = useState<Ciclista[]>([]);
   const [miUid, setMiUid] = useState<string | null>(null);
   const [desfaseServidor, setDesfaseServidor] = useState(0);
+  const [avatares, setAvatares] = useState<Record<string, Avatar>>({});
+  const [avatarRechazado, setAvatarRechazado] = useState(false);
+  const avatarRef = useRef(avatar);
+  avatarRef.current = avatar;
 
   const leerRef = useRef(leerMisDatos);
   leerRef.current = leerMisDatos;
@@ -101,6 +109,7 @@ export function useSalida(leerMisDatos: () => MisDatos) {
       const usuario = await fb.entrarAnonimo();
       const uid = usuario.uid;
       const miRef = fb.ref(fb.db, `salas/${sala}/ciclistas/${uid}`);
+      const miAvatarRef = fb.ref(fb.db, `salas/${sala}/avatares/${uid}`);
       const cancelar: (() => void)[] = [];
 
       // Construye mi nodo completo (RTDB no admite undefined: se omite)
@@ -128,6 +137,13 @@ export function useSalida(leerMisDatos: () => MisDatos) {
             await fb.onDisconnect(miRef).remove();
             await fb.set(miRef, miNodo());
             setEstado('dentro');
+            try {
+              await fb.onDisconnect(miAvatarRef).remove();
+              await fb.set(miAvatarRef, avatarRef.current);
+              setAvatarRechazado(false);
+            } catch {
+              setAvatarRechazado(true);
+            }
           } catch (e) {
             setError(mensaje(e));
           }
@@ -155,6 +171,22 @@ export function useSalida(leerMisDatos: () => MisDatos) {
         ),
       );
 
+      // Avatares de la sala (si las reglas no lo permiten, se queda vacío)
+      cancelar.push(
+        fb.onValue(
+          fb.ref(fb.db, `salas/${sala}/avatares`),
+          (snap) => {
+            const mapa: Record<string, Avatar> = {};
+            snap.forEach((hijo) => {
+              const v = hijo.val();
+              if (avatarValido(v)) mapa[hijo.key as string] = v;
+            });
+            setAvatares(mapa);
+          },
+          () => setAvatares({}),
+        ),
+      );
+
       // Envío de mis datos una vez por segundo
       const temporizador = setInterval(() => {
         fb.set(miRef, miNodo()).catch((e) => setError(mensaje(e)));
@@ -175,15 +207,29 @@ export function useSalida(leerMisDatos: () => MisDatos) {
     clearInterval(s.temporizador);
     s.cancelar.forEach((c) => c());
     const miRef = s.fb.ref(s.fb.db, `salas/${s.sala}/ciclistas/${s.uid}`);
+    const miAvatarRef = s.fb.ref(s.fb.db, `salas/${s.sala}/avatares/${s.uid}`);
     try {
       await s.fb.onDisconnect(miRef).cancel();
       await s.fb.remove(miRef);
+      await s.fb.onDisconnect(miAvatarRef).cancel();
+      await s.fb.remove(miAvatarRef).catch(() => undefined);
     } catch {
       // Si no hay conexión, lo borrará el onDisconnect registrado en el servidor
     }
     setCiclistas([]);
+    setAvatares({});
     setEstado('fuera');
   };
+
+  // Si cambio mi avatar estando en la salida, lo comparto al momento
+  useEffect(() => {
+    const s = sesion.current;
+    if (!s || estado !== 'dentro') return;
+    s.fb
+      .set(s.fb.ref(s.fb.db, `salas/${s.sala}/avatares/${s.uid}`), avatar)
+      .then(() => setAvatarRechazado(false))
+      .catch(() => setAvatarRechazado(true));
+  }, [avatar, estado]);
 
   // Al desmontar el componente (cerrar la web), salir
   useEffect(() => {
@@ -199,5 +245,5 @@ export function useSalida(leerMisDatos: () => MisDatos) {
     .filter((c) => ahoraServidor - c.t < CADUCIDAD_MS)
     .sort((a, b) => (b.distancia ?? 0) - (a.distancia ?? 0));
 
-  return { estado, error, ciclistas: visibles, miUid, unirse, salir };
+  return { estado, error, ciclistas: visibles, miUid, avatares, avatarRechazado, unirse, salir };
 }

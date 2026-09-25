@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { Potenciometro, Pulsometro, RodilloFtms, SensorCsc } from './ble/dispositivos';
 import type { RangoPotencia } from './ble/parsers';
 import { bluetoothDisponible, type EventosSensor, type TipoLog } from './ble/SensorBle';
 import { AjustesSensorCsc } from './components/AjustesSensorCsc';
 import { ControlesRodillo } from './components/ControlesRodillo';
+import { EditorAvatar } from './components/EditorAvatar';
 import { Historial } from './components/Historial';
 import { Metrica, formatearTiempo } from './components/Metrica';
 import { PanelSalida } from './components/PanelSalida';
@@ -15,6 +16,13 @@ import { guardarEntreno } from './entrenamiento/almacen';
 import type { Entreno } from './entrenamiento/tipos';
 import { useGrabacion, type ValoresActuales } from './entrenamiento/useGrabacion';
 import { cargarAjustes, guardarAjustes, potenciaEstimada } from './potenciaVirtual';
+import { PESO_BICI_KG, avatarAleatorio, cargarPerfil, guardarPerfil, type Avatar, type Perfil } from './recorrido/avatar';
+import type { OtroCiclista } from './recorrido/escena';
+import { FisicaVirtual } from './recorrido/fisica';
+import { pendiente as pendienteRuta } from './recorrido/perfil';
+
+// El recorrido 3D (Three.js) se descarga solo al entrar en él
+const VistaRecorrido = lazy(() => import('./components/VistaRecorrido'));
 
 // ---------------------------------------------------------------------------
 // Tipos del estado
@@ -37,6 +45,17 @@ const FRESCURA_MS = 3000;
 
 let contadorLog = 0;
 
+/** Avatar fijo para quien no comparte el suyo (mismo uid → mismos colores). */
+const avataresPorDefecto = new Map<string, Avatar>();
+function avatarPorDefecto(uid: string) {
+  let a = avataresPorDefecto.get(uid);
+  if (!a) {
+    a = avatarAleatorio();
+    avataresPorDefecto.set(uid, a);
+  }
+  return a;
+}
+
 /** Devuelve el primer valor disponible junto al nombre de su fuente. */
 function primero(candidatos: [string, number | undefined][]) {
   for (const [fuente, valor] of candidatos) if (valor !== undefined) return { valor, fuente };
@@ -55,11 +74,28 @@ export default function App() {
   const [rango, setRango] = useState<RangoPotencia | null>(null);
   const [ajustes, setAjustes] = useState(cargarAjustes);
   const [ahora, setAhora] = useState(() => Date.now());
+  // Vatios simulados para probar el recorrido sin rodillo (null = desactivado)
+  const [demoVatios, setDemoVatios] = useState<number | null>(null);
   // Último entrenamiento finalizado (se muestra su resumen) y si falló al guardarse
   const [terminado, setTerminado] = useState<{ entreno: Entreno; error: string | null } | null>(null);
   const [versionHistorial, setVersionHistorial] = useState(0);
   // Pendiente simulada aceptada por el rodillo (null = no hay modo pendiente activo)
   const pendienteRef = useRef<number | null>(null);
+
+  // ---- Perfil del ciclista (avatar y peso) ----
+  const [perfil, setPerfilEstado] = useState<Perfil>(cargarPerfil);
+  const cambiarPerfil = (p: Perfil) => {
+    setPerfilEstado(p);
+    guardarPerfil(p);
+  };
+
+  // ---- Recorrido virtual ----
+  const [enRecorrido, setEnRecorrido] = useState(false);
+  const enRecorridoRef = useRef(false);
+  enRecorridoRef.current = enRecorrido;
+  const fisicaRef = useRef(new FisicaVirtual());
+  // Velocidad virtual (km/h) calculada por la física mientras se está en el recorrido
+  const velVirtualRef = useRef(0);
 
   // Los sensores leen la circunferencia en cada paquete: usamos una ref
   // para que siempre vean el valor más reciente sin recrearlos.
@@ -118,14 +154,21 @@ export default function App() {
     ['Potenciómetro', fresco(datos.pm.potencia)],
     ['Rodillo FTMS', fresco(datos.ftms.potencia)],
   ]);
-  const potencia = potReal.valor !== undefined ? potReal : { valor: potEstimada, fuente: 'Sensor velocidad' };
-  const esEstimada = potReal.valor === undefined && potEstimada !== undefined;
+  const potenciaSensores = potReal.valor !== undefined ? potReal : { valor: potEstimada, fuente: 'Sensor velocidad' };
+  // Modo demostración: vatios simulados cuando no hay ningún sensor de potencia
+  const usarDemo = demoVatios !== null && potenciaSensores.valor === undefined;
+  const potencia = usarDemo ? { valor: demoVatios ?? 0, fuente: 'Simulación' } : potenciaSensores;
+  const esEstimada = !usarDemo && potReal.valor === undefined && potEstimada !== undefined;
 
-  const cadencia = primero([
+  const cadenciaSensores = primero([
     ['Potenciómetro', fresco(datos.pm.cadencia)],
     ['Sensor cadencia', fresco(datos.csc.cadencia)],
     ['Rodillo FTMS', fresco(datos.ftms.cadencia)],
   ]);
+  const cadencia =
+    usarDemo && cadenciaSensores.valor === undefined
+      ? { valor: demoVatios! > 0 ? 85 : 0, fuente: 'Simulación' }
+      : cadenciaSensores;
   const velocidad = primero([
     ['Rodillo FTMS', fresco(datos.ftms.velocidad)],
     ['Sensor velocidad', velocidadCsc],
@@ -150,20 +193,76 @@ export default function App() {
     pulso: pulso.valor,
     potenciaEsEstimada: esEstimada,
   };
-  const grabacion = useGrabacion(
-    () => actualRef.current,
-    () => pendienteRef.current,
-  );
+  // En el recorrido, la velocidad es la virtual (sale de los vatios y la pendiente)
+  const leerActual = (): ValoresActuales =>
+    enRecorridoRef.current ? { ...actualRef.current, velocidad: velVirtualRef.current } : actualRef.current;
+  const grabacion = useGrabacion(leerActual, () => pendienteRef.current);
 
   // ---- Salida en grupo (multijugador con Firebase) ----
   const distanciaRef = useRef(0);
   distanciaRef.current = grabacion.distanciaM;
-  const salida = useSalida(() => ({
-    vatios: actualRef.current.potencia,
-    velocidad: actualRef.current.velocidad,
-    cadencia: actualRef.current.cadencia,
-    distancia: distanciaRef.current,
-  }));
+  const salida = useSalida(
+    () => ({
+      vatios: actualRef.current.potencia,
+      velocidad: leerActual().velocidad,
+      cadencia: actualRef.current.cadencia,
+      distancia: distanciaRef.current,
+    }),
+    perfil.avatar,
+  );
+
+  // ---- Física del recorrido (10 veces por segundo) ----
+  const corriendoRef = useRef(false);
+  corriendoRef.current = grabacion.corriendo;
+  const pesoRef = useRef(perfil.pesoKg);
+  pesoRef.current = perfil.pesoKg;
+  useEffect(() => {
+    if (!enRecorrido) return;
+    let anterior = performance.now();
+    let pendienteEnviada: number | null = null;
+    let ultimoEnvio = 0;
+    const id = setInterval(() => {
+      const t = performance.now();
+      const dt = Math.min(0.5, (t - anterior) / 1000);
+      anterior = t;
+      const f = fisicaRef.current;
+      f.masaKg = pesoRef.current + PESO_BICI_KG;
+      const grado = pendienteRuta(distanciaRef.current);
+      // La pendiente del recorrido alimenta el desnivel acumulado de la grabación
+      pendienteRef.current = grado;
+      if (corriendoRef.current) f.actualizar(actualRef.current.potencia ?? 0, grado, dt);
+      else f.detener();
+      velVirtualRef.current = f.v * 3.6;
+
+      // Rodillo inteligente: que se endurezca con la pendiente
+      // (solo cambios de 0,5 % y como mucho un envío cada 2 s)
+      const rodillo = sensores.ftms;
+      const redondeada = Math.round(grado * 2) / 2;
+      if (rodillo.tieneControl && redondeada !== pendienteEnviada && t - ultimoEnvio > 2000) {
+        pendienteEnviada = redondeada;
+        ultimoEnvio = t;
+        void rodillo.fijarPendiente(redondeada);
+      }
+    }, 100);
+    return () => {
+      clearInterval(id);
+      pendienteRef.current = null;
+      velVirtualRef.current = 0;
+      fisicaRef.current.detener();
+    };
+  }, [enRecorrido, sensores]);
+
+  // Otros ciclistas de la salida, con su avatar (o uno fijo si no lo comparten)
+  const otrosCiclistas: OtroCiclista[] = salida.ciclistas
+    .filter((c) => c.uid !== salida.miUid)
+    .map((c) => ({
+      uid: c.uid,
+      nombre: c.nombre,
+      avatar: salida.avatares[c.uid] ?? avatarPorDefecto(c.uid),
+      distancia: c.distancia ?? 0,
+      velocidad: c.velocidad ?? 0,
+      cadencia: c.cadencia ?? 0,
+    }));
 
   // Sin rodillo conectado no hay pendiente simulada
   useEffect(() => {
@@ -291,6 +390,32 @@ export default function App() {
         </div>
       </section>
 
+      {/* ---- Recorrido virtual ---- */}
+      <section className="panel panel-recorrido">
+        <div>
+          <h2>Recorrido virtual</h2>
+          <p className="detalle">
+            Vuelta de 17 km con 150 m de desnivel, en 3D. La velocidad sale de tus vatios, tu peso y la
+            pendiente{conexiones.ftms.estado === 'conectado' ? ', y tu rodillo se endurecerá en las subidas' : ''}.
+          </p>
+        </div>
+        <div className="acciones-recorrido">
+          <label className="casilla-demo">
+            <input
+              type="checkbox"
+              checked={demoVatios !== null}
+              onChange={(e) => setDemoVatios(e.target.checked ? 180 : null)}
+            />
+            Modo demostración (simular vatios sin rodillo)
+          </label>
+          <button className="boton-principal" onClick={() => setEnRecorrido(true)}>
+            Entrar al recorrido
+          </button>
+        </div>
+      </section>
+
+      <EditorAvatar perfil={perfil} onCambiar={cambiarPerfil} avatarRechazado={salida.avatarRechazado} />
+
       {/* ---- Salida en grupo ---- */}
       <PanelSalida
         estado={salida.estado}
@@ -326,6 +451,34 @@ export default function App() {
       <Historial version={versionHistorial} />
 
       <RegistroLog entradas={log} onLimpiar={() => setLog([])} />
+
+      {enRecorrido && (
+        <Suspense
+          fallback={
+            <div className="recorrido">
+              <div className="recorrido-cargando">Cargando el recorrido…</div>
+            </div>
+          }
+        >
+          <VistaRecorrido
+            avatar={perfil.avatar}
+            leerYo={() => ({
+              distancia: distanciaRef.current,
+              velocidad: velVirtualRef.current,
+              cadencia: actualRef.current.cadencia ?? 0,
+              potencia: actualRef.current.potencia,
+              potenciaEstimada: actualRef.current.potenciaEsEstimada,
+              pulso: actualRef.current.pulso,
+            })}
+            otros={otrosCiclistas}
+            grabacion={grabacion}
+            enSalida={salida.estado === 'dentro'}
+            rodilloControlado={sensores.ftms.tieneControl}
+            demo={usarDemo ? { vatios: demoVatios!, onCambiar: setDemoVatios } : null}
+            onSalir={() => setEnRecorrido(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

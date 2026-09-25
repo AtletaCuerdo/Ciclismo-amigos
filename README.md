@@ -107,6 +107,32 @@ Funciona con **Firebase Realtime Database** (proyecto `ciclismo-amigos`, plan gr
 - Se usa Realtime Database y no Firestore porque el plan Spark de Firestore limita las escrituras
   diarias, y aquí cada ciclista escribe una vez por segundo.
 
+### Recorrido virtual (3D)
+
+Botón **Entrar al recorrido**: escena 3D a pantalla completa con el ciclista en tercera persona.
+
+- **Vuelta de 17 km con 150 m de desnivel positivo** (`src/recorrido/perfil.ts`): un puerto de
+  2,5 km (+100 m, hasta ~6 %) y dos repechos de +25 m. El trazado, el terreno y los árboles se
+  generan por código con semilla fija: todos ven el mismo mundo sin descargar modelos.
+- **Velocidad virtual** (`src/recorrido/fisica.ts`): sale de los vatios, el peso (ciclista + 9 kg
+  de bici) y la pendiente, con inercia, como en Zwift/MyWhoosh. Con un rodillo sin potencia se usa
+  la potencia estimada.
+- **Rodillo FTMS**: recibe la pendiente del recorrido automáticamente (cambios de 0,5 %).
+- **Desnivel acumulado**: se suma a la grabación y al archivo TCX.
+- **Modo demostración**: casilla para simular vatios sin rodillo, con un deslizador en pantalla.
+- Los demás ciclistas de la *Salida en grupo* aparecen en la carretera con su nombre y avatar.
+- Three.js se descarga solo al entrar en el recorrido o abrir el editor del avatar.
+
+### Tu ciclista (avatar)
+
+Colores de maillot, franja, culotte, casco y bici, tono de piel y peso. Al principio se asigna
+una equipación al azar para que no vayáis todos iguales. El avatar se comparte en la salida en
+grupo (`salas/{sala}/avatares/{uid}`); **el peso no se comparte**.
+
+> Al actualizar desde una versión anterior hay que volver a pegar
+> [`firebase/database.rules.json`](firebase/database.rules.json) en Realtime Database → Reglas;
+> si no, los demás te verán con colores por defecto (el resto funciona igual).
+
 ### Historial
 
 Totales acumulados (sesiones, horas, km, desnivel, kJ) y la lista de entrenamientos, con opción de

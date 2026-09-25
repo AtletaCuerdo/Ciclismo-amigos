@@ -17,6 +17,19 @@
             "t": { ".validate": "newData.isNumber() && newData.val() <= now" },
             "$otro": { ".validate": false }
           }
+        },
+        "avatares": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.hasChildren(['maillot', 'franja', 'culotte', 'casco', 'bici', 'piel'])",
+            "maillot": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
+            "franja": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
+            "culotte": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
+            "casco": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
+            "bici": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
+            "piel": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
+            "$otro": { ".validate": false }
+          }
         }
       }
     }
