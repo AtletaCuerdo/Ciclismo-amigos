@@ -87,7 +87,9 @@ P (W) = a · v + b · v³
 
 La circunferencia (por defecto 2105 mm, 700x25c) y los coeficientes `a` y `b` se pueden
 editar. Hay varios presets; **solo el de Kurt Kinetic sale de una curva publicada** (convertida
-de mph a km/h). Los demás son orientativos. Para calibrar, conecta a la vez un potenciómetro:
+de mph a km/h). El de **Tacx Blue Motion** corresponde a la posición 5 de la palanca, leída de la
+gráfica de Tacx (~407 W a 60 km/h, lineal); no hay datos publicados para las otras posiciones.
+Los demás son orientativos. Para calibrar, conecta a la vez un potenciómetro:
 la app mostrará la potencia real y la estimada lado a lado. Los ajustes se guardan en el navegador.
 
 ### Controles de prueba (solo con rodillo FTMS conectado)

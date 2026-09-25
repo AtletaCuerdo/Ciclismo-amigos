@@ -16,6 +16,10 @@ export interface PresetRodillo {
 export const PRESETS: PresetRodillo[] = [
   // Curva publicada por Kurt Kinetic en mph (5,244820·v + 0,019168·v³) convertida a km/h.
   { id: 'kurt', nombre: 'Kurt Kinetic Road Machine (fluido)', a: 3.259, b: 0.0046 },
+  // Gráfica de Tacx leída en http://castfortwo.blogspot.com/2014/01/adding-virtual-power-to-tcx-for-tacx.html:
+  // en posición 5 la relación es lineal, ~407 W a 60 km/h → a = 407/60, b = 0.
+  // No hay datos publicados para las demás posiciones de la palanca.
+  { id: 'tacx-blue-motion-5', nombre: 'Tacx Blue Motion · posición 5 (aprox.)', a: 6.783, b: 0 },
   { id: 'fluido', nombre: 'Fluido genérico (orientativo)', a: 4.0, b: 0.0055 },
   { id: 'magnetico', nombre: 'Magnético genérico (orientativo)', a: 6.0, b: 0.002 },
   { id: 'rodillos', nombre: 'Rodillos libres (orientativo)', a: 2.0, b: 0.0015 },
