@@ -115,3 +115,8 @@ src/
 El proyecto no depende de nada de Replit. Al importarlo desde GitHub, basta con usar
 `npm install` y `npm run dev`. El servidor de Vite ya escucha en todas las interfaces y
 acepta dominios externos (`server.host` y `server.allowedHosts` en `vite.config.ts`).
+
+### Arranque rápido en Windows
+
+Haz doble clic en `iniciar-web.bat`: instala dependencias si faltan, arranca la web y abre Chrome en http://localhost:5173. Deja la ventana negra abierta mientras la uses; si la cierras, la web deja de cargar.
+
