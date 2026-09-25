@@ -76,6 +76,24 @@ Si hay varias fuentes para un mismo dato, se usa esta prioridad (la fuente apare
 
 Un dato de hace más de 3 segundos se considera perdido y se muestra `--`.
 
+### Grabar el entrenamiento y subirlo a Strava
+
+- **Iniciar / Pausar / Continuar**: mientras está en marcha se guarda una muestra por segundo
+  (potencia, cadencia, velocidad, pulso) y se acumula la distancia.
+- **Desnivel +**: solo existe en modo pendiente de un rodillo FTMS; se calcula con la pendiente
+  simulada y la distancia recorrida.
+- **Finalizar**: muestra el resumen, lo guarda en el historial y permite descargar un archivo
+  `.tcx` para subirlo a mano en [strava.com/upload/select](https://www.strava.com/upload/select)
+  (también vale para Garmin Connect, TrainingPeaks…).
+- **Descartar**: borra el entrenamiento en curso sin guardarlo.
+- Si se intenta cerrar la página con un entrenamiento sin finalizar, el navegador avisa.
+
+### Historial
+
+Totales acumulados (sesiones, horas, km, desnivel, kJ) y la lista de entrenamientos, con opción de
+volver a descargar el `.tcx` o borrarlos. **Se guarda solo en el navegador del dispositivo**
+(IndexedDB); más adelante se podrá sincronizar con una cuenta de usuario.
+
 ### Potencia estimada (rodillos sin medidor)
 
 Con el sensor de velocidad se calcula:

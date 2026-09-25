@@ -5,6 +5,8 @@ import type { RangoPotencia } from '../ble/parsers';
 interface Props {
   rodillo: RodilloFtms;
   rango: RangoPotencia | null;
+  /** Se llama cuando el rodillo acepta un modo: pendiente en % o null si pasa a ERG. */
+  onModo: (pendiente: number | null) => void;
 }
 
 const PENDIENTE_MIN = -5;
@@ -12,7 +14,7 @@ const PENDIENTE_MAX = 16;
 const RETARDO_ENVIO_MS = 400; // esperamos a que el usuario suelte el deslizador
 
 /** Modo ERG y simulación de pendiente. Solo se muestra con un rodillo FTMS conectado. */
-export function ControlesRodillo({ rodillo, rango }: Props) {
+export function ControlesRodillo({ rodillo, rango, onModo }: Props) {
   const [vatios, setVatios] = useState('150');
   const [aviso, setAviso] = useState<string | null>(null);
   const [pendiente, setPendiente] = useState(0);
@@ -33,7 +35,7 @@ export function ControlesRodillo({ rodillo, rango }: Props) {
     } else {
       setAviso(null);
     }
-    void rodillo.fijarPotencia(w);
+    void rodillo.fijarPotencia(w).then((ok) => ok && onModo(null));
   };
 
   // Cambia la pendiente en pantalla al momento y la envía tras una pequeña pausa
@@ -41,7 +43,10 @@ export function ControlesRodillo({ rodillo, rango }: Props) {
     const v = Math.min(PENDIENTE_MAX, Math.max(PENDIENTE_MIN, Math.round(valor * 2) / 2));
     setPendiente(v);
     if (temporizador.current) clearTimeout(temporizador.current);
-    temporizador.current = setTimeout(() => void rodillo.fijarPendiente(v), RETARDO_ENVIO_MS);
+    temporizador.current = setTimeout(
+      () => void rodillo.fijarPendiente(v).then((ok) => ok && onModo(v)),
+      RETARDO_ENVIO_MS,
+    );
   };
 
   if (!rodillo.tieneControl) {

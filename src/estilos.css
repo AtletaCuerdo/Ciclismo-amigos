@@ -404,3 +404,105 @@ h3 {
 .log-vacio {
   color: var(--texto-suave);
 }
+
+/* ---------- Grabación y resumen ---------- */
+
+.botones-sesion {
+  flex-wrap: wrap;
+}
+
+.boton-finalizar {
+  background: var(--ok);
+}
+
+.resumen {
+  border-color: var(--ok);
+}
+
+.resumen h3 {
+  margin-top: 16px;
+}
+
+.pasos {
+  margin: 0 0 12px;
+  padding-left: 22px;
+  line-height: 1.5;
+}
+
+.pasos a,
+.detalle a {
+  color: var(--acento);
+}
+
+.botones-tcx {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Historial ---------- */
+
+.rejilla-totales {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.total {
+  background: var(--panel-2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.total-valor {
+  font-size: 30px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.total-etiqueta {
+  color: var(--texto-suave);
+  font-size: 14px;
+}
+
+.lista-historial {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lista-historial li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.historial-fecha {
+  font-weight: 600;
+}
+
+.historial-datos {
+  grid-column: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  color: var(--texto-suave);
+  font-variant-numeric: tabular-nums;
+}
+
+.historial-acciones {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.boton-peligro {
+  color: var(--error);
+}

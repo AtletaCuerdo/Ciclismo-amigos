@@ -4,9 +4,14 @@ import type { RangoPotencia } from './ble/parsers';
 import { bluetoothDisponible, type EventosSensor, type TipoLog } from './ble/SensorBle';
 import { AjustesSensorCsc } from './components/AjustesSensorCsc';
 import { ControlesRodillo } from './components/ControlesRodillo';
+import { Historial } from './components/Historial';
 import { Metrica, formatearTiempo } from './components/Metrica';
 import { RegistroLog, type EntradaLog } from './components/RegistroLog';
+import { ResumenEntreno } from './components/ResumenEntreno';
 import { TarjetaConexion, type InfoConexion } from './components/TarjetaConexion';
+import { guardarEntreno } from './entrenamiento/almacen';
+import type { Entreno } from './entrenamiento/tipos';
+import { useGrabacion, type ValoresActuales } from './entrenamiento/useGrabacion';
 import { cargarAjustes, guardarAjustes, potenciaEstimada } from './potenciaVirtual';
 
 // ---------------------------------------------------------------------------
@@ -23,24 +28,7 @@ interface Lectura {
 }
 type Datos = Record<Fuente, Partial<Record<NombreMetrica, Lectura>>>;
 
-interface Sesion {
-  corriendo: boolean;
-  segundos: number;
-  sumaPotencia: number;
-  muestrasPotencia: number;
-  sumaVelocidad: number;
-  muestrasVelocidad: number;
-}
-
 const DATOS_VACIOS: Datos = { ftms: {}, pm: {}, csc: {}, hr: {} };
-const SESION_INICIAL: Sesion = {
-  corriendo: false,
-  segundos: 0,
-  sumaPotencia: 0,
-  muestrasPotencia: 0,
-  sumaVelocidad: 0,
-  muestrasVelocidad: 0,
-};
 const CONEXION_INICIAL: InfoConexion = { estado: 'desconectado', error: null };
 /** Un dato con más de 3 s de antigüedad se considera perdido. */
 const FRESCURA_MS = 3000;
@@ -64,8 +52,12 @@ export default function App() {
   const [log, setLog] = useState<EntradaLog[]>([]);
   const [rango, setRango] = useState<RangoPotencia | null>(null);
   const [ajustes, setAjustes] = useState(cargarAjustes);
-  const [sesion, setSesion] = useState<Sesion>(SESION_INICIAL);
   const [ahora, setAhora] = useState(() => Date.now());
+  // Último entrenamiento finalizado (se muestra su resumen) y si falló al guardarse
+  const [terminado, setTerminado] = useState<{ entreno: Entreno; error: string | null } | null>(null);
+  const [versionHistorial, setVersionHistorial] = useState(0);
+  // Pendiente simulada aceptada por el rodillo (null = no hay modo pendiente activo)
+  const pendienteRef = useRef<number | null>(null);
 
   // Los sensores leen la circunferencia en cada paquete: usamos una ref
   // para que siempre vean el valor más reciente sin recrearlos.
@@ -141,31 +133,59 @@ export default function App() {
     ['Rodillo FTMS', fresco(datos.ftms.pulso)],
   ]);
 
-  // ---- Reloj de la sesión y medias (1 muestra por segundo) ----
-  const actualRef = useRef({ potencia: potencia.valor, velocidad: velocidad.valor });
-  actualRef.current = { potencia: potencia.valor, velocidad: velocidad.valor };
-
+  // Reloj para descartar datos viejos aunque no llegue nada nuevo
   useEffect(() => {
-    const id = setInterval(() => {
-      setAhora(Date.now());
-      setSesion((s) => {
-        if (!s.corriendo) return s;
-        const { potencia: p, velocidad: v } = actualRef.current;
-        return {
-          ...s,
-          segundos: s.segundos + 1,
-          sumaPotencia: s.sumaPotencia + (p ?? 0),
-          muestrasPotencia: s.muestrasPotencia + (p !== undefined ? 1 : 0),
-          sumaVelocidad: s.sumaVelocidad + (v ?? 0),
-          muestrasVelocidad: s.muestrasVelocidad + (v !== undefined ? 1 : 0),
-        };
-      });
-    }, 1000);
+    const id = setInterval(() => setAhora(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
 
-  const potenciaMedia = sesion.muestrasPotencia ? sesion.sumaPotencia / sesion.muestrasPotencia : undefined;
-  const velocidadMedia = sesion.muestrasVelocidad ? sesion.sumaVelocidad / sesion.muestrasVelocidad : undefined;
+  // ---- Grabación del entrenamiento (1 muestra por segundo) ----
+  const actualRef = useRef<ValoresActuales>({ potenciaEsEstimada: false });
+  actualRef.current = {
+    potencia: potencia.valor,
+    cadencia: cadencia.valor,
+    velocidad: velocidad.valor,
+    pulso: pulso.valor,
+    potenciaEsEstimada: esEstimada,
+  };
+  const grabacion = useGrabacion(
+    () => actualRef.current,
+    () => pendienteRef.current,
+  );
+
+  // Sin rodillo conectado no hay pendiente simulada
+  useEffect(() => {
+    if (conexiones.ftms.estado !== 'conectado') pendienteRef.current = null;
+  }, [conexiones.ftms.estado]);
+
+  // Avisar antes de cerrar la página si hay un entrenamiento sin guardar
+  const hayDatosRef = useRef(false);
+  hayDatosRef.current = grabacion.hayDatos;
+  useEffect(() => {
+    const aviso = (e: BeforeUnloadEvent) => {
+      if (!hayDatosRef.current) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', aviso);
+    return () => window.removeEventListener('beforeunload', aviso);
+  }, []);
+
+  const finalizar = async () => {
+    const entreno = grabacion.finalizar();
+    if (!entreno) return;
+    setTerminado({ entreno, error: null });
+    try {
+      await guardarEntreno(entreno);
+      setVersionHistorial((v) => v + 1);
+    } catch (e) {
+      setTerminado({ entreno, error: e instanceof Error ? e.message : String(e) });
+    }
+  };
+
+  const descartar = () => {
+    if (window.confirm('¿Descartar el entrenamiento en curso? Se perderán sus datos.')) grabacion.descartar();
+  };
 
   // ---- Avisos de compatibilidad ----
   const sinBluetooth = !bluetoothDisponible();
@@ -215,12 +235,15 @@ export default function App() {
           <div className="botones-sesion">
             <button
               className="boton-principal"
-              onClick={() => setSesion((s) => ({ ...s, corriendo: !s.corriendo }))}
+              onClick={grabacion.corriendo ? grabacion.pausar : grabacion.iniciar}
             >
-              {sesion.corriendo ? 'Pausar' : sesion.segundos > 0 ? 'Continuar' : 'Iniciar'}
+              {grabacion.corriendo ? 'Pausar' : grabacion.hayDatos ? 'Continuar' : 'Iniciar'}
             </button>
-            <button className="boton-secundario" onClick={() => setSesion(SESION_INICIAL)}>
-              Reiniciar
+            <button className="boton-principal boton-finalizar" onClick={() => void finalizar()} disabled={!grabacion.hayDatos}>
+              Finalizar
+            </button>
+            <button className="boton-secundario" onClick={descartar} disabled={!grabacion.hayDatos}>
+              Descartar
             </button>
           </div>
         </div>
@@ -236,13 +259,19 @@ export default function App() {
           <Metrica etiqueta="Cadencia" valor={cadencia.valor} unidad="rpm" fuente={cadencia.fuente} />
           <Metrica etiqueta="Velocidad" valor={velocidad.valor} unidad="km/h" decimales={1} fuente={velocidad.fuente} />
           <Metrica etiqueta="Pulso" valor={pulso.valor} unidad="ppm" fuente={pulso.fuente} />
-          <Metrica etiqueta="Vatios medios" valor={potenciaMedia} unidad="W" />
-          <Metrica etiqueta="Velocidad media" valor={velocidadMedia} unidad="km/h" decimales={1} />
+          <Metrica etiqueta="Vatios medios" valor={grabacion.potenciaMedia} unidad="W" />
+          <Metrica etiqueta="Velocidad media" valor={grabacion.velocidadMedia} unidad="km/h" decimales={1} />
           <div className="metrica">
             <div className="metrica-etiqueta">Tiempo</div>
-            <div className="metrica-valor">{formatearTiempo(sesion.segundos)}</div>
-            <div className="metrica-fuente">{sesion.corriendo ? 'En marcha' : 'Parado'}</div>
+            <div className="metrica-valor">{formatearTiempo(grabacion.segundos)}</div>
+            <div className="metrica-fuente">
+              {grabacion.corriendo ? '● Grabando' : grabacion.hayDatos ? 'En pausa' : 'Parado'}
+            </div>
           </div>
+          <Metrica etiqueta="Distancia" valor={grabacion.distanciaM / 1000} unidad="km" decimales={2} />
+          {grabacion.desnivelM > 0 && (
+            <Metrica etiqueta="Desnivel +" valor={grabacion.desnivelM} unidad="m" fuente="Pendiente simulada" />
+          )}
           {/* Si hay potencia real y también sensor de velocidad, mostramos la estimada para comparar */}
           {potReal.valor !== undefined && potEstimada !== undefined && (
             <Metrica etiqueta="Vatios" valor={potEstimada} unidad="W" fuente="Sensor velocidad" estimada />
@@ -251,10 +280,27 @@ export default function App() {
       </section>
 
       {/* ---- Controles de prueba (solo con rodillo FTMS) ---- */}
-      {conexiones.ftms.estado === 'conectado' && <ControlesRodillo rodillo={sensores.ftms} rango={rango} />}
+      {conexiones.ftms.estado === 'conectado' && (
+        <ControlesRodillo
+          rodillo={sensores.ftms}
+          rango={rango}
+          onModo={(p) => (pendienteRef.current = p)}
+        />
+      )}
+
+      {/* ---- Resumen del entrenamiento recién terminado ---- */}
+      {terminado && (
+        <ResumenEntreno
+          entreno={terminado.entreno}
+          errorGuardado={terminado.error}
+          onCerrar={() => setTerminado(null)}
+        />
+      )}
 
       {/* ---- Ajustes CSC ---- */}
       <AjustesSensorCsc ajustes={ajustes} onCambiar={setAjustes} />
+
+      <Historial version={versionHistorial} />
 
       <RegistroLog entradas={log} onLimpiar={() => setLog([])} />
     </div>
