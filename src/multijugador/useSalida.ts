@@ -12,7 +12,7 @@
  * - Al reconectar se vuelve a registrar onDisconnect y a escribir el nodo completo.
  */
 import { useEffect, useRef, useState } from 'react';
-import { avatarValido, type Avatar } from '../recorrido/avatar';
+import { normalizarAvatar, type Avatar } from '../recorrido/avatar';
 
 export const SALA_POR_DEFECTO = 'general';
 const CLAVE_NOMBRE = 'rodillos.nombreCiclista';
@@ -178,8 +178,8 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
           (snap) => {
             const mapa: Record<string, Avatar> = {};
             snap.forEach((hijo) => {
-              const v = hijo.val();
-              if (avatarValido(v)) mapa[hijo.key as string] = v;
+              const a = normalizarAvatar(hijo.val());
+              if (a) mapa[hijo.key as string] = a;
             });
             setAvatares(mapa);
           },

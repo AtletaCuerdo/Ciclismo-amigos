@@ -28,6 +28,9 @@
             "casco": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
             "bici": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
             "piel": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
+            "bici2": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
+            "modelo": { ".validate": "newData.val() === 'ruta' || newData.val() === 'aero' || newData.val() === 'escaladora' || newData.val() === 'cabra'" },
+            "ruedas": { ".validate": "newData.val() === 'bajo' || newData.val() === 'medio' || newData.val() === 'alto' || newData.val() === 'lenticular'" },
             "$otro": { ".validate": false }
           }
         }

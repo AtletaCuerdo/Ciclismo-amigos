@@ -1,6 +1,8 @@
 import { Suspense, lazy, useState } from 'react';
 import {
   EQUIPACIONES,
+  MODELOS,
+  RUEDAS,
   TONOS_PIEL,
   avatarAleatorio,
   type Avatar,
@@ -17,12 +19,15 @@ interface Props {
   avatarRechazado: boolean;
 }
 
-const PIEZAS: { clave: Exclude<keyof Avatar, 'piel'>; nombre: string }[] = [
+type ClaveColor = 'maillot' | 'franja' | 'culotte' | 'casco' | 'bici' | 'bici2';
+
+const PIEZAS: { clave: ClaveColor; nombre: string }[] = [
   { clave: 'maillot', nombre: 'Maillot' },
   { clave: 'franja', nombre: 'Franja' },
   { clave: 'culotte', nombre: 'Culotte' },
   { clave: 'casco', nombre: 'Casco' },
-  { clave: 'bici', nombre: 'Bici' },
+  { clave: 'bici', nombre: 'Cuadro' },
+  { clave: 'bici2', nombre: 'Detalles bici' },
 ];
 
 /** Personalización del ciclista: colores, tono de piel y peso. */
@@ -42,10 +47,13 @@ export function EditorAvatar({ perfil, onCambiar, avatarRechazado }: Props) {
 
       {!abierto ? (
         <div className="muestras-avatar">
-          {(['maillot', 'franja', 'culotte', 'casco', 'bici', 'piel'] as const).map((k) => (
+          {(['maillot', 'franja', 'culotte', 'casco', 'bici', 'bici2', 'piel'] as const).map((k) => (
             <span key={k} className="muestra-color" style={{ background: avatar[k] }} title={k} />
           ))}
-          <span className="detalle">Peso: {perfil.pesoKg} kg</span>
+          <span className="detalle">
+            {MODELOS.find((m) => m.id === avatar.modelo)?.nombre} · {RUEDAS.find((r) => r.id === avatar.ruedas)?.nombre} ·{' '}
+            {perfil.pesoKg} kg
+          </span>
         </div>
       ) : (
         <div className="editor-avatar">
@@ -72,6 +80,34 @@ export function EditorAvatar({ perfil, onCambiar, avatarRechazado }: Props) {
               <button className="boton-secundario" onClick={() => cambiar(avatarAleatorio())}>
                 🎲 Al azar
               </button>
+            </div>
+
+            <h3>Bici</h3>
+            <div className="opciones">
+              {MODELOS.map((m) => (
+                <button
+                  key={m.id}
+                  className={`opcion${avatar.modelo === m.id ? ' elegida' : ''}`}
+                  onClick={() => cambiar({ modelo: m.id })}
+                >
+                  {m.nombre}
+                  <small>{m.descripcion}</small>
+                </button>
+              ))}
+            </div>
+
+            <h3>Ruedas</h3>
+            <div className="opciones">
+              {RUEDAS.map((r) => (
+                <button
+                  key={r.id}
+                  className={`opcion${avatar.ruedas === r.id ? ' elegida' : ''}`}
+                  onClick={() => cambiar({ ruedas: r.id })}
+                >
+                  {r.nombre}
+                  {r.id === 'lenticular' && <small>Trasera lenticular, delantera de perfil alto</small>}
+                </button>
+              ))}
             </div>
 
             <h3>Colores</h3>

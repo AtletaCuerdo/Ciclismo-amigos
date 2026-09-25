@@ -938,3 +938,166 @@ h3 {
   accent-color: var(--acento);
   margin-top: 4px;
 }
+
+/* ---------- Marcador del recorrido (v2) ---------- */
+
+.hud-lateral {
+  min-width: 190px;
+  gap: 4px;
+}
+
+.hud-par {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.hud-valor-peq {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-separador {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 6px 0;
+}
+
+.hud-valor.pulso {
+  color: #ff6b81;
+}
+
+.perfil-cabecera {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px 18px;
+  flex-wrap: wrap;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.perfil-cabecera .subiendo {
+  color: var(--aviso);
+}
+
+.perfil-grafica {
+  position: relative;
+}
+
+.perfil-grafica svg {
+  display: block;
+  width: 100%;
+  height: 76px;
+}
+
+.perfil-relleno {
+  fill: rgba(255, 255, 255, 0.14);
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.perfil-hecho {
+  fill: rgba(255, 106, 26, 0.55);
+  stroke: var(--acento);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.perfil-linea {
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.perfil-etiqueta {
+  position: absolute;
+  transform: translate(-50%, -135%);
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffd6bd;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.perfil-punto {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid #111;
+  background: #fff;
+}
+
+.perfil-punto.yo {
+  width: 18px;
+  height: 18px;
+  background: var(--acento);
+  border-color: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 106, 26, 0.35);
+}
+
+@media (max-width: 700px) {
+  .hud-secundario {
+    display: none;
+  }
+  .hud-lateral {
+    min-width: 0;
+  }
+  .hud-valor-peq {
+    font-size: 16px;
+  }
+  .perfil-cabecera {
+    font-size: 12px;
+  }
+}
+
+/* ---------- Editor: bicis y ruedas ---------- */
+
+.opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.opcion {
+  min-height: 48px;
+  padding: 6px 14px;
+  border-radius: 12px;
+  background: var(--panel-2);
+  border: 2px solid var(--borde);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.opcion small {
+  color: var(--texto-suave);
+  font-size: 12px;
+}
+
+.opcion.elegida {
+  border-color: var(--acento);
+  background: rgba(255, 106, 26, 0.12);
+}
+
+.selector-calidad {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--texto-suave);
+  font-size: 15px;
+}
+
+.selector-calidad select {
+  min-height: 40px;
+  background: var(--panel-2);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 0 10px;
+}

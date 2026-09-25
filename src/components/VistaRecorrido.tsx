@@ -3,15 +3,17 @@
  * marcador (HUD) y el perfil de la vuelta. Se carga de forma diferida.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Avatar } from '../recorrido/avatar';
+import type { Avatar, Calidad } from '../recorrido/avatar';
 import { EscenaRecorrido, type DatosYo, type OtroCiclista } from '../recorrido/escena';
 import {
   ALTITUD_MAX,
   ALTITUD_MIN,
   DESNIVEL_VUELTA_M,
   LONGITUD_VUELTA_M,
+  SUBIDAS,
   altitud,
   enVuelta,
+  infoSubidas,
   pendiente,
 } from '../recorrido/perfil';
 import { formatearTiempo } from './Metrica';
@@ -20,17 +22,22 @@ export interface DatosHud extends DatosYo {
   potencia?: number;
   potenciaEstimada: boolean;
   pulso?: number;
+  hayCadencia: boolean;
 }
 
 interface Props {
   avatar: Avatar;
+  calidad: Calidad;
   leerYo: () => DatosHud;
   otros: OtroCiclista[];
   grabacion: {
     corriendo: boolean;
     hayDatos: boolean;
     segundos: number;
+    distanciaM: number;
     desnivelM: number;
+    potenciaMedia?: number;
+    velocidadMedia?: number;
     iniciar: () => void;
     pausar: () => void;
   };
@@ -46,10 +53,13 @@ const ALTO_PERFIL = 110;
 
 const xPerfil = (s: number) => (enVuelta(s) / LONGITUD_VUELTA_M) * ANCHO_PERFIL;
 const yPerfil = (h: number) =>
-  ALTO_PERFIL - 8 - ((h - ALTITUD_MIN) / (ALTITUD_MAX - ALTITUD_MIN)) * (ALTO_PERFIL - 24);
+  ALTO_PERFIL - 8 - ((h - ALTITUD_MIN) / (ALTITUD_MAX - ALTITUD_MIN)) * (ALTO_PERFIL - 30);
+
+const km = (m: number, dec = 1) => (m / 1000).toFixed(dec).replace('.', ',');
 
 export default function VistaRecorrido({
   avatar,
+  calidad,
   leerYo,
   otros,
   grabacion,
@@ -69,7 +79,7 @@ export default function VistaRecorrido({
   useEffect(() => {
     const id = setTimeout(() => {
       try {
-        escena.current = new EscenaRecorrido(contenedor.current!, avatar, () => leerRef.current());
+        escena.current = new EscenaRecorrido(contenedor.current!, avatar, () => leerRef.current(), calidad);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       }
@@ -89,9 +99,9 @@ export default function VistaRecorrido({
   // Perfil de altitud de la vuelta (se calcula una vez)
   const trazoPerfil = useMemo(() => {
     const puntos: string[] = [];
-    for (let i = 0; i <= 200; i++) {
-      const s = (i / 200) * LONGITUD_VUELTA_M;
-      puntos.push(`${((i / 200) * ANCHO_PERFIL).toFixed(1)},${yPerfil(altitud(s)).toFixed(1)}`);
+    for (let i = 0; i <= 250; i++) {
+      const s = (i / 250) * LONGITUD_VUELTA_M;
+      puntos.push(`${((i / 250) * ANCHO_PERFIL).toFixed(1)},${yPerfil(altitud(s)).toFixed(1)}`);
     }
     return `M0,${ALTO_PERFIL} L${puntos.join(' L')} L${ANCHO_PERFIL},${ALTO_PERFIL} Z`;
   }, []);
@@ -99,7 +109,8 @@ export default function VistaRecorrido({
   const yo = leerYo();
   const pend = pendiente(yo.distancia);
   const vuelta = Math.floor(yo.distancia / LONGITUD_VUELTA_M) + 1;
-  const kmVuelta = enVuelta(yo.distancia) / 1000;
+  const xYo = xPerfil(yo.distancia);
+  const subidas = infoSubidas(yo.distancia);
   const colorPendiente = pend > 4 ? '#ff4d4f' : pend > 1.5 ? '#ffc233' : pend < -1.5 ? '#6ec1ff' : '#f2f4f8';
 
   return (
@@ -108,12 +119,10 @@ export default function VistaRecorrido({
 
       {cargando && <div className="recorrido-cargando">Generando el recorrido…</div>}
       {error && (
-        <div className="recorrido-cargando">
-          No se pudo iniciar el 3D en este dispositivo: {error}
-        </div>
+        <div className="recorrido-cargando">No se pudo iniciar el 3D en este dispositivo: {error}</div>
       )}
 
-      {/* Marcador superior */}
+      {/* Barra superior: tiempo, distancia, pendiente */}
       <div className="hud hud-arriba">
         <div className="hud-dato">
           <span className="hud-valor">{formatearTiempo(grabacion.segundos)}</span>
@@ -121,19 +130,21 @@ export default function VistaRecorrido({
         </div>
         <div className="hud-dato">
           <span className="hud-valor">
-            {kmVuelta.toFixed(2)}
-            <small> / {LONGITUD_VUELTA_M / 1000} km</small>
+            {km(grabacion.distanciaM, 2)}
+            <small> km</small>
           </span>
-          <span className="hud-etiqueta">vuelta {vuelta}</span>
+          <span className="hud-etiqueta">
+            distancia · vuelta {vuelta} ({km(enVuelta(yo.distancia))}/{LONGITUD_VUELTA_M / 1000})
+          </span>
         </div>
         <div className="hud-dato">
           <span className="hud-valor" style={{ color: colorPendiente }}>
-            {pend.toFixed(1)}
+            {pend.toFixed(1).replace('.', ',')}
             <small> %</small>
           </span>
           <span className="hud-etiqueta">pendiente</span>
         </div>
-        <div className="hud-dato">
+        <div className="hud-dato hud-secundario">
           <span className="hud-valor">
             {Math.round(grabacion.desnivelM)}
             <small> m</small>
@@ -141,10 +152,7 @@ export default function VistaRecorrido({
           <span className="hud-etiqueta">desnivel +</span>
         </div>
         <div className="hud-botones">
-          <button
-            className="boton-principal"
-            onClick={grabacion.corriendo ? grabacion.pausar : grabacion.iniciar}
-          >
+          <button className="boton-principal" onClick={grabacion.corriendo ? grabacion.pausar : grabacion.iniciar}>
             {grabacion.corriendo ? 'Pausa' : grabacion.hayDatos ? 'Seguir' : 'Empezar'}
           </button>
           <button className="boton-secundario" onClick={onSalir}>
@@ -153,7 +161,7 @@ export default function VistaRecorrido({
         </div>
       </div>
 
-      {/* Datos principales */}
+      {/* Panel lateral: potencia, velocidad, cadencia, pulso */}
       <div className="hud hud-lateral">
         <div className="hud-dato grande">
           <span className="hud-valor">
@@ -176,26 +184,42 @@ export default function VistaRecorrido({
             />
           )}
         </div>
+        <div className="hud-par">
+          <span className="hud-etiqueta">medios</span>
+          <span className="hud-valor-peq">
+            {grabacion.potenciaMedia !== undefined ? Math.round(grabacion.potenciaMedia) : '--'} W
+          </span>
+        </div>
+        <div className="hud-separador" />
         <div className="hud-dato">
           <span className="hud-valor">
-            {yo.velocidad.toFixed(1)}
+            {yo.velocidad.toFixed(1).replace('.', ',')}
             <small> km/h</small>
           </span>
           <span className="hud-etiqueta">velocidad</span>
         </div>
-        <div className="hud-dato">
-          <span className="hud-valor">
-            {yo.cadencia ? Math.round(yo.cadencia) : '--'}
-            <small> rpm</small>
+        <div className="hud-par">
+          <span className="hud-etiqueta">media</span>
+          <span className="hud-valor-peq">
+            {grabacion.velocidadMedia !== undefined ? grabacion.velocidadMedia.toFixed(1).replace('.', ',') : '--'} km/h
           </span>
-          <span className="hud-etiqueta">cadencia</span>
         </div>
+        <div className="hud-separador" />
+        {yo.hayCadencia && (
+          <div className="hud-dato">
+            <span className="hud-valor">
+              {Math.round(yo.cadencia)}
+              <small> rpm</small>
+            </span>
+            <span className="hud-etiqueta">cadencia</span>
+          </div>
+        )}
         <div className="hud-dato">
-          <span className="hud-valor">
+          <span className="hud-valor pulso">
             {yo.pulso ?? '--'}
             <small> ppm</small>
           </span>
-          <span className="hud-etiqueta">pulso</span>
+          <span className="hud-etiqueta">frecuencia cardiaca</span>
         </div>
       </div>
 
@@ -205,15 +229,69 @@ export default function VistaRecorrido({
         </div>
       )}
 
-      {/* Perfil de la vuelta con la posición de cada uno */}
+      {/* Perfil de la vuelta: recorrido hecho sombreado, tu posición y la de los demás */}
       <div className="hud hud-perfil">
-        <svg viewBox={`0 0 ${ANCHO_PERFIL} ${ALTO_PERFIL}`} preserveAspectRatio="none" aria-hidden>
-          <path d={trazoPerfil} className="perfil-relleno" />
-          {otros.map((o) => (
-            <circle key={o.uid} cx={xPerfil(o.distancia)} cy={yPerfil(altitud(o.distancia))} r={7} className="perfil-otro" />
+        <div className="perfil-cabecera">
+          <span>
+            {subidas.actual ? (
+              <>
+                <strong className="subiendo">Subiendo:</strong> quedan {Math.round(subidas.actual.quedanM)} m de subida en{' '}
+                {km(subidas.actual.quedanDistancia)} km
+              </>
+            ) : (
+              <>
+                <strong>Próxima subida</strong> en {km(subidas.proxima.distancia)} km: +{subidas.proxima.desnivel} m en{' '}
+                {km(subidas.proxima.longitud)} km ({subidas.proxima.pendienteMedia.toFixed(1).replace('.', ',')} % media)
+              </>
+            )}
+          </span>
+          <span>
+            Quedan <strong>{Math.round(subidas.quedanVuelta)} m</strong> de subida en esta vuelta
+          </span>
+        </div>
+        <div className="perfil-grafica">
+          <svg viewBox={`0 0 ${ANCHO_PERFIL} ${ALTO_PERFIL}`} preserveAspectRatio="none" aria-hidden>
+            <defs>
+              <clipPath id="perfil-hecho">
+                <rect x={0} y={0} width={xYo} height={ALTO_PERFIL} />
+              </clipPath>
+            </defs>
+            <path d={trazoPerfil} className="perfil-relleno" />
+            <path d={trazoPerfil} className="perfil-hecho" clipPath="url(#perfil-hecho)" />
+            <line x1={xYo} x2={xYo} y1={0} y2={ALTO_PERFIL} className="perfil-linea" />
+          </svg>
+          {/* Etiquetas y puntos en HTML para que no se deformen al estirar la gráfica */}
+          {SUBIDAS.map((t) => (
+            <span
+              key={t.inicio}
+              className="perfil-etiqueta"
+              style={{
+                left: `${(xPerfil((t.inicio + t.fin) / 2) / ANCHO_PERFIL) * 100}%`,
+                top: `${(yPerfil(altitud(t.fin)) / ALTO_PERFIL) * 100}%`,
+              }}
+            >
+              +{t.desnivel} m
+            </span>
           ))}
-          <circle cx={xPerfil(yo.distancia)} cy={yPerfil(altitud(yo.distancia))} r={9} className="perfil-yo" />
-        </svg>
+          {otros.map((o) => (
+            <span
+              key={o.uid}
+              className="perfil-punto otro"
+              title={o.nombre}
+              style={{
+                left: `${(xPerfil(o.distancia) / ANCHO_PERFIL) * 100}%`,
+                top: `${(yPerfil(altitud(o.distancia)) / ALTO_PERFIL) * 100}%`,
+              }}
+            />
+          ))}
+          <span
+            className="perfil-punto yo"
+            style={{
+              left: `${(xYo / ANCHO_PERFIL) * 100}%`,
+              top: `${(yPerfil(altitud(yo.distancia)) / ALTO_PERFIL) * 100}%`,
+            }}
+          />
+        </div>
         <div className="perfil-texto">
           Vuelta de {LONGITUD_VUELTA_M / 1000} km · {DESNIVEL_VUELTA_M} m de desnivel
           {rodilloControlado && ' · el rodillo sigue la pendiente'}

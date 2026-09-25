@@ -121,13 +121,30 @@ Botón **Entrar al recorrido**: escena 3D a pantalla completa con el ciclista en
 - **Desnivel acumulado**: se suma a la grabación y al archivo TCX.
 - **Modo demostración**: casilla para simular vatios sin rodillo, con un deslizador en pantalla.
 - Los demás ciclistas de la *Salida en grupo* aparecen en la carretera con su nombre y avatar.
+- **Marcador**: tiempo, distancia, pendiente, desnivel, vatios y vatios medios, velocidad y
+  velocidad media, cadencia (solo si algún sensor la envía) y frecuencia cardiaca.
+- **Perfil de la vuelta**: tramo recorrido sombreado, línea de posición, subidas marcadas,
+  metros de subida que quedan en la vuelta y distancia a la próxima subida.
+- **Escenario**: cielo con sol y luz ambiental, sombras, campos de cultivo, lago con chopos,
+  pinos, árboles frondosos, arbustos, rocas, hierba y flores junto a la carretera, casas de
+  campo, vallas, quitamiedos en las bajadas, molinos de viento, montañas y nubes.
+- **Movimiento suave**: la escena predice la posición con la velocidad y solo corrige
+  diferencias de más de 1,5 m (2,5 m para los demás), usando la marca de tiempo del refresco de
+  pantalla.
+- **Rendimiento**: la vegetación pequeña solo se dibuja cerca del ciclista, los árboles por
+  zonas (se descartan los que no se ven) y la **resolución es dinámica** (baja si no se llega a
+  ~45 imágenes/s). Selector de **calidad alta/media** (media por defecto en iPad/iPhone: sin
+  sombras y con menos objetos).
 - Three.js se descarga solo al entrar en el recorrido o abrir el editor del avatar.
 
 ### Tu ciclista (avatar)
 
-Colores de maillot, franja, culotte, casco y bici, tono de piel y peso. Al principio se asigna
-una equipación al azar para que no vayáis todos iguales. El avatar se comparte en la salida en
-grupo (`salas/{sala}/avatares/{uid}`); **el peso no se comparte**.
+Colores de maillot, franja, culotte, casco, cuadro y detalles de la bici, tono de piel y peso.
+**Bicis**: ruta clásica, ruta aero, escaladora y cabra de triatlón (con postura acoplada y casco
+aero). **Ruedas**: perfil bajo, medio, alto y lenticular (trasera; delante va una de perfil
+alto). Al principio se asigna una combinación al azar para que no vayáis todos iguales. El
+avatar se comparte en la salida en grupo (`salas/{sala}/avatares/{uid}`); **el peso no se
+comparte**.
 
 > Al actualizar desde una versión anterior hay que volver a pegar
 > [`firebase/database.rules.json`](firebase/database.rules.json) en Realtime Database → Reglas;

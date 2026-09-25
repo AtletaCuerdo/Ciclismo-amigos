@@ -16,7 +16,17 @@ import { guardarEntreno } from './entrenamiento/almacen';
 import type { Entreno } from './entrenamiento/tipos';
 import { useGrabacion, type ValoresActuales } from './entrenamiento/useGrabacion';
 import { cargarAjustes, guardarAjustes, potenciaEstimada } from './potenciaVirtual';
-import { PESO_BICI_KG, avatarAleatorio, cargarPerfil, guardarPerfil, type Avatar, type Perfil } from './recorrido/avatar';
+import {
+  PESO_BICI_KG,
+  avatarAleatorio,
+  cargarCalidad,
+  cargarPerfil,
+  guardarCalidad,
+  guardarPerfil,
+  type Avatar,
+  type Calidad,
+  type Perfil,
+} from './recorrido/avatar';
 import type { OtroCiclista } from './recorrido/escena';
 import { FisicaVirtual } from './recorrido/fisica';
 import { pendiente as pendienteRuta } from './recorrido/perfil';
@@ -84,6 +94,11 @@ export default function App() {
 
   // ---- Perfil del ciclista (avatar y peso) ----
   const [perfil, setPerfilEstado] = useState<Perfil>(cargarPerfil);
+  const [calidad, setCalidadEstado] = useState<Calidad>(cargarCalidad);
+  const cambiarCalidad = (c: Calidad) => {
+    setCalidadEstado(c);
+    guardarCalidad(c);
+  };
   const cambiarPerfil = (p: Perfil) => {
     setPerfilEstado(p);
     guardarPerfil(p);
@@ -408,6 +423,13 @@ export default function App() {
             />
             Modo demostración (simular vatios sin rodillo)
           </label>
+          <label className="selector-calidad">
+            Gráficos
+            <select value={calidad} onChange={(e) => cambiarCalidad(e.target.value as Calidad)}>
+              <option value="alta">Calidad alta</option>
+              <option value="media">Calidad media (tablets)</option>
+            </select>
+          </label>
           <button className="boton-principal" onClick={() => setEnRecorrido(true)}>
             Entrar al recorrido
           </button>
@@ -462,10 +484,12 @@ export default function App() {
         >
           <VistaRecorrido
             avatar={perfil.avatar}
+            calidad={calidad}
             leerYo={() => ({
               distancia: distanciaRef.current,
               velocidad: velVirtualRef.current,
               cadencia: actualRef.current.cadencia ?? 0,
+              hayCadencia: actualRef.current.cadencia !== undefined,
               potencia: actualRef.current.potencia,
               potenciaEstimada: actualRef.current.potenciaEsEstimada,
               pulso: actualRef.current.pulso,

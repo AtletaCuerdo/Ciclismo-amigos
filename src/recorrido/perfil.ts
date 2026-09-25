@@ -61,5 +61,50 @@ export const DESNIVEL_VUELTA_M = PUNTOS.slice(1).reduce(
   0,
 );
 
+/** Subidas de la vuelta (tramos en los que la altitud sube entre dos puntos clave). */
+export const SUBIDAS = PUNTOS.slice(1)
+  .map(([km, h], i) => ({
+    inicio: PUNTOS[i][0] * 1000,
+    fin: km * 1000,
+    desnivel: h - PUNTOS[i][1],
+  }))
+  .filter((t) => t.desnivel > 0)
+  .map((t) => ({ ...t, pendienteMedia: (t.desnivel / (t.fin - t.inicio)) * 100 }));
+
+export interface InfoSubidas {
+  /** Metros de desnivel positivo que quedan hasta el final de la vuelta. */
+  quedanVuelta: number;
+  /** Subida en la que estás ahora (null si no estás subiendo). */
+  actual: { quedanM: number; quedanDistancia: number } | null;
+  /** Próxima subida por delante (puede ser de la vuelta siguiente). */
+  proxima: { distancia: number; desnivel: number; longitud: number; pendienteMedia: number };
+}
+
+export function infoSubidas(s: number): InfoSubidas {
+  const x = enVuelta(s);
+  let quedanVuelta = 0;
+  let actual: InfoSubidas['actual'] = null;
+  for (const t of SUBIDAS) {
+    if (x < t.inicio) quedanVuelta += t.desnivel;
+    else if (x < t.fin) {
+      const quedanM = altitud(t.fin) - altitud(x);
+      quedanVuelta += quedanM;
+      actual = { quedanM, quedanDistancia: t.fin - x };
+    }
+  }
+  const siguiente = SUBIDAS.find((t) => t.inicio > x) ?? SUBIDAS[0];
+  const distancia = siguiente.inicio > x ? siguiente.inicio - x : siguiente.inicio + LONGITUD_VUELTA_M - x;
+  return {
+    quedanVuelta,
+    actual,
+    proxima: {
+      distancia,
+      desnivel: siguiente.desnivel,
+      longitud: siguiente.fin - siguiente.inicio,
+      pendienteMedia: siguiente.pendienteMedia,
+    },
+  };
+}
+
 export const ALTITUD_MIN = Math.min(...PUNTOS.map((p) => p[1]));
 export const ALTITUD_MAX = Math.max(...PUNTOS.map((p) => p[1]));
