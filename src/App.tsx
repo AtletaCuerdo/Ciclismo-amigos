@@ -6,6 +6,8 @@ import { AjustesSensorCsc } from './components/AjustesSensorCsc';
 import { ControlesRodillo } from './components/ControlesRodillo';
 import { Historial } from './components/Historial';
 import { Metrica, formatearTiempo } from './components/Metrica';
+import { PanelSalida } from './components/PanelSalida';
+import { useSalida } from './multijugador/useSalida';
 import { RegistroLog, type EntradaLog } from './components/RegistroLog';
 import { ResumenEntreno } from './components/ResumenEntreno';
 import { TarjetaConexion, type InfoConexion } from './components/TarjetaConexion';
@@ -153,6 +155,16 @@ export default function App() {
     () => pendienteRef.current,
   );
 
+  // ---- Salida en grupo (multijugador con Firebase) ----
+  const distanciaRef = useRef(0);
+  distanciaRef.current = grabacion.distanciaM;
+  const salida = useSalida(() => ({
+    vatios: actualRef.current.potencia,
+    velocidad: actualRef.current.velocidad,
+    cadencia: actualRef.current.cadencia,
+    distancia: distanciaRef.current,
+  }));
+
   // Sin rodillo conectado no hay pendiente simulada
   useEffect(() => {
     if (conexiones.ftms.estado !== 'conectado') pendienteRef.current = null;
@@ -278,6 +290,17 @@ export default function App() {
           )}
         </div>
       </section>
+
+      {/* ---- Salida en grupo ---- */}
+      <PanelSalida
+        estado={salida.estado}
+        error={salida.error}
+        ciclistas={salida.ciclistas}
+        miUid={salida.miUid}
+        grabando={grabacion.corriendo}
+        onUnirse={(nombre) => void salida.unirse(nombre)}
+        onSalir={() => void salida.salir()}
+      />
 
       {/* ---- Controles de prueba (solo con rodillo FTMS) ---- */}
       {conexiones.ftms.estado === 'conectado' && (

@@ -506,3 +506,92 @@ h3 {
 .boton-peligro {
   color: var(--error);
 }
+
+/* ---------- Salida en grupo ---------- */
+
+.chip-salida {
+  font-size: 15px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--texto-suave);
+}
+.chip-dentro {
+  color: #111;
+  background: var(--ok);
+}
+.chip-entrando,
+.chip-sin-conexion {
+  color: #111;
+  background: var(--aviso);
+}
+
+.fila-unirse {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.fila-unirse input {
+  flex: 1;
+  min-width: 180px;
+  min-height: 56px;
+  padding: 0 14px;
+  font-size: 20px;
+  background: var(--panel-2);
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+}
+
+.tabla-salida {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 14px;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabla-salida th {
+  text-align: right;
+  color: var(--texto-suave);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.tabla-salida td {
+  text-align: right;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.tabla-salida th:nth-child(2),
+.tabla-salida td:nth-child(2) {
+  text-align: left;
+}
+
+.tabla-salida tr.yo td {
+  color: var(--acento);
+  font-weight: 700;
+}
+
+.nombre-ciclista {
+  max-width: 40vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .tabla-salida {
+    font-size: 16px;
+  }
+  .tabla-salida th:nth-child(5),
+  .tabla-salida td:nth-child(5) {
+    display: none; /* sin columna de cadencia en móviles estrechos */
+  }
+}

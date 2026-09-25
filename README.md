@@ -88,6 +88,25 @@ Un dato de hace más de 3 segundos se considera perdido y se muestra `--`.
 - **Descartar**: borra el entrenamiento en curso sin guardarlo.
 - Si se intenta cerrar la página con un entrenamiento sin finalizar, el navegador avisa.
 
+### Salida en grupo (multijugador)
+
+Escribe tu nombre y pulsa **Unirme a la salida**: verás en directo a todos los que estén en la
+sala, con nombre, vatios, velocidad, cadencia y distancia (la distancia cuenta mientras el
+entrenamiento está en marcha). Si alguien cierra la web o pierde la conexión, desaparece solo.
+
+Funciona con **Firebase Realtime Database** (proyecto `ciclismo-amigos`, plan gratuito Spark):
+
+- Cada dispositivo entra con una **identidad anónima** de Firebase Authentication.
+- Estructura: `salas/{sala}/ciclistas/{uid} = { nombre, vatios, velocidad, cadencia, distancia, t }`,
+  actualizada una vez por segundo. `onDisconnect()` borra el nodo al desconectarse.
+- Las **reglas de seguridad** están en [`firebase/database.rules.json`](firebase/database.rules.json)
+  (se pegan a mano en la consola → Realtime Database → Reglas). Solo usuarios autenticados leen,
+  cada uno solo escribe su propio nodo y se validan campos y rangos.
+- La configuración de Firebase en `src/multijugador/firebase.ts` no es secreta: está pensada para
+  ir en la web pública. El SDK se carga solo al unirse a la salida.
+- Se usa Realtime Database y no Firestore porque el plan Spark de Firestore limita las escrituras
+  diarias, y aquí cada ciclista escribe una vez por segundo.
+
 ### Historial
 
 Totales acumulados (sesiones, horas, km, desnivel, kJ) y la lista de entrenamientos, con opción de
