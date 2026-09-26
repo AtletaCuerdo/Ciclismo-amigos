@@ -19,6 +19,7 @@ import {
 import type { Tramo } from '../entrenamientos/tipos';
 import { GraficaEntrenamiento } from './GraficaEntrenamiento';
 import { formatearTiempo } from './Metrica';
+import { mantenerPantallaEncendida } from '../pantallaEncendida';
 
 export interface DatosHud extends DatosYo {
   potencia?: number;
@@ -314,7 +315,16 @@ export default function VistaRecorrido({
           </div>
         </div>
         <div className="hud-botones">
-          <button className="boton-principal" onClick={grabacion.corriendo ? grabacion.pausar : grabacion.iniciar}>
+          <button
+            className="boton-principal"
+            onClick={() => {
+              if (grabacion.corriendo) grabacion.pausar();
+              else {
+                mantenerPantallaEncendida(); // por si el sistema la soltó (p. ej. al cambiar de app)
+                grabacion.iniciar();
+              }
+            }}
+          >
             {grabacion.corriendo ? 'Pausa' : grabacion.hayDatos ? 'Seguir' : 'Empezar'}
           </button>
           {grabacion.hayDatos && (

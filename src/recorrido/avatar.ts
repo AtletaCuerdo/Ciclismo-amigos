@@ -163,8 +163,6 @@ export function guardarPerfil(p: Perfil) {
   }
 }
 
-/** Peso de la bici que se suma al del ciclista en la física. */
-export const PESO_BICI_KG = 9;
 
 // ---------------------------------------------------------------------------
 // Calidad gráfica

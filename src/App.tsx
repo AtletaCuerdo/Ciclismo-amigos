@@ -23,7 +23,6 @@ import { desplegar, duracionTotal, potenciaEn, tramoEn, type Entrenamiento, type
 import { useSalida } from './multijugador/useSalida';
 import { cargarAjustes, guardarAjustes, potenciaEstimada } from './potenciaVirtual';
 import {
-  PESO_BICI_KG,
   avatarAleatorio,
   cargarCalidad,
   cargarPerfil,
@@ -34,7 +33,8 @@ import {
   type Perfil,
 } from './recorrido/avatar';
 import type { OtroCiclista } from './recorrido/escena';
-import { FisicaVirtual } from './recorrido/fisica';
+import { FisicaVirtual, equipoAvatar } from './recorrido/fisica';
+import { mantenerPantallaEncendida, soltarPantalla } from './pantallaEncendida';
 import { pendiente as pendienteRuta } from './recorrido/perfil';
 
 // El recorrido 3D y la vista previa del ciclista (Three.js) se descargan solo al usarlos
@@ -277,6 +277,9 @@ export default function App() {
   corriendoRef.current = grabacion.corriendo;
   const pesoRef = useRef(perfil.pesoKg);
   pesoRef.current = perfil.pesoKg;
+  // Aerodinámica y peso de la bici según el equipo elegido (bici, casco y ruedas)
+  const equipoRef = useRef(equipoAvatar(perfil.avatar));
+  equipoRef.current = equipoAvatar(perfil.avatar);
   useEffect(() => {
     if (!enRecorrido) return;
     let anterior = performance.now();
@@ -288,7 +291,8 @@ export default function App() {
       const dt = Math.min(0.5, (t - anterior) / 1000);
       anterior = t;
       const f = fisicaRef.current;
-      f.masaKg = pesoRef.current + PESO_BICI_KG;
+      f.masaKg = pesoRef.current + equipoRef.current.pesoBiciKg;
+      f.cda = equipoRef.current.cda;
       const grado = pendienteRuta(distanciaRef.current);
       // La pendiente del recorrido alimenta el desnivel acumulado de la grabación
       pendienteRef.current = grado;
@@ -356,6 +360,7 @@ export default function App() {
 
   // ---- Empezar, terminar y salir ----
   const rodarLibre = () => {
+    mantenerPantallaEncendida(); // dentro del clic: el navegador lo exige
     setEntrenoActivo(null);
     setTerminado(null);
     setEnRecorrido(true);
@@ -363,6 +368,7 @@ export default function App() {
 
   const empezarEntreno = (e: Entrenamiento) => {
     const tramos = desplegar(e.bloques);
+    mantenerPantallaEncendida();
     setEntrenoActivo({ entreno: e, tramos, total: duracionTotal(tramos) });
     setTerminado(null);
     setEnRecorrido(true);
@@ -372,6 +378,7 @@ export default function App() {
   const terminar = async () => {
     const activo = entrenoActivo;
     const entreno = grabacion.finalizar();
+    soltarPantalla();
     setEnRecorrido(false);
     setEntrenoActivo(null);
     setPantalla('inicio');
@@ -395,6 +402,7 @@ export default function App() {
   const salirRecorrido = () => {
     if (grabacion.hayDatos && !window.confirm('¿Salir sin guardar? Se perderá lo que llevas grabado.')) return;
     grabacion.descartar();
+    soltarPantalla();
     setEnRecorrido(false);
     setEntrenoActivo(null);
   };
