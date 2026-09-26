@@ -7,6 +7,10 @@ interface Props {
   entreno: Entreno;
   /** null si se guardó bien; texto del error si no se pudo guardar en el historial. */
   errorGuardado: string | null;
+  /** FTP estimado tras un test (75 % del mejor minuto). */
+  ftpSugerido?: number;
+  ftpActual?: number;
+  onAceptarFtp?: (w: number) => void;
   onCerrar: () => void;
 }
 
@@ -39,9 +43,10 @@ export function BotonesTcx({ entreno }: { entreno: Entreno }) {
 }
 
 /** Pantalla que aparece al pulsar "Finalizar": resumen y descarga del archivo. */
-export function ResumenEntreno({ entreno, errorGuardado, onCerrar }: Props) {
+export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual, onAceptarFtp, onCerrar }: Props) {
   const r = entreno.resumen;
   const ref = useRef<HTMLElement>(null);
+  const [ftpAceptado, setFtpAceptado] = useState(false);
 
   useEffect(() => {
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -55,6 +60,27 @@ export function ResumenEntreno({ entreno, errorGuardado, onCerrar }: Props) {
           Cerrar
         </button>
       </div>
+
+      {ftpSugerido !== undefined && ftpSugerido > 0 && (
+        <div className="aviso-ftp">
+          <p>
+            <strong>FTP estimado: {ftpSugerido} W</strong> (75 % de tu mejor minuto). Tu FTP actual es {ftpActual} W.
+          </p>
+          {onAceptarFtp && !ftpAceptado ? (
+            <button
+              className="boton-principal"
+              onClick={() => {
+                onAceptarFtp(ftpSugerido);
+                setFtpAceptado(true);
+              }}
+            >
+              Usar {ftpSugerido} W como mi FTP
+            </button>
+          ) : (
+            ftpAceptado && <p className="detalle">¡Guardado! Los entrenamientos usarán tu nuevo FTP.</p>
+          )}
+        </div>
+      )}
 
       <div className="rejilla-metricas">
         <div className="metrica">

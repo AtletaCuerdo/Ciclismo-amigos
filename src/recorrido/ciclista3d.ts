@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Avatar, ModeloBici, TipoRuedas } from './avatar';
+import { JineteHumano, cargarPlantillasHumanas, plantillasHumanas } from './ciclistaHumano';
 
 const V = (x: number, y: number, z = 0) => new THREE.Vector3(x, y, z);
 
@@ -316,6 +317,10 @@ export class Ciclista3D {
   private pedalTmp = new THREE.Vector3();
   private caderaTmp = new THREE.Vector3();
   private rodillaTmp = new THREE.Vector3();
+  private humano: JineteHumano | null = null;
+  private destruido = false;
+  private pedalIzq = new THREE.Vector3();
+  private pedalDer = new THREE.Vector3();
 
   constructor(avatar: Avatar, nombre?: string) {
     this.avatar = avatar;
@@ -326,6 +331,8 @@ export class Ciclista3D {
   }
 
   private construir() {
+    this.humano?.destruir();
+    this.humano = null;
     if (this.cuerpo) {
       this.cuerpo.traverse((o) => {
         if (o instanceof THREE.Mesh) o.geometry.dispose();
@@ -451,6 +458,36 @@ export class Ciclista3D {
     }
 
     // ---- Ciclista ----
+    // Con los modelos humanos cargados se usa el ciclista realista; si no, el hecho por código
+    const plantillas = plantillasHumanas();
+    if (plantillas) {
+      try {
+        this.humano = new JineteHumano(
+          plantillas,
+          this.avatar,
+          {
+            cadera: esCabra ? V(-0.13, 0.955) : V(-0.2, 0.955),
+            hombro: esCabra ? V(0.4, 1.1) : V(0.29, 1.24),
+            mano: G.mano,
+            codo: G.codo,
+            cabra: esCabra,
+          },
+          c,
+        );
+        this.humano.actualizarColores(this.avatar);
+        this.pedalear(0, 0, 0);
+        return;
+      } catch (e) {
+        console.warn('No se pudo montar el ciclista humano; se usa el sencillo', e);
+        this.humano = null;
+      }
+    } else {
+      void cargarPlantillasHumanas()
+        .then(() => {
+          if (!this.destruido && !this.humano) this.construir();
+        })
+        .catch((e) => console.warn('No se pudieron cargar los modelos del ciclista', e));
+    }
     // Pelvis (culotte) y torso (maillot)
     esfera(G.cadera, 0.15, m.culotte, [1.15, 0.85, 1.25]);
     const dirTorso = tmpB.subVectors(G.hombro, G.cadera);
@@ -542,7 +579,15 @@ export class Ciclista3D {
   }
 
   cambiarAvatar(avatar: Avatar) {
-    const reconstruir = avatar.modelo !== this.avatar.modelo || avatar.ruedas !== this.avatar.ruedas;
+    const a = this.avatar;
+    const reconstruir =
+      avatar.modelo !== a.modelo ||
+      avatar.ruedas !== a.ruedas ||
+      avatar.sexo !== a.sexo ||
+      avatar.pelo !== a.pelo ||
+      avatar.barba !== a.barba ||
+      avatar.cascoModelo !== a.cascoModelo ||
+      avatar.colorPelo !== a.colorPelo;
     this.avatar = avatar;
     this.mat.maillot.color.set(avatar.maillot);
     this.mat.franja.color.set(avatar.franja);
@@ -552,6 +597,7 @@ export class Ciclista3D {
     this.mat.bici2.color.set(avatar.bici2);
     this.mat.piel.color.set(avatar.piel);
     if (reconstruir) this.construir();
+    else this.humano?.actualizarColores(avatar);
   }
 
   /**
@@ -571,6 +617,12 @@ export class Ciclista3D {
       this.pedalTmp.set(EJE.x + BIELA * Math.cos(a), EJE.y + BIELA * Math.sin(a), z);
       b.brazo.entre(tmpC.copy(EJE).setZ(z), this.pedalTmp);
       b.pedal.position.copy(this.pedalTmp).setZ(z + 0.03 * b.lado);
+      (b.lado < 0 ? this.pedalIzq : this.pedalDer).copy(b.pedal.position);
+    }
+
+    if (this.humano) {
+      this.humano.posar({ izq: this.pedalIzq, der: this.pedalDer }, this.anguloBiela);
+      return;
     }
 
     for (const p of this.piernas) {
@@ -595,6 +647,8 @@ export class Ciclista3D {
   }
 
   destruir() {
+    this.destruido = true;
+    this.humano?.destruir();
     this.raiz.traverse((o) => {
       if (o instanceof THREE.Mesh) o.geometry.dispose();
     });

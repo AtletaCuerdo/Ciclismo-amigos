@@ -1,7 +1,32 @@
-# Prueba de rodillos (Web Bluetooth)
+# Ciclismo amigos (Web Bluetooth)
 
-Web sin backend para conectar y probar rodillos de ciclismo y sensores por Bluetooth LE
-directamente desde el navegador.
+Web para rodar y entrenar en rodillo con amigos: conecta rodillos y sensores por Bluetooth LE
+directamente desde el navegador, rueda en un recorrido 3D o sigue entrenamientos en modo ERG.
+
+## Pantalla de inicio
+
+- **Tu ciclista**: vista previa 3D y botón *Personalizar* (cuerpo, pelo, barba, casco,
+  equipación, bici, ruedas, peso y FTP).
+- **Tus datos acumulados**: sesiones, horas, km y desnivel, con acceso al historial.
+- **Rodar libre**: la vuelta de 17 km; el rodillo inteligente se endurece con la pendiente.
+- **Entrenamientos**: categorías Recovery, Entrenamiento rápido, Test, Endurance, Sweet Spot,
+  Tapering, Tempo, Threshold y VO2Max. Cada entrenamiento se hace en el recorrido con el rodillo
+  en **modo ERG** (potencia fija según el % de tu FTP). Sin rodillo inteligente, la web muestra
+  los vatios objetivo para seguirlos a mano. El *Test de rampa* calcula un FTP estimado (75 % del
+  mejor minuto) y permite guardarlo.
+- **Crea tus entrenamientos**: editor por bloques (constante, rampa, series) con gráfica en
+  directo; se guardan en el navegador y aparecen en su categoría como «Mío».
+- **Dispositivos**, datos en directo y **Salida en grupo**. En *Ajustes*: calidad gráfica,
+  prueba manual del rodillo (ERG/pendiente), sensor de velocidad y registro Bluetooth.
+
+Los entrenamientos incluidos están en `src/entrenamientos/catalogo.ts` (potencias en % FTP).
+
+## Modelos 3D y texturas
+
+Ciclista (Quaternius, *Universal Base Characters*), vegetación (Quaternius, *Stylized Nature
+MegaKit*), asfalto, hierba y cielo (Poly Haven): todo **CC0**. Detalle en
+[`public/CREDITOS.md`](public/CREDITOS.md). Los paquetes originales completos se guardan fuera
+del repositorio; aquí solo están las piezas usadas, con texturas reducidas.
 
 - **Chrome** en PC / Mac / Android.
 - **Bluefy** en iPad / iPhone (Safari no soporta Web Bluetooth).

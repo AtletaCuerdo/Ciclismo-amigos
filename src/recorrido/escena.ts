@@ -12,6 +12,10 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { Avatar, Calidad } from './avatar';
 import { Ciclista3D } from './ciclista3d';
 import { LONGITUD_VUELTA_M, altitud, enVuelta, pendiente } from './perfil';
+import { cargarCielo, cargarModelo, cargarTextura, direccionSolDelCielo, type ParteModelo } from './recursos';
+
+/** Luminancia media (lineal) de la textura de hierba: sirve para usarla como detalle sin oscurecer. */
+const LUMINANCIA_HIERBA = 0.05;
 
 const PASO_M = 5; // resolución del trazado
 const ANCHO_CARRETERA = 8;
@@ -191,60 +195,15 @@ function lienzo(ancho: number, alto: number) {
   return { c, ctx: c.getContext('2d')! };
 }
 
-function texturaAsfalto() {
-  const { c, ctx } = lienzo(256, 512);
-  ctx.fillStyle = '#4a4d52';
-  ctx.fillRect(0, 0, 256, 512);
-  const rnd = aleatorio(7);
-  // Grano del asfalto
-  for (let i = 0; i < 9000; i++) {
-    const g = 58 + Math.floor(rnd() * 45);
-    ctx.fillStyle = `rgba(${g},${g},${g + 3},0.7)`;
-    ctx.fillRect(rnd() * 256, rnd() * 512, 1 + rnd() * 1.5, 1 + rnd() * 1.5);
-  }
-  // Rodadas algo más oscuras y pulidas
-  for (const x of [70, 186]) {
-    const grad = ctx.createLinearGradient(x - 30, 0, x + 30, 0);
-    grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(0.5, 'rgba(20,20,24,0.18)');
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(x - 30, 0, 60, 512);
-  }
-  // Líneas: bordes continuos y central discontinua
-  ctx.fillStyle = '#ecebe6';
-  ctx.fillRect(8, 0, 7, 512);
-  ctx.fillRect(241, 0, 7, 512);
-  ctx.fillRect(125, 0, 6, 290);
+/** Línea central discontinua: 3 m pintados y 6 m sin pintar (la textura se repite cada 9 m). */
+function texturaDiscontinua() {
+  const { c, ctx } = lienzo(4, 96);
+  ctx.clearRect(0, 0, 4, 96);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, 4, 32);
   const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.anisotropy = 8;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-/** Detalle de hierba casi blanco: multiplica los colores del terreno. */
-function texturaHierba() {
-  const { c, ctx } = lienzo(256, 256);
-  ctx.fillStyle = '#e6e6e6';
-  ctx.fillRect(0, 0, 256, 256);
-  const rnd = aleatorio(11);
-  for (let i = 0; i < 7000; i++) {
-    const g = 170 + Math.floor(rnd() * 85);
-    ctx.strokeStyle = `rgba(${g - 10},${g},${g - 25},0.55)`;
-    ctx.lineWidth = 1;
-    const x = rnd() * 256;
-    const y = rnd() * 256;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + (rnd() - 0.5) * 3, y - 3 - rnd() * 5);
-    ctx.stroke();
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
-  tex.anisotropy = 8;
+  tex.magFilter = THREE.NearestFilter;
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
@@ -364,6 +323,11 @@ export class EscenaRecorrido {
   private bloqueoSubida = 0;
   private factor: number; // 1 en alta, menos en media
   private punto: PuntoRuta = { pos: new THREE.Vector3(), dx: 1, dz: 0 };
+  /** Dirección del sol (se ajusta a la del cielo fotográfico cuando carga). */
+  private dirSol = SOL.clone();
+  private destruida = false;
+  private materialTerreno: THREE.MeshStandardMaterial | null = null;
+  private materialAsfalto: THREE.MeshStandardMaterial | null = null;
   private detras = new THREE.Vector3();
   private mira = new THREE.Vector3();
 
@@ -440,6 +404,8 @@ export class EscenaRecorrido {
     this.observador.observe(contenedor);
     this.ajustarTamano();
     this.bucle();
+    // Recursos externos (cielo, texturas): se aplican cuando terminan de descargar
+    void this.cargarCieloYTexturas();
     // Solo en desarrollo: acceso desde la consola para medir rendimiento
     if (import.meta.env.DEV) (window as unknown as { __escena: EscenaRecorrido }).__escena = this;
   }
@@ -447,6 +413,53 @@ export class EscenaRecorrido {
   // =========================================================================
   // Construcción del mundo
   // =========================================================================
+
+  /** Cielo fotográfico, asfalto y detalle de hierba reales (si fallan, se queda lo generado por código). */
+  private async cargarCieloYTexturas() {
+    try {
+      const [cielo, asfalto, asfaltoNormal, asfaltoRugosidad, hierba, hierbaNormal] = await Promise.all([
+        cargarCielo(),
+        cargarTextura('asphalt_02_diff_1k.jpg', true),
+        cargarTextura('asphalt_02_nor_gl_1k.jpg', false),
+        cargarTextura('asphalt_02_rough_1k.jpg', false),
+        cargarTextura('sparse_grass_diff_1k.jpg', true),
+        cargarTextura('sparse_grass_nor_gl_1k.jpg', false),
+      ]);
+      if (this.destruida) return;
+
+      // Cielo y luz ambiental a partir de la foto; el sol se alinea con el de la imagen
+      this.escena.background = cielo;
+      this.escena.backgroundIntensity = 0.9;
+      const pmrem = new THREE.PMREMGenerator(this.renderer);
+      this.escena.environment?.dispose();
+      this.escena.environment = pmrem.fromEquirectangular(cielo).texture;
+      this.escena.environmentIntensity = 0.6;
+      pmrem.dispose();
+      this.dirSol.copy(direccionSolDelCielo(cielo));
+      if (this.dirSol.y < 0.25) this.dirSol.setY(0.25).normalize(); // que las sombras no sean eternas
+      this.cielo.removeFromParent();
+
+      // Asfalto: 2 × 2 m por repetición (las líneas van aparte)
+      if (this.materialAsfalto) {
+        for (const t of [asfalto, asfaltoNormal, asfaltoRugosidad]) t.repeat.set(4, 1);
+        this.materialAsfalto.map = asfalto;
+        this.materialAsfalto.normalMap = asfaltoNormal;
+        this.materialAsfalto.roughnessMap = asfaltoRugosidad;
+        this.materialAsfalto.roughness = 1;
+        this.materialAsfalto.color.set(0xffffff);
+        this.materialAsfalto.needsUpdate = true;
+      }
+      // Terreno: la hierba real se usa como detalle sobre los colores de campos y praderas
+      if (this.materialTerreno) {
+        this.materialTerreno.map = hierba;
+        this.materialTerreno.normalMap = hierbaNormal;
+        this.materialTerreno.normalScale.set(0.6, 0.6);
+        this.materialTerreno.needsUpdate = true;
+      }
+    } catch (e) {
+      console.warn('No se pudieron cargar el cielo o las texturas; se usa lo generado por código', e);
+    }
+  }
 
   private crearIluminacionAmbiente() {
     const pmrem = new THREE.PMREMGenerator(this.renderer);
@@ -549,10 +562,21 @@ export class EscenaRecorrido {
     }
     geo.setAttribute('color', new THREE.BufferAttribute(colores, 3));
     geo.computeVertexNormals();
-    const terreno = new THREE.Mesh(
-      geo,
-      new THREE.MeshStandardMaterial({ vertexColors: true, map: texturaHierba(), roughness: 1, envMapIntensity: 0.35 }),
-    );
+    const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, envMapIntensity: 0.35 });
+    // La textura de hierba (cuando carga) aporta solo el detalle de luces y sombras:
+    // se divide por su luminancia media para no cambiar el color de campos y praderas.
+    material.onBeforeCompile = (sombreador) => {
+      sombreador.fragmentShader = sombreador.fragmentShader.replace(
+        '#include <map_fragment>',
+        `#ifdef USE_MAP
+          vec3 detalle = texture2D( map, vMapUv ).rgb;
+          float lum = dot( detalle, vec3( 0.2126, 0.7152, 0.0722 ) );
+          diffuseColor.rgb *= mix( 1.0, clamp( lum / ${LUMINANCIA_HIERBA.toFixed(3)}, 0.35, 2.2 ), 0.8 );
+        #endif`,
+      );
+    };
+    this.materialTerreno = material;
+    const terreno = new THREE.Mesh(geo, material);
     terreno.receiveShadow = true;
     this.escena.add(terreno);
   }
@@ -600,8 +624,26 @@ export class EscenaRecorrido {
   }
 
   private crearCarretera() {
-    const asfalto = new THREE.MeshStandardMaterial({ map: texturaAsfalto(), roughness: 0.92, side: THREE.DoubleSide });
-    this.cinta(-ANCHO_CARRETERA / 2, ANCHO_CARRETERA / 2, 0.3, 0.3, 0, LONGITUD_VUELTA_M, asfalto);
+    // Mientras carga la textura real, asfalto de color liso
+    const asfalto = new THREE.MeshStandardMaterial({ color: 0x4a4d52, roughness: 0.92, side: THREE.DoubleSide });
+    this.materialAsfalto = asfalto;
+    this.cinta(-ANCHO_CARRETERA / 2, ANCHO_CARRETERA / 2, 0.3, 0.3, 0, LONGITUD_VUELTA_M, asfalto, 2);
+    // Líneas pintadas (encima del asfalto real): bordes continuos y central discontinua
+    const pintura = new THREE.MeshStandardMaterial({
+      color: 0xf2f2ee,
+      roughness: 0.55,
+      side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    });
+    for (const lado of [-1, 1]) {
+      this.cinta(lado * 3.55, lado * 3.72, 0.31, 0.31, 0, LONGITUD_VUELTA_M, pintura);
+    }
+    const discontinua = pintura.clone();
+    discontinua.map = texturaDiscontinua();
+    discontinua.alphaTest = 0.5;
+    this.cinta(-0.07, 0.07, 0.31, 0.31, 0, LONGITUD_VUELTA_M, discontinua, 9);
     // Arcenes de grava un poco más bajos
     const grava = new THREE.MeshStandardMaterial({ color: 0x8a8272, roughness: 1, side: THREE.DoubleSide });
     this.cinta(-ANCHO_CARRETERA / 2 - 1.3, -ANCHO_CARRETERA / 2, 0.05, 0.28, 0, LONGITUD_VUELTA_M, grava);
@@ -780,11 +822,12 @@ export class EscenaRecorrido {
       }
     };
 
-    // Pinos (junto a la carretera y en bosques)
+    // Árboles sencillos (hechos por código) solo para los bosques y el paisaje lejano;
+    // junto a la carretera se ponen modelos reales (ver vegetacionReal)
     instanciar(
       [[pino, matCopa], [tronco, matTronco, true]],
-      Math.round(1900 * f),
-      () => (rnd() < 0.55 ? enBosque() : junto(13, 260)),
+      Math.round(1000 * f),
+      () => (rnd() < 0.6 ? enBosque() : junto(150, 450)),
       () => {
         const s = 0.7 + rnd() * 0.9;
         return [s, s * (0.9 + rnd() * 0.3), s];
@@ -795,8 +838,8 @@ export class EscenaRecorrido {
     // Árboles frondosos
     instanciar(
       [[copaFrondosa, matCopa], [tronco, matTronco, true]],
-      Math.round(1500 * f),
-      () => (rnd() < 0.5 ? enBosque() : junto(12, 320)),
+      Math.round(900 * f),
+      () => (rnd() < 0.5 ? enBosque() : junto(150, 450)),
       () => {
         const s = 0.7 + rnd() * 0.8;
         return [s, s, s];
@@ -827,6 +870,13 @@ export class EscenaRecorrido {
       (c) => c.setHSL(0.22 + rnd() * 0.05, 0.5, 0.3 + rnd() * 0.08),
       { celda: 1500 },
     );
+    // Vegetación cercana con modelos reales; si no se pueden descargar, la versión por código
+    void this.vegetacionReal(instanciar, junto).catch((e) => {
+      console.warn('No se pudieron cargar los modelos de vegetación; se usan los generados por código', e);
+      if (!this.destruida) vegetacionCercanaPorCodigo();
+    });
+
+    const vegetacionCercanaPorCodigo = () => {
     // Arbustos
     instanciar(
       [[arbusto, matCopa]],
@@ -874,6 +924,69 @@ export class EscenaRecorrido {
       (c) => c.setHex(coloresFlor[Math.floor(rnd() * coloresFlor.length)]),
       { celda: 150, visibleHasta: 160 },
     );
+    };
+  }
+
+  /**
+   * Vegetación junto a la carretera con modelos reales (Stylized Nature MegaKit, CC0):
+   * árboles de hoja, pinos, arbustos, rocas, piedras, hierba, flores, helechos y tréboles.
+   */
+  private async vegetacionReal(
+    instanciar: (
+      geometrias: [THREE.BufferGeometry, THREE.Material, boolean?][],
+      cantidad: number,
+      lugar: () => { x: number; z: number; y: number } | null,
+      escala: () => [number, number, number],
+      colorear: (c: THREE.Color) => THREE.Color,
+      opciones: { celda: number; visibleHasta?: number; hundir?: number },
+    ) => void,
+    junto: (min: number, max: number, sesgo?: number) => { x: number; z: number; y: number } | null,
+  ) {
+    const nombres = [
+      'CommonTree_3', 'CommonTree_4', 'CommonTree_5', 'Pine_1', 'Pine_2', 'Pine_4', 'Pine_5',
+      'Bush_Common', 'Bush_Common_Flowers', 'Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3',
+      'Pebble_Round_1', 'Pebble_Round_2', 'Pebble_Round_3', 'Grass_Common_Short', 'Grass_Common_Tall',
+      'Grass_Wispy_Short', 'Flower_3_Group', 'Flower_4_Group', 'Fern_1', 'Clover_1',
+    ];
+    const cargados = await Promise.all(nombres.map((n) => cargarModelo(n)));
+    if (this.destruida) return;
+    const modelos = Object.fromEntries(nombres.map((n, i) => [n, cargados[i]])) as Record<string, ParteModelo[]>;
+    const piezas = (n: string) =>
+      modelos[n].map((p) => [p.geometria, p.material] as [THREE.BufferGeometry, THREE.Material]);
+    const rnd = aleatorio(4242);
+    const f = this.factor;
+    // Variación suave de tono por ejemplar (el color real viene de la textura)
+    const tono = (c: THREE.Color, v = 0.18) => c.setRGB(1 - rnd() * v, 1 - rnd() * v * 0.6, 1 - rnd() * v);
+    const escalaUniforme = (min: number, max: number) => (): [number, number, number] => {
+      const s = min + rnd() * (max - min);
+      return [s, s, s];
+    };
+
+    const poner = (
+      lista: string[],
+      total: number,
+      lugar: () => { x: number; z: number; y: number } | null,
+      escala: () => [number, number, number],
+      opciones: { celda: number; visibleHasta?: number; hundir?: number },
+      variacion = 0.18,
+    ) => {
+      for (const n of lista) {
+        instanciar(piezas(n), Math.round((total / lista.length) * f), lugar, escala, (c) => tono(c, variacion), opciones);
+      }
+    };
+
+    // Árboles junto a la carretera (hasta 170 m; más allá están los bosques sencillos)
+    poner(['CommonTree_3', 'CommonTree_4', 'CommonTree_5'], 1300, () => junto(11, 170, 1.6), escalaUniforme(0.9, 1.5), { celda: 300, visibleHasta: 380 });
+    poner(['Pine_1', 'Pine_2', 'Pine_4', 'Pine_5'], 1100, () => junto(11, 170, 1.6), escalaUniforme(0.9, 1.4), { celda: 300, visibleHasta: 380 });
+    // Arbustos, rocas y piedras
+    poner(['Bush_Common', 'Bush_Common_Flowers'], 1400, () => junto(7, 110, 1.6), escalaUniforme(0.8, 1.5), { celda: 250, visibleHasta: 380 });
+    poner(['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'], 600, () => junto(7, 220, 1.6), escalaUniforme(0.7, 2.6), { celda: 250, visibleHasta: 380, hundir: 0.15 }, 0.25);
+    poner(['Pebble_Round_1', 'Pebble_Round_2', 'Pebble_Round_3'], 1800, () => junto(5.4, 12, 1.5), escalaUniforme(0.8, 2), { celda: 250, visibleHasta: 120 }, 0.25);
+    // Hierba baja, flores y plantas en las cunetas (la alta, solo de vez en cuando)
+    poner(['Grass_Common_Short', 'Grass_Wispy_Short'], 13000, () => junto(5.4, 35, 2.2), escalaUniforme(0.7, 1.3), { celda: 250, visibleHasta: 160 });
+    poner(['Grass_Common_Tall'], 2500, () => junto(7, 40, 1.8), escalaUniforme(0.7, 1.1), { celda: 250, visibleHasta: 160 });
+    poner(['Flower_3_Group', 'Flower_4_Group'], 2400, () => junto(6, 40, 1.8), escalaUniforme(0.7, 1.2), { celda: 250, visibleHasta: 140 }, 0.1);
+    poner(['Fern_1', 'Clover_1'], 2000, () => junto(6, 60, 1.8), escalaUniforme(0.8, 1.4), { celda: 250, visibleHasta: 140 });
   }
 
   private crearCasas() {
@@ -1277,7 +1390,7 @@ export class EscenaRecorrido {
     for (const n of this.nubes) n.position.x += 3 * dt;
 
     // Sol y sombras siguiendo al ciclista
-    this.sol.position.set(miX + SOL.x * 150, miY + SOL.y * 150, miZ + SOL.z * 150);
+    this.sol.position.set(miX + this.dirSol.x * 150, miY + this.dirSol.y * 150, miZ + this.dirSol.z * 150);
     this.sol.target.position.set(miX, miY, miZ);
     this.cielo.position.set(this.camara.position.x, 0, this.camara.position.z);
 
@@ -1297,6 +1410,7 @@ export class EscenaRecorrido {
   };
 
   destruir() {
+    this.destruida = true; // las cargas pendientes ya no añadirán nada
     cancelAnimationFrame(this.animacion);
     this.observador.disconnect();
     for (const e of this.otros.values()) e.c.destruir();

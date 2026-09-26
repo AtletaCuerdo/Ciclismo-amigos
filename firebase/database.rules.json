@@ -31,6 +31,11 @@
             "bici2": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
             "modelo": { ".validate": "newData.val() === 'ruta' || newData.val() === 'aero' || newData.val() === 'escaladora' || newData.val() === 'cabra'" },
             "ruedas": { ".validate": "newData.val() === 'bajo' || newData.val() === 'medio' || newData.val() === 'alto' || newData.val() === 'lenticular'" },
+            "sexo": { ".validate": "newData.val() === 'hombre' || newData.val() === 'mujer'" },
+            "pelo": { ".validate": "newData.val() === 'calvo' || newData.val() === 'rapado' || newData.val() === 'corto' || newData.val() === 'largo' || newData.val() === 'monos'" },
+            "colorPelo": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
+            "barba": { ".validate": "newData.isBoolean()" },
+            "cascoModelo": { ".validate": "newData.val() === 'ruta' || newData.val() === 'aero' || newData.val() === 'clasico' || newData.val() === 'gorra'" },
             "$otro": { ".validate": false }
           }
         }

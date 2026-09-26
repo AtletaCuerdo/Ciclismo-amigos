@@ -6,22 +6,49 @@
 
 export type ModeloBici = 'ruta' | 'aero' | 'escaladora' | 'cabra';
 export type TipoRuedas = 'bajo' | 'medio' | 'alto' | 'lenticular';
+export type Sexo = 'hombre' | 'mujer';
+export type Peinado = 'calvo' | 'rapado' | 'corto' | 'largo' | 'monos';
+export type Casco = 'ruta' | 'aero' | 'clasico' | 'gorra';
 
 export interface Avatar {
   maillot: string; // colores en formato #rrggbb
   franja: string;
   culotte: string;
-  casco: string;
+  casco: string; // color del casco
   bici: string; // color principal del cuadro
   bici2: string; // color secundario (detalles y llantas)
   piel: string;
   modelo: ModeloBici;
   ruedas: TipoRuedas;
+  sexo: Sexo;
+  pelo: Peinado;
+  colorPelo: string;
+  barba: boolean;
+  cascoModelo: Casco;
 }
+
+export const PEINADOS: { id: Peinado; nombre: string }[] = [
+  { id: 'rapado', nombre: 'Rapado' },
+  { id: 'corto', nombre: 'Corto' },
+  { id: 'largo', nombre: 'Largo' },
+  { id: 'monos', nombre: 'Moños' },
+  { id: 'calvo', nombre: 'Sin pelo' },
+];
+
+export const CASCOS: { id: Casco; nombre: string }[] = [
+  { id: 'ruta', nombre: 'Ruta (ventilado)' },
+  { id: 'aero', nombre: 'Aero (contrarreloj)' },
+  { id: 'clasico', nombre: 'Clásico con visera' },
+  { id: 'gorra', nombre: 'Gorra retro' },
+];
+
+export const COLORES_PELO = ['#1b1512', '#3b2a1e', '#6b4a2e', '#a0703f', '#d6b36a', '#b5502a', '#9a9a9a', '#e9e6df'];
 
 export interface Perfil {
   avatar: Avatar;
   pesoKg: number;
+  /** Umbral de potencia funcional (W): base de los entrenamientos en ERG. */
+  ftp: number;
 }
 
 export const MODELOS: { id: ModeloBici; nombre: string; descripcion: string }[] = [
@@ -69,7 +96,16 @@ export function normalizarAvatar(a: unknown): Avatar | null {
   const modelo = MODELOS.some((m) => m.id === o.modelo) ? (o.modelo as ModeloBici) : 'ruta';
   const ruedas = RUEDAS.some((r) => r.id === o.ruedas) ? (o.ruedas as TipoRuedas) : 'medio';
   const bici2 = typeof o.bici2 === 'string' && HEX.test(o.bici2) ? o.bici2 : '#1a1a1a';
+  const sexo: Sexo = o.sexo === 'mujer' ? 'mujer' : 'hombre';
+  const pelo = PEINADOS.some((p) => p.id === o.pelo) ? (o.pelo as Peinado) : 'corto';
+  const colorPelo = typeof o.colorPelo === 'string' && HEX.test(o.colorPelo) ? o.colorPelo : '#3b2a1e';
+  const cascoModelo = CASCOS.some((c) => c.id === o.cascoModelo) ? (o.cascoModelo as Casco) : 'ruta';
   return {
+    sexo,
+    pelo,
+    colorPelo,
+    barba: o.barba === true,
+    cascoModelo,
     maillot: o.maillot as string,
     franja: o.franja as string,
     culotte: o.culotte as string,
@@ -88,9 +124,15 @@ function aleatorio<T>(xs: T[]) {
 
 /** Avatar al azar: así, aunque nadie lo personalice, no vais todos iguales. */
 export function avatarAleatorio(): Avatar {
+  const sexo = aleatorio<Sexo>(['hombre', 'mujer']);
   return {
     ...aleatorio(EQUIPACIONES).colores,
     piel: aleatorio(TONOS_PIEL),
+    sexo,
+    pelo: aleatorio<Peinado>(sexo === 'mujer' ? ['largo', 'monos', 'corto'] : ['rapado', 'corto', 'corto', 'calvo']),
+    colorPelo: aleatorio(COLORES_PELO.slice(0, 6)),
+    barba: sexo === 'hombre' && Math.random() < 0.35,
+    cascoModelo: 'ruta',
     modelo: aleatorio<ModeloBici>(['ruta', 'aero', 'escaladora']),
     ruedas: aleatorio<TipoRuedas>(['bajo', 'medio', 'alto']),
   };
@@ -102,12 +144,13 @@ export function cargarPerfil(): Perfil {
     const avatar = g ? normalizarAvatar(g.avatar) : null;
     if (avatar) {
       const peso = Number(g.pesoKg);
-      return { avatar, pesoKg: peso >= 30 && peso <= 200 ? peso : 75 };
+      const ftp = Number(g.ftp);
+      return { avatar, pesoKg: peso >= 30 && peso <= 200 ? peso : 75, ftp: ftp >= 50 && ftp <= 600 ? ftp : 200 };
     }
   } catch {
     // sin almacenamiento: se genera uno nuevo
   }
-  const nuevo: Perfil = { avatar: avatarAleatorio(), pesoKg: 75 };
+  const nuevo: Perfil = { avatar: avatarAleatorio(), pesoKg: 75, ftp: 200 };
   guardarPerfil(nuevo);
   return nuevo;
 }

@@ -57,7 +57,7 @@ export function PanelSalida({ estado, error, ciclistas, miUid, grabando, onUnirs
         <div className="fila-unirse">
           <span className="detalle">
             Rodando como <strong>{nombre}</strong>
-            {!grabando && ' · pulsa «Iniciar» arriba para que cuente tu distancia'}
+            {!grabando && ' · tu distancia cuenta cuando ruedas en el recorrido'}
           </span>
           <button className="boton-secundario" onClick={onSalir}>
             Salir

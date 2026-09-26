@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import type { Avatar } from '../recorrido/avatar';
 import { Ciclista3D } from '../recorrido/ciclista3d';
 
-export default function VistaPreviaAvatar({ avatar }: { avatar: Avatar }) {
+export default function VistaPreviaAvatar({ avatar, className }: { avatar: Avatar; className?: string }) {
   const contenedor = useRef<HTMLDivElement>(null);
   const ciclista = useRef<Ciclista3D | null>(null);
   const avatarInicial = useRef(avatar);
@@ -80,5 +80,5 @@ export default function VistaPreviaAvatar({ avatar }: { avatar: Avatar }) {
     ciclista.current?.cambiarAvatar(avatar);
   }, [avatar]);
 
-  return <div className="vista-previa-avatar" ref={contenedor} />;
+  return <div className={`vista-previa-avatar ${className ?? ''}`} ref={contenedor} />;
 }

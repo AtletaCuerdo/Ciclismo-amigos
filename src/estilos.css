@@ -1,16 +1,20 @@
-/* Tema oscuro de alto contraste, pensado para leerse a distancia sobre la bici */
+/* =========================================================================
+   Tema claro, pensado para leerse bien en tablet y a cierta distancia
+   ========================================================================= */
 :root {
-  --fondo: #0f1115;
-  --panel: #181b22;
-  --panel-2: #20242d;
-  --borde: #2c313c;
-  --texto: #f2f4f8;
-  --texto-suave: #9aa3b2;
+  --fondo: #f3f5f8;
+  --panel: #ffffff;
+  --panel-2: #eef1f5;
+  --borde: #dde2e9;
+  --texto: #1b2029;
+  --texto-suave: #5d6878;
   --acento: #ff6a1a;
-  --ok: #3ddc84;
-  --aviso: #ffc233;
-  --error: #ff4d4f;
-  --radio: 14px;
+  --acento-suave: #fff1e8;
+  --ok: #1f9d55;
+  --aviso: #b7791f;
+  --error: #d64545;
+  --sombra: 0 1px 2px rgba(20, 30, 50, 0.06), 0 4px 14px rgba(20, 30, 50, 0.06);
+  --radio: 16px;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--texto);
   background: var(--fondo);
@@ -40,22 +44,34 @@ button {
 }
 
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
+}
+
+input[type='text'],
+input[type='number'],
+select {
+  background: var(--panel);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  min-height: 46px;
+  padding: 0 12px;
+}
+
+input:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: 3px solid rgba(255, 106, 26, 0.35);
+  outline-offset: 1px;
 }
 
 .app {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 16px max(16px, env(safe-area-inset-right)) 48px max(16px, env(safe-area-inset-left));
+  padding: 12px max(16px, env(safe-area-inset-right)) 48px max(16px, env(safe-area-inset-left));
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.cabecera h1 {
-  margin: 8px 0 0;
-  font-size: 28px;
 }
 
 h2 {
@@ -64,17 +80,89 @@ h2 {
 }
 
 h3 {
-  margin: 0 0 10px;
-  font-size: 19px;
+  margin: 16px 0 10px;
+  font-size: 17px;
   color: var(--texto-suave);
+  font-weight: 700;
+}
+
+p {
+  line-height: 1.45;
+}
+
+.detalle {
+  color: var(--texto-suave);
+  font-size: 15px;
+  margin: 6px 0;
+}
+
+.aviso {
+  color: var(--aviso);
+  margin: 8px 0;
+}
+
+.vacio {
+  color: var(--texto-suave);
+  font-style: italic;
+}
+
+.banner-error {
+  background: #fdecec;
+  border: 1px solid var(--error);
+  padding: 14px 16px;
+  border-radius: var(--radio);
   font-weight: 600;
 }
 
-.panel {
+/* ---------- Barra superior ---------- */
+
+.barra-superior {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: env(safe-area-inset-top);
+}
+
+.marca {
+  background: none;
+  border: none;
+  padding: 4px 0;
+  font-size: 24px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.marca-icono {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--acento-suave);
+}
+
+/* ---------- Paneles y pantallas ---------- */
+
+.panel,
+.pantalla {
   background: var(--panel);
   border: 1px solid var(--borde);
   border-radius: var(--radio);
-  padding: 16px;
+  padding: 18px;
+  box-shadow: var(--sombra);
+}
+
+.pantalla {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pantalla > .panel {
+  box-shadow: none;
 }
 
 .cabecera-panel {
@@ -90,24 +178,25 @@ h3 {
   margin: 0;
 }
 
-.detalle {
-  color: var(--texto-suave);
-  font-size: 15px;
-  margin-top: 6px;
+.cabecera-pantalla {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
-.aviso {
-  color: var(--aviso);
-  margin-top: 8px;
+.cabecera-pantalla h2 {
+  margin: 0;
+  flex: 1;
 }
 
-.banner-error {
-  background: rgba(255, 77, 79, 0.15);
-  border: 1px solid var(--error);
-  color: var(--texto);
-  padding: 14px 16px;
-  border-radius: var(--radio);
-  font-weight: 600;
+.boton-volver {
+  background: none;
+  border: none;
+  color: var(--acento);
+  font-weight: 700;
+  padding: 8px 0;
+  min-height: 44px;
 }
 
 /* ---------- Botones ---------- */
@@ -115,40 +204,165 @@ h3 {
 .boton-principal,
 .boton-conectar {
   background: var(--acento);
-  color: #111;
+  color: #fff;
   border: none;
   border-radius: 12px;
   font-weight: 700;
-  min-height: 56px;
+  min-height: 52px;
   padding: 0 22px;
-  font-size: 20px;
+  font-size: 19px;
+  box-shadow: 0 2px 6px rgba(255, 106, 26, 0.3);
+}
+
+.boton-grande {
+  min-height: 64px;
+  font-size: 22px;
+  align-self: flex-start;
+  padding: 0 34px;
 }
 
 .boton-secundario {
-  background: var(--panel-2);
+  background: var(--panel);
   border: 1px solid var(--borde);
   border-radius: 12px;
-  min-height: 48px;
-  padding: 0 18px;
+  min-height: 46px;
+  padding: 0 16px;
+  font-weight: 600;
 }
 
-.botones-sesion {
+.boton-finalizar {
+  background: var(--ok);
+  box-shadow: 0 2px 6px rgba(31, 157, 85, 0.3);
+}
+
+.boton-peligro {
+  color: var(--error);
+}
+
+.boton-icono {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid var(--borde);
+  background: var(--panel);
+  font-weight: 700;
+}
+
+.casilla {
   display: flex;
+  align-items: center;
   gap: 10px;
+  color: var(--texto-suave);
+  font-size: 16px;
 }
 
-/* ---------- Conexión ---------- */
+.casilla input {
+  width: 24px;
+  height: 24px;
+  accent-color: var(--acento);
+}
+
+.acciones-fila {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* ---------- Inicio ---------- */
+
+.inicio-cabecera {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 16px;
+}
+
+@media (max-width: 800px) {
+  .inicio-cabecera {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tarjeta-ciclista,
+.tarjeta-acumulado {
+  background: var(--panel);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 16px;
+  box-shadow: var(--sombra);
+}
+
+.tarjeta-ciclista {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.tarjeta-ciclista-datos h2 {
+  margin-bottom: 4px;
+}
+
+.acciones-principales {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.accion {
+  text-align: left;
+  border: none;
+  border-radius: var(--radio);
+  padding: 20px;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #fff;
+  box-shadow: var(--sombra);
+  transition: transform 0.12s ease;
+}
+
+.accion:active {
+  transform: scale(0.98);
+}
+
+.accion strong {
+  font-size: 24px;
+}
+
+.accion span:last-child {
+  opacity: 0.92;
+  font-size: 15px;
+}
+
+.accion-icono {
+  font-size: 30px;
+}
+
+.accion-libre {
+  background: linear-gradient(135deg, #2e9d62, #1f7a4a);
+}
+.accion-entrenos {
+  background: linear-gradient(135deg, #ff7a2e, #e2530d);
+}
+.accion-crear {
+  background: linear-gradient(135deg, #5a79e0, #3c55b8);
+}
+.accion-historial {
+  background: linear-gradient(135deg, #5f6b7d, #434d5c);
+}
+
+/* ---------- Dispositivos ---------- */
 
 .rejilla-conexion {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 12px;
 }
 
 .tarjeta-conexion {
-  background: var(--panel);
-  border: 2px solid var(--borde);
-  border-radius: var(--radio);
+  background: var(--panel-2);
+  border: 2px solid transparent;
+  border-radius: 14px;
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -157,16 +371,18 @@ h3 {
 
 .tarjeta-conexion .boton-conectar {
   width: 100%;
-  min-height: 64px;
+  min-height: 58px;
 }
 
 .tarjeta-conexion.estado-conectado {
   border-color: var(--ok);
+  background: #eaf7f0;
 }
 .tarjeta-conexion.estado-conectado .boton-conectar {
-  background: var(--panel-2);
+  background: var(--panel);
   color: var(--texto);
   border: 1px solid var(--ok);
+  box-shadow: none;
 }
 .tarjeta-conexion.estado-reconectando {
   border-color: var(--aviso);
@@ -184,7 +400,7 @@ h3 {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--texto-suave);
+  background: #aab3c0;
 }
 .estado-conectado .punto {
   background: var(--ok);
@@ -216,8 +432,9 @@ h3 {
 
 .rejilla-metricas {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 12px;
+  margin-top: 12px;
 }
 
 .metrica {
@@ -233,8 +450,8 @@ h3 {
 
 .metrica-etiqueta {
   color: var(--texto-suave);
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   display: flex;
@@ -243,15 +460,19 @@ h3 {
 }
 
 .metrica-valor {
-  font-size: clamp(44px, 7vw, 72px);
+  font-size: clamp(36px, 5vw, 56px);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
   white-space: nowrap;
 }
 
+.compacta .metrica-valor {
+  font-size: clamp(28px, 4vw, 40px);
+}
+
 .metrica-unidad {
-  font-size: 0.35em;
+  font-size: 0.38em;
   font-weight: 600;
   color: var(--texto-suave);
   margin-left: 6px;
@@ -259,23 +480,22 @@ h3 {
 
 .metrica-fuente {
   color: var(--texto-suave);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .insignia {
-  background: var(--aviso);
-  color: #111;
+  background: #fff3cd;
+  color: #7a5a00;
   font-size: 12px;
   border-radius: 6px;
   padding: 2px 8px;
-  letter-spacing: 0.02em;
 }
 
 .metrica.estimada .metrica-valor {
   color: var(--aviso);
 }
 
-/* ---------- Controles ---------- */
+/* ---------- Controles del rodillo (Ajustes) ---------- */
 
 .controles {
   display: grid;
@@ -293,7 +513,8 @@ h3 {
   }
 }
 
-.fila-erg {
+.fila-erg,
+.fila-pendiente {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -302,10 +523,9 @@ h3 {
 .fila-erg input {
   width: 140px;
   min-height: 56px;
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 700;
   text-align: center;
-  background: var(--panel-2);
   border: 1px solid var(--borde);
   border-radius: 12px;
 }
@@ -317,14 +537,8 @@ h3 {
 
 .valor-pendiente {
   color: var(--texto);
-  font-size: 28px;
+  font-size: 26px;
   margin-left: 8px;
-}
-
-.fila-pendiente {
-  display: flex;
-  align-items: center;
-  gap: 12px;
 }
 
 .fila-pendiente input[type='range'] {
@@ -343,7 +557,14 @@ h3 {
   font-weight: 700;
 }
 
-/* ---------- Ajustes ---------- */
+.selector-calidad {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--texto-suave);
+}
+
+/* ---------- Ajustes del sensor ---------- */
 
 .rejilla-ajustes {
   display: grid;
@@ -359,17 +580,6 @@ h3 {
   font-size: 15px;
 }
 
-.rejilla-ajustes input,
-.rejilla-ajustes select {
-  min-height: 48px;
-  padding: 0 12px;
-  background: var(--panel-2);
-  border: 1px solid var(--borde);
-  border-radius: 10px;
-  color: var(--texto);
-  font-size: 18px;
-}
-
 /* ---------- Registro ---------- */
 
 .log {
@@ -379,7 +589,7 @@ h3 {
   max-height: 320px;
   overflow-y: auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .log li {
@@ -394,7 +604,6 @@ h3 {
   color: var(--texto-suave);
   flex-shrink: 0;
 }
-
 .log-ok {
   color: var(--ok);
 }
@@ -405,22 +614,22 @@ h3 {
   color: var(--texto-suave);
 }
 
-/* ---------- Grabación y resumen ---------- */
-
-.botones-sesion {
-  flex-wrap: wrap;
-}
-
-.boton-finalizar {
-  background: var(--ok);
-}
+/* ---------- Resumen del entrenamiento ---------- */
 
 .resumen {
   border-color: var(--ok);
 }
 
-.resumen h3 {
-  margin-top: 16px;
+.aviso-ftp {
+  background: #f3effc;
+  border: 1px solid #c9b8f0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.aviso-ftp p {
+  margin: 0 0 10px;
 }
 
 .pasos {
@@ -440,13 +649,13 @@ h3 {
   flex-wrap: wrap;
 }
 
-/* ---------- Historial ---------- */
+/* ---------- Totales e historial ---------- */
 
 .rejilla-totales {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: 10px;
-  margin: 12px 0;
+  margin: 8px 0;
 }
 
 .total {
@@ -503,10 +712,6 @@ h3 {
   align-items: center;
 }
 
-.boton-peligro {
-  color: var(--error);
-}
-
 /* ---------- Salida en grupo ---------- */
 
 .chip-salida {
@@ -518,12 +723,12 @@ h3 {
   color: var(--texto-suave);
 }
 .chip-dentro {
-  color: #111;
+  color: #fff;
   background: var(--ok);
 }
 .chip-entrando,
 .chip-sin-conexion {
-  color: #111;
+  color: #fff;
   background: var(--aviso);
 }
 
@@ -538,19 +743,15 @@ h3 {
 .fila-unirse input {
   flex: 1;
   min-width: 180px;
-  min-height: 56px;
-  padding: 0 14px;
-  font-size: 20px;
-  background: var(--panel-2);
-  border: 1px solid var(--borde);
-  border-radius: 12px;
+  min-height: 52px;
+  font-size: 19px;
 }
 
 .tabla-salida {
   width: 100%;
   border-collapse: collapse;
   margin-top: 14px;
-  font-size: 20px;
+  font-size: 19px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -592,232 +793,44 @@ h3 {
   }
   .tabla-salida th:nth-child(5),
   .tabla-salida td:nth-child(5) {
-    display: none; /* sin columna de cadencia en móviles estrechos */
+    display: none;
   }
 }
 
-/* ---------- Recorrido virtual ---------- */
-
-.panel-recorrido {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  border-color: var(--acento);
-}
-
-.panel-recorrido .detalle {
-  max-width: 640px;
-}
-
-.recorrido {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  background: #a9d8f5;
-  overflow: hidden;
-  touch-action: none;
-}
-
-.recorrido-lienzo {
-  position: absolute;
-  inset: 0;
-}
-
-.recorrido-lienzo canvas {
-  display: block;
-}
-
-.recorrido-cargando {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  text-align: center;
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--texto);
-  background: rgba(15, 17, 21, 0.85);
-}
-
-.recorrido-aviso {
-  position: absolute;
-  top: 45%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(15, 17, 21, 0.8);
-  color: var(--texto);
-  padding: 14px 22px;
-  border-radius: 14px;
-  font-size: 22px;
-  font-weight: 700;
-  text-align: center;
-  pointer-events: none;
-}
-
-.hud {
-  position: absolute;
-  color: var(--texto);
-  background: rgba(15, 17, 21, 0.72);
-  border-radius: 14px;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-
-.hud-arriba {
-  top: max(12px, env(safe-area-inset-top));
-  left: 12px;
-  right: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px 22px;
-  flex-wrap: wrap;
-  padding: 8px 14px;
-}
-
-.hud-botones {
-  margin-left: auto;
-  display: flex;
-  gap: 8px;
-}
-
-.hud-botones button {
-  min-height: 48px;
-}
-
-.hud-lateral {
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 16px;
-}
-
-.hud-dato {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.05;
-}
-
-.hud-valor {
-  font-size: 30px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.hud-valor small {
-  font-size: 0.5em;
-  font-weight: 600;
-  color: var(--texto-suave);
-}
-
-.hud-dato.grande .hud-valor {
-  font-size: 54px;
-  color: var(--acento);
-}
-
-.hud-etiqueta {
-  font-size: 13px;
-  color: var(--texto-suave);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.hud-perfil {
-  left: 12px;
-  right: 12px;
-  bottom: max(12px, env(safe-area-inset-bottom));
-  padding: 8px 12px 6px;
-}
-
-.hud-perfil svg {
-  display: block;
-  width: 100%;
-  height: 70px;
-}
-
-.perfil-relleno {
-  fill: rgba(255, 106, 26, 0.35);
-  stroke: var(--acento);
-  stroke-width: 2;
-  vector-effect: non-scaling-stroke;
-}
-
-.perfil-yo {
-  fill: var(--acento);
-  stroke: #fff;
-  stroke-width: 2;
-  vector-effect: non-scaling-stroke;
-}
-
-.perfil-otro {
-  fill: #fff;
-  stroke: #111;
-  stroke-width: 1.5;
-  vector-effect: non-scaling-stroke;
-}
-
-.perfil-texto {
-  font-size: 13px;
-  color: var(--texto-suave);
-  margin-top: 2px;
-}
-
-@media (max-width: 700px) {
-  .hud-valor {
-    font-size: 22px;
-  }
-  .hud-dato.grande .hud-valor {
-    font-size: 38px;
-  }
-  .hud-lateral {
-    top: auto;
-    bottom: 112px;
-    transform: none;
-    padding: 8px 12px;
-  }
-}
-
-/* ---------- Editor de avatar ---------- */
-
-.muestras-avatar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.muestra-color {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2px solid var(--borde);
-}
+/* ---------- Editor del ciclista ---------- */
 
 .editor-avatar {
   display: grid;
-  grid-template-columns: minmax(220px, 320px) 1fr;
-  gap: 18px;
+  grid-template-columns: minmax(240px, 380px) 1fr;
+  gap: 20px;
   align-items: start;
 }
 
-@media (max-width: 700px) {
+.columna-previa {
+  position: sticky;
+  top: 12px;
+}
+
+@media (max-width: 760px) {
   .editor-avatar {
     grid-template-columns: 1fr;
+  }
+  .columna-previa {
+    position: static;
   }
 }
 
 .vista-previa-avatar {
   width: 100%;
   aspect-ratio: 1;
-  background: radial-gradient(circle at 50% 40%, #3a4150, #181b22 70%);
-  border-radius: 14px;
+  background: radial-gradient(circle at 50% 38%, #ffffff, #dfe6ee 75%);
+  border-radius: 16px;
   overflow: hidden;
+}
+
+.vista-previa-avatar.pequena {
+  width: 170px;
+  flex-shrink: 0;
 }
 
 .vista-previa-avatar.cargando {
@@ -826,12 +839,38 @@ h3 {
   color: var(--texto-suave);
 }
 
-.controles-avatar h3 {
-  margin: 12px 0 8px;
-}
-
 .controles-avatar h3:first-child {
   margin-top: 0;
+}
+
+.opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.opcion {
+  min-height: 48px;
+  padding: 6px 14px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 2px solid var(--borde);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.opcion small {
+  color: var(--texto-suave);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.opcion.elegida {
+  border-color: var(--acento);
+  background: var(--acento-suave);
 }
 
 .equipaciones {
@@ -862,7 +901,7 @@ h3 {
 
 .rejilla-colores {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 8px;
 }
 
@@ -886,17 +925,20 @@ h3 {
 .tonos-piel {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+  margin: 10px 0;
 }
 
 .tono {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: 3px solid transparent;
+  border: 3px solid var(--panel);
+  box-shadow: 0 0 0 1px var(--borde);
 }
 
 .tono.elegido {
-  border-color: var(--acento);
+  box-shadow: 0 0 0 3px var(--acento);
 }
 
 .fila-peso {
@@ -911,39 +953,354 @@ h3 {
   height: 40px;
 }
 
-.acciones-recorrido {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-.casilla-demo {
-  display: flex;
+.campo-ftp {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
+  margin-top: 8px;
+}
+
+.campo-ftp input {
+  width: 100px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 20px;
+}
+
+/* ---------- Entrenamientos ---------- */
+
+.rejilla-categorias {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.tarjeta-categoria {
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--borde);
+  border-top: 6px solid var(--acento);
+  border-radius: 14px;
+  padding: 16px;
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: var(--sombra);
+}
+
+.tarjeta-categoria strong {
+  font-size: 20px;
+}
+
+.tarjeta-categoria span {
   color: var(--texto-suave);
   font-size: 15px;
 }
 
-.casilla-demo input {
-  width: 24px;
-  height: 24px;
-  accent-color: var(--acento);
+.tarjeta-categoria small {
+  margin-top: auto;
+  color: var(--texto-suave);
 }
 
-.demo-vatios {
-  width: 170px;
-  height: 36px;
-  accent-color: var(--acento);
-  margin-top: 4px;
+.lista-entrenos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
 }
 
-/* ---------- Marcador del recorrido (v2) ---------- */
+.tarjeta-entreno {
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--borde);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: var(--sombra);
+}
+
+.tarjeta-entreno-cabecera {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.tarjeta-entreno-datos {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  color: var(--texto-suave);
+  font-size: 15px;
+}
+
+.insignia-propio {
+  background: #e8edfd;
+  color: #3c55b8;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
+.grafica-entreno {
+  display: block;
+  width: 100%;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+
+.linea-ftp {
+  stroke: rgba(30, 40, 60, 0.35);
+  stroke-dasharray: 4 3;
+  stroke-width: 1;
+}
+
+.grafica-hecho {
+  fill: rgba(255, 255, 255, 0.55);
+}
+
+.grafica-cursor {
+  stroke: #111;
+  stroke-width: 2;
+}
+
+.datos-entreno {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  align-items: center;
+}
+
+.datos-entreno > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.datos-entreno strong {
+  font-size: 26px;
+}
+
+.datos-entreno span {
+  color: var(--texto-suave);
+  font-size: 14px;
+}
+
+/* ---------- Editor de entrenamientos ---------- */
+
+.rejilla-formulario {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.rejilla-formulario label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--texto-suave);
+  font-size: 15px;
+}
+
+.ancho-completo {
+  grid-column: 1 / -1;
+}
+
+.lista-bloques {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bloque {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--panel-2);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.bloque > strong {
+  min-width: 90px;
+}
+
+.campos-bloque {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--texto-suave);
+}
+
+.numero {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.numero input {
+  width: 72px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.botones-anadir,
+.botones-pie {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* =========================================================================
+   Recorrido 3D (el marcador se mantiene oscuro y semitransparente
+   para leerse sobre el paisaje)
+   ========================================================================= */
+
+.recorrido {
+  --texto: #f2f4f8;
+  --texto-suave: #c0c8d4;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #a9d8f5;
+  overflow: hidden;
+  touch-action: none;
+  color: var(--texto);
+}
+
+.recorrido-lienzo {
+  position: absolute;
+  inset: 0;
+}
+
+.recorrido-lienzo canvas {
+  display: block;
+}
+
+.recorrido-cargando {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 700;
+  background: rgba(15, 17, 21, 0.85);
+}
+
+.recorrido-aviso {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(15, 17, 21, 0.8);
+  padding: 14px 22px;
+  border-radius: 14px;
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+}
+
+.hud-capa {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  bottom: max(12px, env(safe-area-inset-bottom));
+  left: 12px;
+  right: 12px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.hud-medio {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  min-height: 0;
+}
+
+.hud {
+  position: relative;
+  pointer-events: auto;
+  background: rgba(15, 17, 21, 0.68);
+  border-radius: 14px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.hud-arriba {
+  display: flex;
+  align-items: center;
+  gap: 8px 22px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
+}
+
+.hud-botones {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.hud-botones button {
+  min-height: 48px;
+}
+
+.recorrido .boton-secundario {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
 
 .hud-lateral {
-  min-width: 190px;
+  display: flex;
+  flex-direction: column;
   gap: 4px;
+  padding: 12px 16px;
+  min-width: 190px;
+}
+
+.hud-dato {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.hud-valor {
+  font-size: 30px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hud-valor small {
+  font-size: 0.5em;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+.hud-dato.grande .hud-valor {
+  font-size: 54px;
+  color: #ff8a47;
+}
+
+.hud-etiqueta {
+  font-size: 13px;
+  color: var(--texto-suave);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .hud-par {
@@ -966,7 +1323,88 @@ h3 {
 }
 
 .hud-valor.pulso {
-  color: #ff6b81;
+  color: #ff7a90;
+}
+
+.demo-vatios {
+  width: 170px;
+  height: 36px;
+  accent-color: var(--acento);
+  margin-top: 4px;
+}
+
+/* Entrenamiento guiado */
+.hud-entreno {
+  align-self: flex-start;
+  width: min(460px, 58%);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hud-entreno-cabecera {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 15px;
+}
+
+.hud-entreno-cabecera span {
+  color: var(--texto-suave);
+}
+
+.hud-entreno-datos {
+  display: flex;
+  gap: 18px;
+  align-items: flex-end;
+}
+
+.hud-entreno-datos > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.hud-objetivo .hud-valor {
+  font-size: 44px;
+}
+.hud-objetivo.bien .hud-valor {
+  color: #4ade80;
+}
+.hud-objetivo.regular .hud-valor {
+  color: #facc15;
+}
+.hud-objetivo.mal .hud-valor {
+  color: #f87171;
+}
+
+.hud-siguiente {
+  margin-left: auto;
+  text-align: right;
+  font-size: 16px;
+}
+
+.hud-entreno-fin {
+  font-size: 18px;
+  font-weight: 700;
+  color: #4ade80;
+}
+
+.grafica-entreno.en-hud {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.en-hud .grafica-cursor {
+  stroke: #fff;
+}
+
+.en-hud .grafica-hecho {
+  fill: rgba(0, 0, 0, 0.35);
+}
+
+/* Perfil de la vuelta */
+.hud-perfil {
+  padding: 8px 12px 6px;
 }
 
 .perfil-cabecera {
@@ -979,7 +1417,7 @@ h3 {
 }
 
 .perfil-cabecera .subiendo {
-  color: var(--aviso);
+  color: #facc15;
 }
 
 .perfil-grafica {
@@ -1041,12 +1479,31 @@ h3 {
   box-shadow: 0 0 0 3px rgba(255, 106, 26, 0.35);
 }
 
-@media (max-width: 700px) {
+.perfil-texto {
+  font-size: 13px;
+  color: var(--texto-suave);
+  margin-top: 2px;
+}
+
+@media (max-width: 760px) {
+  .hud-valor {
+    font-size: 22px;
+  }
+  .hud-dato.grande .hud-valor {
+    font-size: 38px;
+  }
   .hud-secundario {
     display: none;
   }
+  .hud-medio {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
   .hud-lateral {
     min-width: 0;
+    padding: 8px 12px;
+    order: 2;
   }
   .hud-valor-peq {
     font-size: 16px;
@@ -1054,50 +1511,35 @@ h3 {
   .perfil-cabecera {
     font-size: 12px;
   }
+  .hud-entreno {
+    width: 100%;
+    order: 1;
+  }
+  .hud-objetivo .hud-valor {
+    font-size: 32px;
+  }
 }
 
-/* ---------- Editor: bicis y ruedas ---------- */
-
-.opciones {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.opcion {
-  min-height: 48px;
-  padding: 6px 14px;
-  border-radius: 12px;
-  background: var(--panel-2);
-  border: 2px solid var(--borde);
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.opcion small {
-  color: var(--texto-suave);
-  font-size: 12px;
-}
-
-.opcion.elegida {
-  border-color: var(--acento);
-  background: rgba(255, 106, 26, 0.12);
-}
-
-.selector-calidad {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--texto-suave);
-  font-size: 15px;
-}
-
-.selector-calidad select {
-  min-height: 40px;
-  background: var(--panel-2);
-  border: 1px solid var(--borde);
-  border-radius: 10px;
-  padding: 0 10px;
+/* Pantallas pequeñas: el panel de datos pasa a una fila para no salirse */
+@media (max-width: 900px), (max-height: 640px) {
+  .hud-lateral {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 6px 16px;
+  }
+  .hud-separador {
+    display: none;
+  }
+  .hud-par {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+  .hud-dato.grande .hud-valor {
+    font-size: 38px;
+  }
+  .perfil-grafica svg {
+    height: 56px;
+  }
 }

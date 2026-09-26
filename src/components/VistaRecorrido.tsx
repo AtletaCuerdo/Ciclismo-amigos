@@ -16,6 +16,8 @@ import {
   infoSubidas,
   pendiente,
 } from '../recorrido/perfil';
+import type { Tramo } from '../entrenamientos/tipos';
+import { GraficaEntrenamiento } from './GraficaEntrenamiento';
 import { formatearTiempo } from './Metrica';
 
 export interface DatosHud extends DatosYo {
@@ -45,7 +47,82 @@ interface Props {
   rodilloControlado: boolean;
   /** Modo demostración: deslizador de vatios simulados (null si no está activo). */
   demo: { vatios: number; onCambiar: (w: number) => void } | null;
+  /** Entrenamiento guiado en curso (null al rodar libre). */
+  entreno: {
+    entreno: { nombre: string };
+    tramos: Tramo[];
+    total: number;
+    segundos: number;
+    objetivoW?: number;
+    ftp: number;
+    erg: boolean;
+  } | null;
+  onTerminar: () => void;
   onSalir: () => void;
+}
+
+const mmss = (s: number) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
+
+/** Panel del entrenamiento guiado: objetivo, tiempo del tramo, siguiente tramo y gráfica. */
+function PanelEntreno({ e, potencia }: { e: NonNullable<Props['entreno']>; potencia?: number }) {
+  const t = e.segundos;
+  const i = e.tramos.findIndex((x) => t >= x.inicio && t < x.inicio + x.duracion);
+  const actual = e.tramos[i];
+  const siguiente = i >= 0 ? e.tramos[i + 1] : undefined;
+  const w = (pct: number) => Math.round((pct * e.ftp) / 100);
+  const acabado = t >= e.total;
+  // Cumplimiento: verde si vas a ±5 % del objetivo, amarillo ±12 %, rojo fuera
+  let clase = '';
+  if (e.objetivoW && potencia !== undefined) {
+    const d = Math.abs(potencia - e.objetivoW) / e.objetivoW;
+    clase = d <= 0.05 ? 'bien' : d <= 0.12 ? 'regular' : 'mal';
+  }
+  return (
+    <div className="hud hud-entreno">
+      <div className="hud-entreno-cabecera">
+        <strong>{e.entreno.nombre}</strong>
+        <span>
+          {mmss(Math.min(t, e.total))} / {mmss(e.total)}
+          {e.erg ? ' · ERG' : ' · sigue el objetivo'}
+        </span>
+      </div>
+      {acabado ? (
+        <div className="hud-entreno-fin">¡Entrenamiento completado! Pulsa «Terminar» para guardarlo.</div>
+      ) : (
+        actual && (
+          <div className="hud-entreno-datos">
+            <div className={`hud-objetivo ${clase}`}>
+              <span className="hud-valor">
+                {e.objetivoW ?? '--'}
+                <small> W</small>
+              </span>
+              <span className="hud-etiqueta">
+                objetivo{actual.desde !== actual.hasta ? ' (rampa)' : ''}
+              </span>
+            </div>
+            <div>
+              <span className="hud-valor">{mmss(actual.inicio + actual.duracion - t)}</span>
+              <span className="hud-etiqueta">queda del tramo</span>
+            </div>
+            <div className="hud-siguiente">
+              {siguiente ? (
+                <>
+                  <span className="hud-etiqueta">siguiente</span>
+                  <span>
+                    {mmss(siguiente.duracion)} a {w(siguiente.desde)}
+                    {siguiente.desde !== siguiente.hasta ? `→${w(siguiente.hasta)}` : ''} W
+                  </span>
+                </>
+              ) : (
+                <span className="hud-etiqueta">último tramo</span>
+              )}
+            </div>
+          </div>
+        )
+      )}
+      <GraficaEntrenamiento tramos={e.tramos} progreso={t} alto={42} className="en-hud" />
+    </div>
+  );
 }
 
 const ANCHO_PERFIL = 1000;
@@ -66,6 +143,8 @@ export default function VistaRecorrido({
   enSalida,
   rodilloControlado,
   demo,
+  entreno,
+  onTerminar,
   onSalir,
 }: Props) {
   const contenedor = useRef<HTMLDivElement>(null);
@@ -122,6 +201,8 @@ export default function VistaRecorrido({
         <div className="recorrido-cargando">No se pudo iniciar el 3D en este dispositivo: {error}</div>
       )}
 
+      {/* Capa del marcador: rejilla de 3 filas para que los paneles nunca se solapen */}
+      <div className="hud-capa">
       {/* Barra superior: tiempo, distancia, pendiente */}
       <div className="hud hud-arriba">
         <div className="hud-dato">
@@ -155,12 +236,19 @@ export default function VistaRecorrido({
           <button className="boton-principal" onClick={grabacion.corriendo ? grabacion.pausar : grabacion.iniciar}>
             {grabacion.corriendo ? 'Pausa' : grabacion.hayDatos ? 'Seguir' : 'Empezar'}
           </button>
+          {grabacion.hayDatos && (
+            <button className="boton-principal boton-finalizar" onClick={onTerminar}>
+              Terminar
+            </button>
+          )}
           <button className="boton-secundario" onClick={onSalir}>
             Salir
           </button>
         </div>
       </div>
 
+      {/* Zona central: datos a la izquierda y entrenamiento a la derecha */}
+      <div className="hud-medio">
       {/* Panel lateral: potencia, velocidad, cadencia, pulso */}
       <div className="hud hud-lateral">
         <div className="hud-dato grande">
@@ -221,6 +309,9 @@ export default function VistaRecorrido({
           </span>
           <span className="hud-etiqueta">frecuencia cardiaca</span>
         </div>
+      </div>
+
+      {entreno && <PanelEntreno e={entreno} potencia={yo.potencia} />}
       </div>
 
       {!grabacion.corriendo && !cargando && (
@@ -294,9 +385,10 @@ export default function VistaRecorrido({
         </div>
         <div className="perfil-texto">
           Vuelta de {LONGITUD_VUELTA_M / 1000} km · {DESNIVEL_VUELTA_M} m de desnivel
-          {rodilloControlado && ' · el rodillo sigue la pendiente'}
+          {rodilloControlado && (entreno ? ' · rodillo en modo ERG' : ' · el rodillo sigue la pendiente')}
           {!enSalida && ' · únete a la «Salida en grupo» para ver a tus amigos'}
         </div>
+      </div>
       </div>
     </div>
   );
