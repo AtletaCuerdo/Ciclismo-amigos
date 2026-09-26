@@ -173,6 +173,13 @@ export const PESO_BICI_KG = 9;
 export type Calidad = 'alta' | 'media';
 const CLAVE_CALIDAD = 'rodillos.calidad';
 
+/** iPhone o iPad (el iPad moderno se presenta como Mac con pantalla táctil). */
+export function esDispositivoIos() {
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+}
+
 /** En iPad/iPhone se empieza en calidad media para que vaya fluido. */
 export function cargarCalidad(): Calidad {
   try {
@@ -181,10 +188,7 @@ export function cargarCalidad(): Calidad {
   } catch {
     // sin almacenamiento
   }
-  const esIos =
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  return esIos ? 'media' : 'alta';
+  return esDispositivoIos() ? 'media' : 'alta';
 }
 
 export function guardarCalidad(c: Calidad) {

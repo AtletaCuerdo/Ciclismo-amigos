@@ -40,12 +40,17 @@ tiene que llamarse dentro del propio clic.
   que pegarlas a mano en la consola de Firebase.
 - `public/modelos` y `public/texturas`: recursos CC0 (Quaternius, Poly Haven); créditos en
   `public/CREDITOS.md`.
+- Texturas del suelo en KTX2 (comprimidas para la GPU, clave para que el iPad no se quede sin
+  memoria) junto a los JPG de respaldo. Si se cambia un JPG, regenerar con
+  `herramientas/comprimir-texturas.mjs`. El transcodificador está en `public/basis/`.
+- En iPhone/iPad (`esDispositivoIos()`): sin MSAA, resolución ≤ 1,25, sombras 1024, cielo 2k.
+  Si se pierde el contexto WebGL, `VistaRecorrido` recrea la escena en calidad media.
 - `pruebas/`: páginas de prueba locales (en `.gitignore`), p. ej.
   `pruebas/ciclista.html?vista=lado|manos|pies|cockpit|bici|transmision|cabeza…&modelo=…&casco=…`.
 
 ## Estado actual (2026-09-26)
 
-Publicado: commit `cf844ed`. En local, sin publicar todavía (sesión del 26-09 por la tarde):
+Publicado: commit `9d2cb19` (26-09-2026 por la noche):
 - Marcador del recorrido en la barra superior, en dos filas; el centro queda libre.
 - Bici nueva: geometría real (la rueda ya no toca el cuadro), cuadro y cockpit de una pieza
   con uniones suaves, logotipo en el diagonal, manetas, cadena de eslabones, discos perforados.

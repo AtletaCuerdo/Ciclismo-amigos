@@ -449,7 +449,12 @@ export default function App() {
           <section className="inicio-cabecera">
             <div className="tarjeta-ciclista">
               <Suspense fallback={<div className="vista-previa-avatar pequena cargando">Cargando…</div>}>
-                <VistaPreviaAvatar avatar={perfil.avatar} className="pequena" />
+                {/* Mientras se rueda no se dibuja: serían dos escenas 3D a la vez (en iPad no hay memoria) */}
+                {enRecorrido ? (
+                  <div className="vista-previa-avatar pequena" />
+                ) : (
+                  <VistaPreviaAvatar avatar={perfil.avatar} className="pequena" />
+                )}
               </Suspense>
               <div className="tarjeta-ciclista-datos">
                 <h2>Tu ciclista</h2>

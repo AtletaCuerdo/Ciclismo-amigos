@@ -622,6 +622,9 @@ export class JineteHumano {
     this.raiz.rotation.y = Math.PI / 2;
     this.raiz.scale.setScalar(ESCALA);
     padre.add(this.raiz);
+    // Con toda la cadena de padres al día: la vista previa gira y un grupo recién creado
+    // aún tiene su matriz sin calcular (la cabeza y las manos salían giradas)
+    padre.updateWorldMatrix(true, false);
     this.raiz.updateMatrixWorld(true);
 
     // Vectores fijos a los huesos (en reposo: palmas hacia abajo, cara hacia delante)
@@ -689,7 +692,7 @@ export class JineteHumano {
     const P = this.postura;
     const H = this.huesos;
     const padre = this.raiz.parent!;
-    padre.updateMatrixWorld(true);
+    padre.updateWorldMatrix(true, true);
     let mejor = Infinity;
     for (let g = -5; g <= 70; g += 0.5) {
       for (const [h, q] of this.reposo) h.quaternion.copy(q);
@@ -781,7 +784,7 @@ export class JineteHumano {
     const H = this.huesos;
     const P = this.postura;
     const padre = this.raiz.parent!;
-    padre.updateMatrixWorld(true);
+    padre.updateWorldMatrix(true, true);
     for (const [h, q] of this.reposo) h.quaternion.copy(q);
     this.raiz.updateMatrixWorld(true);
 

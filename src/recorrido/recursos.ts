@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 
 /** Ruta pública (respeta la base de GitHub Pages, /Ciclismo-amigos/). */
 export const rutaPublica = (ruta: string) => `${import.meta.env.BASE_URL}${ruta}`;
@@ -95,15 +96,39 @@ export function cargarModelo(nombre: string): Promise<ParteModelo[]> {
 }
 
 /** Textura de la carpeta texturas/ con repetición activada. */
+let ktx2: KTX2Loader | null = null;
+
+/**
+ * Activa las texturas comprimidas (KTX2): la tarjeta gráfica las guarda tal cual, en unas
+ * 4 veces menos memoria que un JPG descomprimido. Es lo que evita que el iPad se quede sin
+ * memoria. Hay que llamarla con el renderer antes de cargar texturas.
+ */
+export function prepararTexturasComprimidas(renderer: THREE.WebGLRenderer) {
+  if (!ktx2) ktx2 = new KTX2Loader().setTranscoderPath(rutaPublica('basis/'));
+  ktx2.detectSupport(renderer);
+}
+
+/**
+ * Textura de la carpeta texturas/. Si las texturas comprimidas están activas se usa la
+ * versión .ktx2 (y si falla, el JPG).
+ */
 export function cargarTextura(archivo: string, esColor: boolean): Promise<THREE.Texture> {
-  const clave = `${archivo}|${esColor}`;
+  const clave = `${archivo}|${esColor}|${ktx2 ? 'ktx2' : 'jpg'}`;
   let p = cacheTexturas.get(clave);
   if (!p) {
-    p = new THREE.TextureLoader().loadAsync(rutaPublica(`texturas/${archivo}`)).then((t) => {
+    const jpg = () => new THREE.TextureLoader().loadAsync(rutaPublica(`texturas/${archivo}`));
+    const origen: Promise<THREE.Texture> = ktx2
+      ? ktx2.loadAsync(rutaPublica(`texturas/${archivo.replace(/\.jpg$/, '.ktx2')}`)).catch((e) => {
+          console.warn('Textura comprimida no disponible, se usa el JPG', archivo, e);
+          return jpg();
+        })
+      : jpg();
+    p = origen.then((t) => {
       t.wrapS = THREE.RepeatWrapping;
       t.wrapT = THREE.RepeatWrapping;
       t.anisotropy = 8;
-      if (esColor) t.colorSpace = THREE.SRGBColorSpace;
+      t.colorSpace = esColor ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+      t.needsUpdate = true;
       return t;
     });
     cacheTexturas.set(clave, p);

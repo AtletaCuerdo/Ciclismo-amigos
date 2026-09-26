@@ -5,7 +5,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import type { Avatar } from '../recorrido/avatar';
+import { esDispositivoIos, type Avatar } from '../recorrido/avatar';
 import { Ciclista3D } from '../recorrido/ciclista3d';
 
 export default function VistaPreviaAvatar({ avatar, className }: { avatar: Avatar; className?: string }) {
@@ -16,7 +16,7 @@ export default function VistaPreviaAvatar({ avatar, className }: { avatar: Avata
   useEffect(() => {
     const div = contenedor.current!;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, esDispositivoIos() ? 1.5 : 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.9;

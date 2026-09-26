@@ -9,10 +9,18 @@
 import * as THREE from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { Avatar, Calidad } from './avatar';
+import { esDispositivoIos, type Avatar, type Calidad } from './avatar';
 import { Ciclista3D } from './ciclista3d';
 import { LONGITUD_VUELTA_M, altitud, enVuelta, pendiente } from './perfil';
-import { cargarCielo, cargarModelo, cargarTextura, direccionSolDelCielo, tiempoViento, type ParteModelo } from './recursos';
+import {
+  cargarCielo,
+  cargarModelo,
+  cargarTextura,
+  direccionSolDelCielo,
+  prepararTexturasComprimidas,
+  tiempoViento,
+  type ParteModelo,
+} from './recursos';
 import { crestas, datosRuidoPeriodico, fbm } from './ruido';
 
 /** Luminancia media (lineal) de la textura de hierba: sirve para usarla como detalle sin oscurecer. */
@@ -340,6 +348,9 @@ export class EscenaRecorrido {
   private proximoAjuste = 0;
   private bloqueoSubida = 0;
   private factor: number; // 1 en alta, menos en media
+  private movil: boolean; // iPhone/iPad
+  /** Se llama si el sistema corta el 3D por falta de memoria (quien usa la escena la recrea). */
+  onContextoPerdido: (() => void) | null = null;
   private punto: PuntoRuta = { pos: new THREE.Vector3(), dx: 1, dz: 0 };
   /** Dirección del sol (se ajusta a la del cielo fotográfico cuando carga). */
   private dirSol = SOL.clone();
@@ -358,9 +369,18 @@ export class EscenaRecorrido {
     private calidad: Calidad = 'alta',
   ) {
     const alta = calidad === 'alta';
+    // iPhone/iPad: la web tiene un límite de memoria gráfica estricto (si se pasa, el sistema
+    // corta el 3D y la página se queda en blanco). Sin suavizado de bordes por hardware, con
+    // menos resolución, sombras más pequeñas y el cielo de 2k.
+    this.movil = esDispositivoIos();
     this.factor = alta ? 1 : 0.5;
-    this.renderer = new THREE.WebGLRenderer({ antialias: alta, powerPreference: 'high-performance' });
-    this.ratioMaximo = Math.min(window.devicePixelRatio, alta ? 1.5 : 1);
+    this.renderer = new THREE.WebGLRenderer({ antialias: alta && !this.movil, powerPreference: 'high-performance' });
+    this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      if (!this.destruida) this.onContextoPerdido?.();
+    });
+    prepararTexturasComprimidas(this.renderer);
+    this.ratioMaximo = Math.min(window.devicePixelRatio, this.movil ? (alta ? 1.25 : 1) : alta ? 1.5 : 1);
     this.ratioPixeles = this.ratioMaximo;
     this.renderer.setPixelRatio(this.ratioPixeles);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -387,7 +407,7 @@ export class EscenaRecorrido {
 
     this.sol = new THREE.DirectionalLight(0xfff1dc, 3.2);
     this.sol.castShadow = alta;
-    this.sol.shadow.mapSize.set(2048, 2048);
+    this.sol.shadow.mapSize.setScalar(this.movil ? 1024 : 2048);
     const sc = this.sol.shadow.camera;
     sc.left = -18;
     sc.right = 18;
@@ -439,7 +459,8 @@ export class EscenaRecorrido {
     try {
       const [cielo, asfalto, asfaltoNormal, asfaltoRugosidad, hierba, hierbaNormal, grava, gravaNormal, gravaRugosidad] =
         await Promise.all([
-          cargarCielo(this.calidad === 'alta' ? '4k' : '2k'),
+          // El de 4k ocupa más de 100 MB mientras se descomprime: solo en ordenador
+          cargarCielo(this.calidad === 'alta' && !this.movil ? '4k' : '2k'),
           cargarTextura('asphalt_02_diff_2k.jpg', true),
           cargarTextura('asphalt_02_nor_gl_2k.jpg', false),
           cargarTextura('asphalt_02_rough_1k.jpg', false),

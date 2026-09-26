@@ -153,12 +153,28 @@ export default function VistaRecorrido({
   const [error, setError] = useState<string | null>(null);
   const leerRef = useRef(leerYo);
   leerRef.current = leerYo;
+  const avatarRef = useRef(avatar);
+  avatarRef.current = avatar;
+  // Si el sistema corta el 3D por falta de memoria, se vuelve a crear la escena en calidad media
+  const [reinicios, setReinicios] = useState(0);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const calidadActual: Calidad = reinicios > 0 ? 'media' : calidad;
 
-  // Crear la escena una sola vez (generar el mundo tarda un momento)
+  // Crear la escena (generar el mundo tarda un momento); se recrea tras perder el 3D
   useEffect(() => {
+    setCargando(true);
     const id = setTimeout(() => {
       try {
-        escena.current = new EscenaRecorrido(contenedor.current!, avatar, () => leerRef.current(), calidad);
+        const e = new EscenaRecorrido(contenedor.current!, avatarRef.current, () => leerRef.current(), calidadActual);
+        e.onContextoPerdido = () => {
+          if (reinicios >= 2) {
+            setError('el dispositivo se ha quedado sin memoria gráfica varias veces');
+            return;
+          }
+          setAviso('El dispositivo se quedó sin memoria gráfica: se ha reiniciado el recorrido en calidad media.');
+          setReinicios((n) => n + 1);
+        };
+        escena.current = e;
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       }
@@ -170,7 +186,14 @@ export default function VistaRecorrido({
       escena.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [reinicios]);
+
+  // El aviso de reinicio desaparece solo
+  useEffect(() => {
+    if (!aviso) return;
+    const id = setTimeout(() => setAviso(null), 6000);
+    return () => clearTimeout(id);
+  }, [aviso]);
 
   useEffect(() => escena.current?.cambiarMiAvatar(avatar), [avatar]);
   useEffect(() => escena.current?.actualizarOtros(otros), [otros, cargando]);
@@ -197,6 +220,7 @@ export default function VistaRecorrido({
       <div className="recorrido-lienzo" ref={contenedor} />
 
       {cargando && <div className="recorrido-cargando">Generando el recorrido…</div>}
+      {aviso && !cargando && <div className="recorrido-aviso recorrido-aviso-abajo">{aviso}</div>}
       {error && (
         <div className="recorrido-cargando">No se pudo iniciar el 3D en este dispositivo: {error}</div>
       )}
