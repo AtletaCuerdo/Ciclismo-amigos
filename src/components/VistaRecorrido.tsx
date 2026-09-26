@@ -73,7 +73,7 @@ function PanelEntreno({ e, potencia }: { e: NonNullable<Props['entreno']>; poten
   const acabado = t >= e.total;
   // Cumplimiento: verde si vas a ±5 % del objetivo, amarillo ±12 %, rojo fuera
   let clase = '';
-  if (e.objetivoW && potencia !== undefined) {
+  if (e.objetivoW && potencia !== undefined && !actual?.libre) {
     const d = Math.abs(potencia - e.objetivoW) / e.objetivoW;
     clase = d <= 0.05 ? 'bien' : d <= 0.12 ? 'regular' : 'mal';
   }
@@ -83,7 +83,7 @@ function PanelEntreno({ e, potencia }: { e: NonNullable<Props['entreno']>; poten
         <strong>{e.entreno.nombre}</strong>
         <span>
           {mmss(Math.min(t, e.total))} / {mmss(e.total)}
-          {e.erg ? ' · ERG' : ' · sigue el objetivo'}
+          {actual?.libre ? ' · ¡a tope! (sin ERG)' : e.erg ? ' · ERG' : ' · sigue el objetivo'}
         </span>
       </div>
       {acabado ? (
@@ -97,7 +97,7 @@ function PanelEntreno({ e, potencia }: { e: NonNullable<Props['entreno']>; poten
                 <small> W</small>
               </span>
               <span className="hud-etiqueta">
-                objetivo{actual.desde !== actual.hasta ? ' (rampa)' : ''}
+                {actual.libre ? 'orientativo: da todo' : `objetivo${actual.desde !== actual.hasta ? ' (rampa)' : ''}`}
               </span>
             </div>
             <div>

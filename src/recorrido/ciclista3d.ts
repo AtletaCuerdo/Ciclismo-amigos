@@ -196,66 +196,131 @@ function articulacion(
 const PERFIL_LLANTA: Record<TipoRuedas, number> = { bajo: 0.025, medio: 0.045, alto: 0.07, lenticular: 0.07 };
 const RADIOS: Record<TipoRuedas, number> = { bajo: 24, medio: 20, alto: 18, lenticular: 18 };
 
+/** Sólido de revolución alrededor del eje Z (el de la rueda) a partir de un perfil (radio, z). */
+function revolucion(perfil: [number, number][], segmentos = 72) {
+  const g = new THREE.LatheGeometry(
+    perfil.map(([r, z]) => new THREE.Vector2(r, z)),
+    segmentos,
+  );
+  g.rotateX(Math.PI / 2);
+  return g;
+}
+
+/** Perfil de una llanta de carbono en V redondeada (de dentro a fuera y vuelta). */
+function perfilLlanta(interior: number, ancho: number): [number, number][] {
+  const p: [number, number][] = [];
+  const n = 10;
+  // Cara izquierda, de dentro hacia fuera (sección de gota), y la derecha de vuelta
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    p.push([interior + (RADIO_LLANTA - interior) * t, -ancho * Math.sin(Math.min(1, t * 1.25) * Math.PI * 0.5) ** 0.7]);
+  }
+  for (let i = n; i >= 0; i--) {
+    const t = i / n;
+    p.push([interior + (RADIO_LLANTA - interior) * t, ancho * Math.sin(Math.min(1, t * 1.25) * Math.PI * 0.5) ** 0.7]);
+  }
+  p.push([interior, -0.0005]);
+  return p;
+}
+
 function crearRueda(tipo: TipoRuedas, trasera: boolean, mat: Materiales) {
   const g = new THREE.Group();
   // La lenticular solo va detrás; delante se pone una de perfil alto
   const lenticular = tipo === 'lenticular' && trasera;
   const perfil = PERFIL_LLANTA[tipo];
   const interior = RADIO_LLANTA - perfil;
+  const ANCHO = 0.0125;
 
-  const cubierta = new THREE.Mesh(new THREE.TorusGeometry(RADIO_RUEDA - 0.013, 0.013, 8, 56), mat.goma);
+  // Cubierta con banda de rodadura algo más clara
+  const cubierta = new THREE.Mesh(new THREE.TorusGeometry(RADIO_RUEDA - 0.0135, 0.0135, 14, 120), mat.goma);
   cubierta.castShadow = true;
   g.add(cubierta);
 
   if (lenticular) {
-    for (const z of [-0.013, 0.013]) {
-      const disco = new THREE.Mesh(new THREE.CircleGeometry(RADIO_LLANTA, 48), mat.llanta);
-      disco.position.z = z;
-      if (z < 0) disco.rotation.y = Math.PI;
-      disco.castShadow = true;
-      g.add(disco);
+    // Disco abombado
+    const disco: [number, number][] = [];
+    for (let i = 0; i <= 16; i++) {
+      const t = i / 16;
+      disco.push([0.03 + (RADIO_LLANTA - 0.03) * t, -(0.022 - 0.0105 * t * t)]);
     }
+    for (let i = 16; i >= 0; i--) {
+      const t = i / 16;
+      disco.push([0.03 + (RADIO_LLANTA - 0.03) * t, 0.022 - 0.0105 * t * t]);
+    }
+    const d = new THREE.Mesh(revolucion(disco, 96), mat.llanta);
+    d.castShadow = true;
+    g.add(d);
   } else {
-    for (const z of [-0.0095, 0.0095]) {
-      const llanta = new THREE.Mesh(new THREE.RingGeometry(interior, RADIO_LLANTA, 48), mat.llanta);
-      llanta.position.z = z;
-      if (z < 0) llanta.rotation.y = Math.PI;
-      llanta.castShadow = true;
-      g.add(llanta);
-    }
-    // Radios fusionados en una sola geometría (menos llamadas de dibujo)
+    const llanta = new THREE.Mesh(revolucion(perfilLlanta(interior, ANCHO), 96), mat.llanta);
+    llanta.castShadow = true;
+    g.add(llanta);
+    // Radios fusionados en una sola geometría (menos llamadas de dibujo), cruzados por pares
     const n = RADIOS[tipo];
     const radios: THREE.BufferGeometry[] = [];
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
       const lado = i % 2 === 0 ? 1 : -1;
-      const desde = V(Math.cos(a) * 0.028, Math.sin(a) * 0.028, lado * 0.022);
-      const hasta = V(Math.cos(a + 0.12) * interior, Math.sin(a + 0.12) * interior, 0);
+      const desde = V(Math.cos(a) * 0.03, Math.sin(a) * 0.03, lado * 0.026);
+      const hasta = V(Math.cos(a + 0.1 * lado) * (interior + 0.002), Math.sin(a + 0.1 * lado) * (interior + 0.002), 0);
       const dir = hasta.clone().sub(desde);
-      const geo = new THREE.CylinderGeometry(0.0022, 0.0022, dir.length(), 3);
+      const geo = new THREE.CylinderGeometry(0.0013, 0.0013, dir.length(), 4);
       geo.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(EJE_Y, dir.clone().normalize()));
       geo.translate((desde.x + hasta.x) / 2, (desde.y + hasta.y) / 2, (desde.z + hasta.z) / 2);
       radios.push(geo);
+      // Cabecilla en la llanta
+      const cab = new THREE.CylinderGeometry(0.0024, 0.0024, 0.008, 6);
+      cab.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(EJE_Y, dir.clone().normalize()));
+      cab.translate(hasta.x - dir.x * 0.012, hasta.y - dir.y * 0.012, hasta.z - dir.z * 0.012);
+      radios.push(cab);
     }
     g.add(new THREE.Mesh(mergeGeometries(radios), mat.metal));
     radios.forEach((r) => r.dispose());
   }
 
-  // Adhesivo de color en llantas medianas y altas
+  // Rotulación de la llanta: una banda del color secundario sobre el perfil
   if (perfil >= 0.045 || lenticular) {
-    for (const z of [-0.0105, 0.0105]) {
-      const r0 = lenticular ? RADIO_LLANTA * 0.55 : interior + perfil * 0.3;
-      const r1 = lenticular ? RADIO_LLANTA * 0.62 : interior + perfil * 0.55;
-      const pegatina = new THREE.Mesh(new THREE.RingGeometry(r0, r1, 48), mat.bici2);
-      pegatina.position.z = lenticular ? z * 1.3 : z;
-      if (z < 0) pegatina.rotation.y = Math.PI;
-      g.add(pegatina);
+    const r0 = lenticular ? RADIO_LLANTA * 0.52 : interior + perfil * 0.35;
+    const r1 = lenticular ? RADIO_LLANTA * 0.6 : interior + perfil * 0.62;
+    for (const s of [-1, 1]) {
+      const banda: [number, number][] = [];
+      for (let i = 0; i <= 6; i++) {
+        const r = r0 + ((r1 - r0) * i) / 6;
+        const t = lenticular ? (r - 0.03) / (RADIO_LLANTA - 0.03) : (r - interior) / (RADIO_LLANTA - interior);
+        const z = lenticular
+          ? 0.022 - 0.0105 * t * t
+          : ANCHO * Math.sin(Math.min(1, t * 1.25) * Math.PI * 0.5) ** 0.7;
+        banda.push([r, s * (z + 0.0004)]);
+      }
+      if (s > 0) banda.reverse();
+      g.add(new THREE.Mesh(revolucion(banda, 96), mat.bici2));
     }
   }
 
-  const buje = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.1, 12), mat.metal);
-  buje.rotation.x = Math.PI / 2;
-  g.add(buje);
+  // Buje con pestañas
+  const buje = revolucion([
+    [0.006, -0.055],
+    [0.016, -0.055],
+    [0.016, -0.03],
+    [0.032, -0.028],
+    [0.032, -0.024],
+    [0.017, -0.02],
+    [0.015, 0.0],
+    [0.017, 0.02],
+    [0.032, 0.024],
+    [0.032, 0.028],
+    [0.016, 0.03],
+    [0.016, 0.055],
+    [0.006, 0.055],
+  ], 24);
+  g.add(new THREE.Mesh(buje, mat.metal));
+
+  // Disco de freno (lado izquierdo, -Z) con radios de araña
+  const disco = new THREE.Mesh(new THREE.RingGeometry(0.058, 0.08, 48, 1), mat.disco);
+  disco.position.z = -0.042;
+  g.add(disco);
+  const arana = new THREE.Mesh(new THREE.CircleGeometry(0.058, 6), mat.negro);
+  arana.position.z = -0.0418;
+  g.add(arana);
   return g;
 }
 
@@ -268,35 +333,109 @@ interface Materiales {
   franja: THREE.MeshStandardMaterial;
   culotte: THREE.MeshStandardMaterial;
   casco: THREE.MeshStandardMaterial;
-  bici: THREE.MeshStandardMaterial;
-  bici2: THREE.MeshStandardMaterial;
+  bici: THREE.MeshPhysicalMaterial;
+  bici2: THREE.MeshPhysicalMaterial;
   piel: THREE.MeshStandardMaterial;
   goma: THREE.MeshStandardMaterial;
-  llanta: THREE.MeshStandardMaterial;
+  llanta: THREE.MeshPhysicalMaterial;
   metal: THREE.MeshStandardMaterial;
   negro: THREE.MeshStandardMaterial;
   blanco: THREE.MeshStandardMaterial;
   gafas: THREE.MeshStandardMaterial;
+  cinta: THREE.MeshStandardMaterial;
+  disco: THREE.MeshStandardMaterial;
+  carbono: THREE.MeshPhysicalMaterial;
 }
 
 function crearMateriales(a: Avatar): Materiales {
   const m = (color: string, roughness: number, metalness = 0) =>
     new THREE.MeshStandardMaterial({ color, roughness, metalness });
+  // Pintura del cuadro: base algo metalizada con barniz brillante
+  const pintura = (color: string) =>
+    new THREE.MeshPhysicalMaterial({ color, roughness: 0.38, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.04 });
   return {
     maillot: m(a.maillot, 0.55),
     franja: m(a.franja, 0.55),
     culotte: m(a.culotte, 0.6),
     casco: m(a.casco, 0.3),
-    bici: m(a.bici, 0.25, 0.35),
-    bici2: m(a.bici2, 0.3, 0.2),
+    bici: pintura(a.bici),
+    bici2: pintura(a.bici2),
     piel: m(a.piel, 0.65),
-    goma: m('#161616', 0.85),
-    llanta: m('#1c1c1f', 0.35, 0.3),
-    metal: m('#b8bec6', 0.3, 0.9),
-    negro: m('#18181a', 0.5),
+    goma: m('#1b1b1c', 0.88),
+    llanta: new THREE.MeshPhysicalMaterial({ color: '#17171a', roughness: 0.45, clearcoat: 0.8, clearcoatRoughness: 0.15 }),
+    metal: m('#c3c8cf', 0.25, 0.95),
+    negro: m('#18181a', 0.45),
     blanco: m('#f2f2f2', 0.6),
     gafas: m('#0d0f14', 0.08, 0.7),
+    cinta: m('#141414', 0.9),
+    disco: new THREE.MeshStandardMaterial({ color: '#b9bec5', roughness: 0.35, metalness: 1, side: THREE.DoubleSide }),
+    carbono: new THREE.MeshPhysicalMaterial({ color: '#1d1e21', roughness: 0.4, clearcoat: 1, clearcoatRoughness: 0.08 }),
   };
+}
+
+/** Plato dentado (perfil 2D extruido), centrado en el origen y en el plano XY. */
+function geometriaPlato(dientes: number, radio: number, grosor: number) {
+  const forma = new THREE.Shape();
+  const n = dientes * 4;
+  for (let i = 0; i <= n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const r = i % 4 === 0 || i % 4 === 1 ? radio : radio - 0.004;
+    if (i === 0) forma.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else forma.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  const hueco = new THREE.Path();
+  hueco.absarc(0, 0, radio - 0.012, 0, Math.PI * 2, true);
+  forma.holes.push(hueco);
+  const g = new THREE.ExtrudeGeometry(forma, { depth: grosor, bevelEnabled: false, curveSegments: 4 });
+  g.translate(0, 0, -grosor / 2);
+  return g;
+}
+
+/** Sillín visto desde arriba (punta en +X), extruido y con los bordes redondeados. */
+function geometriaSillin() {
+  const f = new THREE.Shape();
+  f.moveTo(0.14, 0);
+  f.bezierCurveTo(0.14, 0.018, 0.06, 0.02, 0.0, 0.03);
+  f.bezierCurveTo(-0.07, 0.07, -0.13, 0.075, -0.135, 0.04);
+  f.bezierCurveTo(-0.14, 0.01, -0.14, -0.01, -0.135, -0.04);
+  f.bezierCurveTo(-0.13, -0.075, -0.07, -0.07, 0.0, -0.03);
+  f.bezierCurveTo(0.06, -0.02, 0.14, -0.018, 0.14, 0);
+  const g = new THREE.ExtrudeGeometry(f, {
+    depth: 0.012,
+    bevelEnabled: true,
+    bevelThickness: 0.01,
+    bevelSize: 0.008,
+    bevelSegments: 4,
+    curveSegments: 16,
+  });
+  g.rotateX(-Math.PI / 2); // la forma queda en el plano XZ, con el grosor hacia arriba
+  // Curva típica: punta y cola algo levantadas, bordes caídos
+  const pos = g.attributes.position as THREE.BufferAttribute;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    pos.setY(i, pos.getY(i) + 0.35 * (x + 0.02) ** 2 - 0.1 * Math.abs(pos.getZ(i)) ** 1.5);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+/** Bidón (sólido de revolución a lo largo de Y). */
+function geometriaBidon() {
+  const perfil = [
+    [0, -0.1],
+    [0.033, -0.1],
+    [0.037, -0.09],
+    [0.037, -0.03],
+    [0.033, -0.01],
+    [0.037, 0.01],
+    [0.037, 0.06],
+    [0.03, 0.08],
+    [0.014, 0.088],
+    [0.012, 0.105],
+    [0.006, 0.11],
+    [0, 0.11],
+  ].map(([x, y]) => new THREE.Vector2(x, y));
+  return new THREE.LatheGeometry(perfil, 20);
 }
 
 export class Ciclista3D {
@@ -351,7 +490,7 @@ export class Ciclista3D {
     const esCabra = this.avatar.modelo === 'cabra';
 
     const tubo = (a: THREE.Vector3, b: THREE.Vector3, r: number, material: THREE.Material, perfil = 1) =>
-      new Tubo(cilindro(r, 10), material, c, perfil).entre(a, b);
+      new Tubo(cilindro(r, 20), material, c, perfil).entre(a, b);
     const esfera = (p: THREE.Vector3, r: number, material: THREE.Material, escala?: [number, number, number]) => {
       const e = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), material);
       e.position.copy(p);
@@ -377,49 +516,84 @@ export class Ciclista3D {
       tubo(BUJE_T.clone().setZ(z), EJE.clone().setZ(z * 0.5), r * 0.62, m.bici); // vainas
       tubo(BUJE_T.clone().setZ(z), unionTirantes.clone().setZ(z * 0.3), r * 0.55, m.bici); // tirantes
       tubo(G.direccionAbajo.clone().setZ(z * 0.5), BUJE_D.clone().setZ(z), r * 0.75, m.bici, p * 0.8); // horquilla
+      esfera(BUJE_T.clone().setZ(z), r * 0.7, m.bici); // punteras
+      esfera(BUJE_D.clone().setZ(z), r * 0.8, m.bici);
     }
+    // Corona de la horquilla y uniones redondeadas (como un cuadro de carbono)
+    esfera(G.direccionAbajo, r * 1.45, m.bici, [1.1, 1, 1.9]);
+    esfera(unionTirantes, r * 1.05, m.bici, [1, 1, 1.6]);
+    esfera(G.sillinTubo, r * 1.1, m.bici, [p, 1, 1]);
     tubo(EJE, G.sillinTubo, r * 1.05, m.bici, p);
     tubo(G.sillinTubo, G.direccionArriba, r, m.bici, p * 0.8);
     tubo(EJE, G.direccionAbajo, r * 1.3, m.bici, p);
-    tubo(G.direccionAbajo, G.direccionArriba.clone().add(V(-0.005, 0.03)), r * 1.35, m.bici, 1.1);
-    // Tija y sillín
-    tubo(G.sillinTubo, G.sillin.clone().add(V(0.02, -0.02)), 0.0135, m.negro);
-    const sillin = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.2, 4, 10), m.negro);
-    sillin.rotation.z = Math.PI / 2;
-    sillin.scale.set(0.45, 1, 1.15);
-    sillin.position.copy(G.sillin).add(V(0.0, 0.008));
+    // Tubo de dirección cónico (más ancho abajo)
+    new Tubo(new THREE.CylinderGeometry(r * 1.25, r * 1.55, 1, 24), m.bici, c, 1.1).entre(
+      G.direccionAbajo,
+      G.direccionArriba.clone().add(V(-0.005, 0.03)),
+    );
+    // Caja del pedalier
+    const caja = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.5, r * 1.5, 0.085, 20), m.bici);
+    caja.rotation.x = Math.PI / 2;
+    caja.position.copy(EJE);
+    caja.castShadow = true;
+    c.add(caja);
+    // Tija de carbono y sillín
+    tubo(G.sillinTubo, G.sillin.clone().add(V(0.02, -0.02)), 0.0135, m.carbono);
+    const sillin = new THREE.Mesh(geometriaSillin(), m.negro);
+    sillin.position.copy(G.sillin).add(V(-0.01, -0.006));
     sillin.castShadow = true;
     c.add(sillin);
-    // Decoración del cuadro: franja de color secundario en el tubo diagonal
-    tubo(EJE.clone().lerp(G.direccionAbajo, 0.45), EJE.clone().lerp(G.direccionAbajo, 0.75), r * 1.34, m.bici2, p);
+    // Decoración del cuadro: franjas del color secundario en el tubo diagonal y en el de sillín
+    tubo(EJE.clone().lerp(G.direccionAbajo, 0.45), EJE.clone().lerp(G.direccionAbajo, 0.75), r * 1.315, m.bici2, p);
+    tubo(EJE.clone().lerp(G.direccionAbajo, 0.78), EJE.clone().lerp(G.direccionAbajo, 0.8), r * 1.315, m.bici2, p);
+    tubo(EJE.clone().lerp(G.sillinTubo, 0.62), EJE.clone().lerp(G.sillinTubo, 0.7), r * 1.065, m.bici2, p);
 
     // ---- Potencia y manillar ----
     const cabeza = G.direccionArriba.clone().add(V(-0.005, 0.035));
+    // Espaciadores y tapa de la dirección
+    tubo(cabeza.clone().add(V(0.001, -0.01)), cabeza.clone().add(V(-0.001, 0.012)), r * 1.2, m.negro);
     if (!esCabra) {
       const potencia = cabeza.clone().add(V(0.11, 0.015));
-      tubo(cabeza, potencia, 0.016, m.negro);
-      tubo(potencia.clone().setZ(-0.21), potencia.clone().setZ(0.21), 0.013, m.negro);
+      new Tubo(new THREE.BoxGeometry(0.034, 1, 0.03), m.negro, c).entre(cabeza, potencia);
+      esfera(potencia, 0.02, m.negro, [1, 1, 1.2]);
+      tubo(potencia.clone().setZ(-0.21), potencia.clone().setZ(0.21), 0.0125, m.carbono, 1.6);
       for (const z of [-0.21, 0.21]) {
-        // Curva del manillar: maneta arriba y bajada hacia atrás
+        // Curva del manillar (con cinta): de la potencia hacia delante, abajo y atrás
         const maneta = V(G.mano.x, G.mano.y - 0.01, z);
-        const bajo = V(potencia.x + 0.07, potencia.y - 0.1, z);
-        const final = V(potencia.x + 0.01, potencia.y - 0.14, z);
-        tubo(potencia.clone().setZ(z), maneta, 0.013, m.negro);
-        tubo(potencia.clone().setZ(z), bajo, 0.013, m.negro);
-        tubo(bajo, final, 0.013, m.negro);
-        const manetaPieza = new THREE.Mesh(new THREE.CapsuleGeometry(0.016, 0.05, 3, 8), m.negro);
-        manetaPieza.position.copy(maneta);
-        manetaPieza.rotation.z = -0.9;
-        c.add(manetaPieza);
+        const curva = new THREE.CatmullRomCurve3([
+          potencia.clone().setZ(z),
+          V(potencia.x + 0.055, potencia.y - 0.01, z),
+          V(potencia.x + 0.08, potencia.y - 0.06, z),
+          V(potencia.x + 0.055, potencia.y - 0.115, z),
+          V(potencia.x - 0.005, potencia.y - 0.135, z),
+        ]);
+        const cinta = new THREE.Mesh(new THREE.TubeGeometry(curva, 24, 0.0135, 10, false), m.cinta);
+        cinta.castShadow = true;
+        c.add(cinta);
+        // Maneta de cambio/freno: cuerpo (donde se apoyan las manos) y palanca
+        const cuerpoManeta = new THREE.Mesh(new THREE.CapsuleGeometry(0.0165, 0.045, 4, 10), m.negro);
+        cuerpoManeta.position.copy(maneta).add(V(0.012, -0.004));
+        cuerpoManeta.rotation.z = -1.2;
+        cuerpoManeta.castShadow = true;
+        c.add(cuerpoManeta);
+        new Tubo(new THREE.BoxGeometry(0.012, 1, 0.006), m.carbono, c).entre(
+          maneta.clone().add(V(0.03, -0.004)),
+          V(potencia.x + 0.085, potencia.y - 0.1, z * 1.02),
+        );
       }
+      // Ciclocomputador sobre la potencia
+      const gps = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.012, 0.035), m.negro);
+      gps.position.copy(potencia).add(V(0.035, 0.022));
+      gps.rotation.z = 0.15;
+      c.add(gps);
     } else {
       // Cabra: manillar de base, acoples y reposabrazos
       const base = cabeza.clone().add(V(0.08, -0.02));
       tubo(cabeza, base, 0.018, m.negro);
-      tubo(base.clone().setZ(-0.2), base.clone().setZ(0.2), 0.014, m.negro, 1.8);
-      for (const z of [-0.2, 0.2]) tubo(base.clone().setZ(z), V(base.x + 0.12, base.y + 0.04, z * 1.05), 0.014, m.negro);
+      tubo(base.clone().setZ(-0.2), base.clone().setZ(0.2), 0.014, m.carbono, 1.8);
+      for (const z of [-0.2, 0.2]) tubo(base.clone().setZ(z), V(base.x + 0.12, base.y + 0.04, z * 1.05), 0.014, m.cinta);
       for (const z of [-0.065, 0.065]) {
-        tubo(V(base.x - 0.02, base.y + 0.07, z), V(G.mano.x + 0.02, G.mano.y - 0.005, z * 0.8), 0.011, m.negro);
+        tubo(V(base.x - 0.02, base.y + 0.07, z), V(G.mano.x + 0.02, G.mano.y - 0.005, z * 0.8), 0.011, m.carbono);
         tubo(base.clone().setZ(z), V(base.x - 0.02, base.y + 0.07, z), 0.012, m.negro);
         const reposa = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 0.07), m.negro);
         reposa.position.set(G.codo!.x, G.codo!.y - 0.035, z * 1.5);
@@ -428,25 +602,60 @@ export class Ciclista3D {
     }
 
     // ---- Transmisión ----
+    // Platos dentados (50/34) con araña; giran con las bielas
     const plato = new THREE.Group();
-    plato.position.copy(EJE).setZ(0.065);
-    const corona = new THREE.Mesh(new THREE.TorusGeometry(0.095, 0.006, 4, 40), m.metal);
-    const disco = new THREE.Mesh(new THREE.CircleGeometry(0.09, 5), m.negro);
-    plato.add(corona, disco);
+    plato.position.copy(EJE).setZ(0.068);
+    const grande = new THREE.Mesh(geometriaPlato(50, 0.1, 0.004), m.carbono);
+    const pequeno = new THREE.Mesh(geometriaPlato(34, 0.068, 0.004), m.metal);
+    pequeno.position.z = -0.007;
+    const arana = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.006, 5), m.carbono);
+    arana.rotation.x = Math.PI / 2;
+    plato.add(grande, pequeno, arana);
     c.add(plato);
     this.plato = plato;
-    const pinon = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.03, 16), m.metal);
-    pinon.rotation.x = Math.PI / 2;
-    pinon.position.copy(BUJE_T).setZ(0.05);
-    c.add(pinon);
-    // Cadena (arriba y abajo)
-    tubo(V(EJE.x, EJE.y + 0.1, 0.065), V(BUJE_T.x, BUJE_T.y + 0.045, 0.05), 0.004, m.metal);
-    tubo(V(EJE.x, EJE.y - 0.1, 0.065), V(BUJE_T.x, BUJE_T.y - 0.045, 0.05), 0.004, m.metal);
-    // Bidón en el tubo diagonal
+    // Casete de 11 piñones
+    for (let i = 0; i < 11; i++) {
+      const pinon = new THREE.Mesh(new THREE.CylinderGeometry(0.022 + i * 0.0026, 0.022 + i * 0.0026, 0.0022, 24), m.metal);
+      pinon.rotation.x = Math.PI / 2;
+      pinon.position.copy(BUJE_T).setZ(0.066 - i * 0.0036);
+      c.add(pinon);
+    }
+    // Cambio trasero: cuerpo y jaula con dos roldanas
+    const cambio = new THREE.Group();
+    cambio.position.copy(BUJE_T).add(V(0.0, -0.035, 0.07));
+    const cuerpoCambio = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.045, 0.014), m.negro);
+    cuerpoCambio.rotation.z = 0.5;
+    cambio.add(cuerpoCambio);
+    for (const [x, y] of [[0.012, -0.03], [0.02, -0.075]]) {
+      const roldana = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.006, 14), m.metal);
+      roldana.rotation.x = Math.PI / 2;
+      roldana.position.set(x, y, 0);
+      cambio.add(roldana);
+    }
+    const jaula = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.07, 0.003), m.negro);
+    jaula.position.set(0.016, -0.052, 0.006);
+    jaula.rotation.z = -0.15;
+    cambio.add(jaula);
+    c.add(cambio);
+    // Cadena: tramo superior y tramo inferior (pasa por el cambio)
+    tubo(V(EJE.x, EJE.y + 0.1, 0.068), V(BUJE_T.x, BUJE_T.y + 0.04, 0.062), 0.0035, m.metal);
+    tubo(V(EJE.x, EJE.y - 0.1, 0.068), V(BUJE_T.x + 0.02, BUJE_T.y - 0.11, 0.068), 0.0035, m.metal);
+    // Pinzas de freno de disco (lado izquierdo)
+    for (const centro of [BUJE_T, BUJE_D]) {
+      const pinza = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.02, 0.02), m.negro);
+      pinza.position.copy(centro).add(V(-0.045, 0.075, -0.05));
+      pinza.rotation.z = 0.5;
+      c.add(pinza);
+    }
+    // Portabidón y bidón en el tubo diagonal
     if (!esCabra) {
-      const centroBidon = EJE.clone().lerp(G.direccionAbajo, 0.4).add(V(-0.03, 0.06));
-      const bidon = new Tubo(new THREE.CylinderGeometry(0.036, 0.036, 1, 12), m.bici2, c, 1);
-      bidon.entre(centroBidon.clone().add(V(-0.07, -0.05)), centroBidon.clone().add(V(0.07, 0.05)));
+      const dirBidon = G.direccionAbajo.clone().sub(EJE).normalize();
+      const centroBidon = EJE.clone().lerp(G.direccionAbajo, 0.42).add(V(-0.03, 0.055));
+      const bidon = new THREE.Mesh(geometriaBidon(), m.bici2);
+      bidon.position.copy(centroBidon);
+      bidon.quaternion.setFromUnitVectors(EJE_Y, dirBidon);
+      bidon.castShadow = true;
+      c.add(bidon);
     }
 
     // Bielas y pedales (animados)

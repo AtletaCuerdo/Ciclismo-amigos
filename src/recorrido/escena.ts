@@ -12,7 +12,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { Avatar, Calidad } from './avatar';
 import { Ciclista3D } from './ciclista3d';
 import { LONGITUD_VUELTA_M, altitud, enVuelta, pendiente } from './perfil';
-import { cargarCielo, cargarModelo, cargarTextura, direccionSolDelCielo, type ParteModelo } from './recursos';
+import { cargarCielo, cargarModelo, cargarTextura, direccionSolDelCielo, tiempoViento, type ParteModelo } from './recursos';
+import { crestas, datosRuidoPeriodico, fbm } from './ruido';
 
 /** Luminancia media (lineal) de la textura de hierba: sirve para usarla como detalle sin oscurecer. */
 const LUMINANCIA_HIERBA = 0.05;
@@ -23,6 +24,13 @@ const ANCHO_CARRETERA = 8;
 const ZONA_LLANA_M = 30;
 const COLOR_HORIZONTE = 0xcfe0ea;
 const SOL = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(55), THREE.MathUtils.degToRad(210));
+
+/** Mallas instanciadas de una zona del mapa (centro de la celda). */
+interface ZonaInstancias {
+  x: number;
+  z: number;
+  mallas: THREE.InstancedMesh[];
+}
 
 // ---------------------------------------------------------------------------
 // Utilidades
@@ -312,7 +320,17 @@ export class EscenaRecorrido {
   private rotores: { g: THREE.Object3D; vel: number }[] = [];
   private nubes: THREE.Sprite[] = [];
   /** Grupos de vegetación pequeña que solo se dibujan cerca del ciclista. */
-  private zonasCercanas: { x: number; z: number; radio: number; mallas: THREE.Object3D[] }[] = [];
+  /** Mallas que solo se ven cerca del ciclista (o solo lejos, si `lejos`). */
+  private zonasCercanas: { x: number; z: number; radio: number; mallas: THREE.Object3D[]; lejos?: boolean }[] = [];
+  private impostor: {
+    material: THREE.MeshBasicMaterial;
+    lista: string[];
+    medidas: { ancho: number; alto: number; base: number }[];
+    planos: THREE.BufferGeometry;
+  } | null = null;
+  /** Árboles sencillos del fondo (copa y tronco de cada zona); se cambian por impostores. */
+  private atlasImpostores: THREE.WebGLRenderTarget | null = null;
+  private arbolesSencillos: { tipo: 'pino' | 'frondoso' | 'chopo'; zonas: ZonaInstancias[] }[] = [];
   private proximaRevisionZonas = 0;
   // Resolución dinámica
   private ratioPixeles: number;
@@ -327,6 +345,8 @@ export class EscenaRecorrido {
   private dirSol = SOL.clone();
   private destruida = false;
   private materialTerreno: THREE.MeshStandardMaterial | null = null;
+  private materialGrava: THREE.MeshStandardMaterial | null = null;
+  private texturaRuido: THREE.DataTexture | null = null;
   private materialAsfalto: THREE.MeshStandardMaterial | null = null;
   private detras = new THREE.Vector3();
   private mira = new THREE.Vector3();
@@ -417,14 +437,18 @@ export class EscenaRecorrido {
   /** Cielo fotográfico, asfalto y detalle de hierba reales (si fallan, se queda lo generado por código). */
   private async cargarCieloYTexturas() {
     try {
-      const [cielo, asfalto, asfaltoNormal, asfaltoRugosidad, hierba, hierbaNormal] = await Promise.all([
-        cargarCielo(),
-        cargarTextura('asphalt_02_diff_1k.jpg', true),
-        cargarTextura('asphalt_02_nor_gl_1k.jpg', false),
-        cargarTextura('asphalt_02_rough_1k.jpg', false),
-        cargarTextura('sparse_grass_diff_1k.jpg', true),
-        cargarTextura('sparse_grass_nor_gl_1k.jpg', false),
-      ]);
+      const [cielo, asfalto, asfaltoNormal, asfaltoRugosidad, hierba, hierbaNormal, grava, gravaNormal, gravaRugosidad] =
+        await Promise.all([
+          cargarCielo(this.calidad === 'alta' ? '4k' : '2k'),
+          cargarTextura('asphalt_02_diff_2k.jpg', true),
+          cargarTextura('asphalt_02_nor_gl_2k.jpg', false),
+          cargarTextura('asphalt_02_rough_1k.jpg', false),
+          cargarTextura('sparse_grass_diff_2k.jpg', true),
+          cargarTextura('sparse_grass_nor_gl_2k.jpg', false),
+          cargarTextura('gravel_floor_02_diff_2k.jpg', true),
+          cargarTextura('gravel_floor_02_nor_gl_2k.jpg', false),
+          cargarTextura('gravel_floor_02_rough_1k.jpg', false),
+        ]);
       if (this.destruida) return;
 
       // Cielo y luz ambiental a partir de la foto; el sol se alinea con el de la imagen
@@ -448,6 +472,14 @@ export class EscenaRecorrido {
         this.materialAsfalto.roughness = 1;
         this.materialAsfalto.color.set(0xffffff);
         this.materialAsfalto.needsUpdate = true;
+      }
+      // Arcenes de grava real (1,3 m de ancho; la textura se repite cada 1,3 × 2,6 m)
+      if (this.materialGrava) {
+        this.materialGrava.map = grava;
+        this.materialGrava.normalMap = gravaNormal;
+        this.materialGrava.roughnessMap = gravaRugosidad;
+        this.materialGrava.color.set(0xd8d2c4);
+        this.materialGrava.needsUpdate = true;
       }
       // Terreno: la hierba real se usa como detalle sobre los colores de campos y praderas
       if (this.materialTerreno) {
@@ -508,7 +540,7 @@ export class EscenaRecorrido {
 
   /** Color base del terreno: cunetas, praderas junto a la carretera y campos de cultivo lejos. */
   private colorTerreno(x: number, z: number, distancia: number, h: number, c: THREE.Color) {
-    const praderas = [0x6b9a45, 0x5f8f3e, 0x77a24d];
+    const praderas = [0x5d8a3c, 0x557f37, 0x68904a];
     const campos = [0xc9b35d, 0x86a24a, 0x8e6f48, 0x6f9e4a, 0x4f7a36, 0xd2c23d, 0xa7b35a];
     // Parcelas giradas para que no parezcan una cuadrícula
     const rx = x * 0.8 + z * 0.6;
@@ -563,17 +595,45 @@ export class EscenaRecorrido {
     geo.setAttribute('color', new THREE.BufferAttribute(colores, 3));
     geo.computeVertexNormals();
     const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, envMapIntensity: 0.35 });
+    // Ruido que se repite sin costuras: manchas de hierba seca, zonas más oscuras y tierra
+    const ruido = new THREE.DataTexture(datosRuidoPeriodico(256), 256, 256, THREE.RGBAFormat);
+    ruido.wrapS = ruido.wrapT = THREE.RepeatWrapping;
+    ruido.magFilter = THREE.LinearFilter;
+    ruido.minFilter = THREE.LinearMipmapLinearFilter;
+    ruido.generateMipmaps = true;
+    ruido.needsUpdate = true;
+    this.texturaRuido = ruido;
     // La textura de hierba (cuando carga) aporta solo el detalle de luces y sombras:
     // se divide por su luminancia media para no cambiar el color de campos y praderas.
+    // Se mezclan dos escalas giradas para que no se note la repetición.
     material.onBeforeCompile = (sombreador) => {
-      sombreador.fragmentShader = sombreador.fragmentShader.replace(
-        '#include <map_fragment>',
-        `#ifdef USE_MAP
-          vec3 detalle = texture2D( map, vMapUv ).rgb;
-          float lum = dot( detalle, vec3( 0.2126, 0.7152, 0.0722 ) );
-          diffuseColor.rgb *= mix( 1.0, clamp( lum / ${LUMINANCIA_HIERBA.toFixed(3)}, 0.35, 2.2 ), 0.8 );
-        #endif`,
-      );
+      sombreador.uniforms.uRuido = { value: ruido };
+      sombreador.vertexShader = sombreador.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec2 vSuelo;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSuelo = position.xz;');
+      sombreador.fragmentShader = sombreador.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying vec2 vSuelo;\nuniform sampler2D uRuido;')
+        .replace(
+          '#include <map_fragment>',
+          `#ifdef USE_MAP
+            vec3 detA = texture2D( map, vMapUv ).rgb;
+            vec3 detB = texture2D( map, mat2( 0.8, -0.6, 0.6, 0.8 ) * vMapUv * 0.31 + 0.37 ).rgb;
+            float lum = dot( mix( detA, detB, 0.45 ), vec3( 0.2126, 0.7152, 0.0722 ) );
+            diffuseColor.rgb *= mix( 1.0, clamp( lum / ${LUMINANCIA_HIERBA.toFixed(3)}, 0.35, 2.2 ), 0.8 );
+          #endif
+          vec3 rG = texture2D( uRuido, vSuelo / 1100.0 ).rgb;
+          vec3 rM = texture2D( uRuido, vSuelo / 170.0 + 0.31 ).rgb;
+          vec3 rP = texture2D( uRuido, vSuelo / 23.0 + 0.77 ).rgb;
+          // Hierba seca amarillenta a manchas grandes
+          float seco = smoothstep( 0.52, 0.7, rG.r ) * 0.55;
+          diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 1.35, 1.12, 0.55 ), seco );
+          // Zonas más frondosas (oscuras) y variación suave de brillo
+          diffuseColor.rgb *= mix( 1.0, 0.7, smoothstep( 0.5, 0.72, rM.g ) * 0.8 );
+          diffuseColor.rgb *= 0.86 + 0.28 * rP.b;
+          // Calvas de tierra pequeñas
+          float tierra = smoothstep( 0.68, 0.8, rP.r * 0.6 + rM.b * 0.4 );
+          diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.2, 0.15, 0.09 ), tierra * 0.55 );`,
+        );
     };
     this.materialTerreno = material;
     const terreno = new THREE.Mesh(geo, material);
@@ -646,8 +706,9 @@ export class EscenaRecorrido {
     this.cinta(-0.07, 0.07, 0.31, 0.31, 0, LONGITUD_VUELTA_M, discontinua, 9);
     // Arcenes de grava un poco más bajos
     const grava = new THREE.MeshStandardMaterial({ color: 0x8a8272, roughness: 1, side: THREE.DoubleSide });
-    this.cinta(-ANCHO_CARRETERA / 2 - 1.3, -ANCHO_CARRETERA / 2, 0.05, 0.28, 0, LONGITUD_VUELTA_M, grava);
-    this.cinta(ANCHO_CARRETERA / 2, ANCHO_CARRETERA / 2 + 1.3, 0.28, 0.05, 0, LONGITUD_VUELTA_M, grava);
+    this.materialGrava = grava;
+    this.cinta(-ANCHO_CARRETERA / 2 - 1.3, -ANCHO_CARRETERA / 2, 0.05, 0.28, 0, LONGITUD_VUELTA_M, grava, 2.6);
+    this.cinta(ANCHO_CARRETERA / 2, ANCHO_CARRETERA / 2 + 1.3, 0.28, 0.05, 0, LONGITUD_VUELTA_M, grava, 2.6);
   }
 
   /** Postes repetidos a lo largo de la carretera (instanciados). */
@@ -780,9 +841,9 @@ export class EscenaRecorrido {
       lugar: () => Lugar | null,
       escala: () => [number, number, number],
       colorear: (c: THREE.Color) => THREE.Color,
-      opciones: { celda: number; visibleHasta?: number; hundir?: number },
+      opciones: { celda: number; visibleHasta?: number; hundir?: number; sombra?: boolean },
     ) => {
-      const { celda, visibleHasta, hundir = 0 } = opciones;
+      const { celda, visibleHasta, hundir = 0, sombra = false } = opciones;
       const zonas = new Map<number, { x: number; z: number; matrices: THREE.Matrix4[]; colores: THREE.Color[] }>();
       let n = 0;
       for (let intento = 0; intento < cantidad * 4 && n < cantidad; intento++) {
@@ -805,6 +866,7 @@ export class EscenaRecorrido {
         n++;
       }
       const blanco = new THREE.Color(1, 1, 1);
+      const creadas: ZonaInstancias[] = [];
       for (const zona of zonas.values()) {
         const mallas = geometrias.map(([g, mat, sinColor]) => {
           const im = new THREE.InstancedMesh(g, mat, zona.matrices.length);
@@ -813,18 +875,22 @@ export class EscenaRecorrido {
             im.setColorAt(i, sinColor ? blanco : zona.colores[i]);
           });
           im.computeBoundingSphere();
+          // Proyectan sombra, pero no la reciben (en hojas de doble cara saldrían manchas)
+          im.castShadow = sombra && this.calidad === 'alta';
           this.escena.add(im);
           return im;
         });
         if (visibleHasta) {
           this.zonasCercanas.push({ x: zona.x, z: zona.z, radio: visibleHasta + celda * 0.75, mallas });
         }
+        creadas.push({ x: zona.x, z: zona.z, mallas });
       }
+      return creadas;
     };
 
     // Árboles sencillos (hechos por código) solo para los bosques y el paisaje lejano;
     // junto a la carretera se ponen modelos reales (ver vegetacionReal)
-    instanciar(
+    const pinos = instanciar(
       [[pino, matCopa], [tronco, matTronco, true]],
       Math.round(1000 * f),
       () => (rnd() < 0.6 ? enBosque() : junto(150, 450)),
@@ -836,7 +902,7 @@ export class EscenaRecorrido {
       { celda: 1500 },
     );
     // Árboles frondosos
-    instanciar(
+    const frondosos = instanciar(
       [[copaFrondosa, matCopa], [tronco, matTronco, true]],
       Math.round(900 * f),
       () => (rnd() < 0.5 ? enBosque() : junto(150, 450)),
@@ -848,7 +914,7 @@ export class EscenaRecorrido {
       { celda: 1500 },
     );
     // Chopos alrededor del lago y en hileras junto a los llanos
-    instanciar(
+    const chopos = instanciar(
       [[chopo, matCopa], [tronco, matTronco, true]],
       Math.round(320 * f),
       () => {
@@ -870,6 +936,11 @@ export class EscenaRecorrido {
       (c) => c.setHSL(0.22 + rnd() * 0.05, 0.5, 0.3 + rnd() * 0.08),
       { celda: 1500 },
     );
+    this.arbolesSencillos = [
+      { tipo: 'pino', zonas: pinos },
+      { tipo: 'frondoso', zonas: frondosos },
+      { tipo: 'chopo', zonas: chopos },
+    ];
     // Vegetación cercana con modelos reales; si no se pueden descargar, la versión por código
     void this.vegetacionReal(instanciar, junto).catch((e) => {
       console.warn('No se pudieron cargar los modelos de vegetación; se usan los generados por código', e);
@@ -938,15 +1009,18 @@ export class EscenaRecorrido {
       lugar: () => { x: number; z: number; y: number } | null,
       escala: () => [number, number, number],
       colorear: (c: THREE.Color) => THREE.Color,
-      opciones: { celda: number; visibleHasta?: number; hundir?: number },
-    ) => void,
+      opciones: { celda: number; visibleHasta?: number; hundir?: number; sombra?: boolean },
+    ) => ZonaInstancias[],
     junto: (min: number, max: number, sesgo?: number) => { x: number; z: number; y: number } | null,
   ) {
     const nombres = [
-      'CommonTree_3', 'CommonTree_4', 'CommonTree_5', 'Pine_1', 'Pine_2', 'Pine_4', 'Pine_5',
+      'CommonTree_1', 'CommonTree_2', 'CommonTree_3', 'CommonTree_4', 'CommonTree_5',
+      'Pine_1', 'Pine_2', 'Pine_3', 'Pine_4', 'Pine_5', 'TwistedTree_1', 'TwistedTree_3', 'TwistedTree_5',
+      'DeadTree_1', 'DeadTree_3',
       'Bush_Common', 'Bush_Common_Flowers', 'Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3',
       'Pebble_Round_1', 'Pebble_Round_2', 'Pebble_Round_3', 'Grass_Common_Short', 'Grass_Common_Tall',
-      'Grass_Wispy_Short', 'Flower_3_Group', 'Flower_4_Group', 'Fern_1', 'Clover_1',
+      'Grass_Wispy_Short', 'Grass_Wispy_Tall', 'Flower_3_Group', 'Flower_4_Group', 'Fern_1', 'Clover_1',
+      'Clover_2', 'Plant_1_Big', 'Plant_7_Big', 'Mushroom_Common',
     ];
     const cargados = await Promise.all(nombres.map((n) => cargarModelo(n)));
     if (this.destruida) return;
@@ -967,26 +1041,220 @@ export class EscenaRecorrido {
       total: number,
       lugar: () => { x: number; z: number; y: number } | null,
       escala: () => [number, number, number],
-      opciones: { celda: number; visibleHasta?: number; hundir?: number },
+      opciones: { celda: number; visibleHasta?: number; hundir?: number; sombra?: boolean; lod?: boolean },
       variacion = 0.18,
     ) => {
       for (const n of lista) {
-        instanciar(piezas(n), Math.round((total / lista.length) * f), lugar, escala, (c) => tono(c, variacion), opciones);
+        const zonas = instanciar(piezas(n), Math.round((total / lista.length) * f), lugar, escala, (c) => tono(c, variacion), opciones);
+        // Árboles: a partir de cierta distancia se cambian por su impostor
+        if (opciones.lod && opciones.visibleHasta) this.impostoresDeZonas(n, zonas, opciones.visibleHasta + opciones.celda * 0.75);
       }
     };
+    this.crearImpostores(modelos);
 
     // Árboles junto a la carretera (hasta 170 m; más allá están los bosques sencillos)
-    poner(['CommonTree_3', 'CommonTree_4', 'CommonTree_5'], 1300, () => junto(11, 170, 1.6), escalaUniforme(0.9, 1.5), { celda: 300, visibleHasta: 380 });
-    poner(['Pine_1', 'Pine_2', 'Pine_4', 'Pine_5'], 1100, () => junto(11, 170, 1.6), escalaUniforme(0.9, 1.4), { celda: 300, visibleHasta: 380 });
+    const sombra = true;
+    // Árboles: modelo real hasta unos 250 m y su impostor más lejos (LOD)
+    const lod = true;
+    poner(['CommonTree_1', 'CommonTree_2', 'CommonTree_3', 'CommonTree_4', 'CommonTree_5'], 2200, () => junto(11, 200, 1.5), escalaUniforme(0.9, 1.5), { celda: 200, visibleHasta: 110, sombra, lod });
+    poner(['Pine_1', 'Pine_2', 'Pine_3', 'Pine_4', 'Pine_5'], 1900, () => junto(11, 200, 1.5), escalaUniforme(0.9, 1.45), { celda: 200, visibleHasta: 110, sombra, lod });
+    this.construirImpostoresLod();
+    poner(['TwistedTree_1', 'TwistedTree_3', 'TwistedTree_5'], 200, () => junto(16, 160, 1.4), escalaUniforme(0.55, 0.85), { celda: 300, visibleHasta: 300, sombra });
+    poner(['DeadTree_1', 'DeadTree_3'], 40, () => junto(14, 140, 1.4), escalaUniforme(0.6, 0.9), { celda: 300, visibleHasta: 300 });
     // Arbustos, rocas y piedras
-    poner(['Bush_Common', 'Bush_Common_Flowers'], 1400, () => junto(7, 110, 1.6), escalaUniforme(0.8, 1.5), { celda: 250, visibleHasta: 380 });
-    poner(['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'], 600, () => junto(7, 220, 1.6), escalaUniforme(0.7, 2.6), { celda: 250, visibleHasta: 380, hundir: 0.15 }, 0.25);
+    poner(['Bush_Common', 'Bush_Common_Flowers'], 2200, () => junto(7, 110, 1.6), escalaUniforme(0.8, 1.6), { celda: 250, visibleHasta: 300 });
+    poner(['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'], 700, () => junto(7, 220, 1.6), escalaUniforme(0.7, 2.6), { celda: 250, visibleHasta: 320, hundir: 0.15 }, 0.25);
     poner(['Pebble_Round_1', 'Pebble_Round_2', 'Pebble_Round_3'], 1800, () => junto(5.4, 12, 1.5), escalaUniforme(0.8, 2), { celda: 250, visibleHasta: 120 }, 0.25);
     // Hierba baja, flores y plantas en las cunetas (la alta, solo de vez en cuando)
     poner(['Grass_Common_Short', 'Grass_Wispy_Short'], 13000, () => junto(5.4, 35, 2.2), escalaUniforme(0.7, 1.3), { celda: 250, visibleHasta: 160 });
-    poner(['Grass_Common_Tall'], 2500, () => junto(7, 40, 1.8), escalaUniforme(0.7, 1.1), { celda: 250, visibleHasta: 160 });
+    poner(['Grass_Common_Tall', 'Grass_Wispy_Tall'], 4000, () => junto(7, 40, 1.8), escalaUniforme(0.6, 1.05), { celda: 250, visibleHasta: 160 });
     poner(['Flower_3_Group', 'Flower_4_Group'], 2400, () => junto(6, 40, 1.8), escalaUniforme(0.7, 1.2), { celda: 250, visibleHasta: 140 }, 0.1);
-    poner(['Fern_1', 'Clover_1'], 2000, () => junto(6, 60, 1.8), escalaUniforme(0.8, 1.4), { celda: 250, visibleHasta: 140 });
+    poner(['Fern_1', 'Clover_1', 'Clover_2'], 3000, () => junto(6, 60, 1.8), escalaUniforme(0.8, 1.4), { celda: 250, visibleHasta: 140 });
+    poner(['Plant_1_Big', 'Plant_7_Big'], 1400, () => junto(6.5, 50, 1.8), escalaUniforme(0.7, 1.3), { celda: 250, visibleHasta: 140 });
+    poner(['Mushroom_Common'], 300, () => junto(8, 40, 1.5), escalaUniforme(0.8, 1.6), { celda: 250, visibleHasta: 80 });
+  }
+
+  /**
+   * Impostores: cada árbol real se dibuja una vez en una textura (atlas) y los bosques
+   * lejanos pasan a ser tres planos cruzados con esa imagen. Se ven como los árboles de
+   * cerca y cuestan casi lo mismo que los conos y bolas que sustituyen.
+   */
+  private crearImpostores(modelos: Record<string, ParteModelo[]>) {
+    const variantes = {
+      frondoso: ['CommonTree_1', 'CommonTree_2', 'CommonTree_3', 'CommonTree_4', 'CommonTree_5'],
+      pino: ['Pine_1', 'Pine_2', 'Pine_3', 'Pine_4', 'Pine_5'],
+    };
+    const lista = [...variantes.frondoso, ...variantes.pino];
+    const N = lista.length;
+    const CW = 256;
+    const CH = 512;
+    const rt = new THREE.WebGLRenderTarget(CW * N, CH, {
+      type: THREE.HalfFloatType,
+      samples: 4,
+      generateMipmaps: true,
+      minFilter: THREE.LinearMipmapLinearFilter,
+    });
+    // Iluminación parecida a la del recorrido, desde arriba (se ve igual desde todos lados)
+    const estudio = new THREE.Scene();
+    const sol = new THREE.DirectionalLight(0xfff1dc, 3.0);
+    sol.position.set(0.35, 1, 0.55);
+    estudio.add(sol, new THREE.HemisphereLight(0xcfe6ff, 0x55683a, 0.9), new THREE.AmbientLight(0xdfe8f0, 0.45));
+    const camara = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+    const medidas: { ancho: number; alto: number; base: number }[] = [];
+    const r = this.renderer;
+    const colorAntes = r.getClearColor(new THREE.Color());
+    const alfaAntes = r.getClearAlpha();
+    const autoAntes = r.autoClear;
+    r.setRenderTarget(rt);
+    r.setClearColor(0x000000, 0);
+    r.clear();
+    r.autoClear = false;
+    lista.forEach((nombre, i) => {
+      const grupo = new THREE.Group();
+      for (const parte of modelos[nombre]) grupo.add(new THREE.Mesh(parte.geometria, parte.material));
+      estudio.add(grupo);
+      const caja = new THREE.Box3().setFromObject(grupo);
+      const ancho = Math.max(caja.max.x - caja.min.x, caja.max.z - caja.min.z) * 1.04;
+      const alto = (caja.max.y - caja.min.y) * 1.02;
+      medidas.push({ ancho, alto, base: caja.min.y });
+      const cx = (caja.min.x + caja.max.x) / 2;
+      const cz = (caja.min.z + caja.max.z) / 2;
+      camara.left = -ancho / 2;
+      camara.right = ancho / 2;
+      camara.bottom = 0;
+      camara.top = alto;
+      camara.position.set(cx, caja.min.y, cz + 50);
+      camara.lookAt(cx, caja.min.y, cz);
+      camara.updateProjectionMatrix();
+      rt.viewport.set(i * CW, 0, CW, CH);
+      rt.scissor.set(i * CW, 0, CW, CH);
+      rt.scissorTest = true;
+      r.setRenderTarget(rt); // el viewport del destino se lee al activarlo
+      r.render(estudio, camara);
+      estudio.remove(grupo);
+    });
+    rt.scissorTest = false;
+    rt.viewport.set(0, 0, CW * N, CH);
+    r.setRenderTarget(null);
+    r.setClearColor(colorAntes, alfaAntes);
+    r.autoClear = autoAntes;
+    this.atlasImpostores = rt;
+
+    // Tres planos cruzados de 1 × 1 con la base en el suelo
+    const planos = mergeGeometries(
+      [0, 1, 2].map((k) => new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0).rotateY((k * Math.PI) / 3)),
+    )!;
+    const alta = this.calidad === 'alta';
+    const material = new THREE.MeshBasicMaterial({
+      map: rt.texture,
+      alphaTest: alta ? 0.3 : 0.45,
+      alphaToCoverage: alta,
+      side: THREE.DoubleSide,
+    });
+    material.onBeforeCompile = (s) => {
+      s.vertexShader = s.vertexShader
+        .replace('#include <common>', '#include <common>\nattribute float aVariante;')
+        .replace('#include <uv_vertex>', `#include <uv_vertex>\nvMapUv.x = ( vMapUv.x + aVariante ) / ${N.toFixed(1)};`);
+    };
+    material.customProgramCacheKey = () => 'impostor-arbol';
+    this.impostor = { material, lista, medidas, planos };
+
+    const rnd = aleatorio(777);
+    const m = new THREE.Matrix4();
+    const pos = new THREE.Vector3();
+    const q = new THREE.Quaternion();
+    const esc = new THREE.Vector3();
+    const color = new THREE.Color();
+    for (const grupo of this.arbolesSencillos) {
+      const opciones = grupo.tipo === 'pino' ? variantes.pino : variantes.frondoso;
+      for (const { mallas: [copa, tronco] } of grupo.zonas) {
+        const geo = planos.clone();
+        const variante = new Float32Array(copa.count);
+        const im = new THREE.InstancedMesh(geo, material, copa.count);
+        let n = 0;
+        for (let i = 0; i < copa.count; i++) {
+          copa.getMatrixAt(i, m);
+          m.decompose(pos, q, esc);
+          // Junto a la carretera ya hay árboles reales: un plano tan cerca se notaría
+          if (this.indice.cercano(pos.x, pos.z).distancia < 90) continue;
+          const v = lista.indexOf(opciones[Math.floor(rnd() * opciones.length)]);
+          const md = medidas[v];
+          // Tamaño parecido al del árbol sencillo (los reales miden unos 8 m)
+          const s = esc.y * (grupo.tipo === 'chopo' ? 1.15 : 1.05);
+          const estrecho = grupo.tipo === 'chopo' ? 0.55 : 1;
+          q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, rnd() * Math.PI * 2);
+          m.compose(pos.setY(pos.y + md.base * s), q, esc.set(md.ancho * s * estrecho, md.alto * s, md.ancho * s * estrecho));
+          im.setMatrixAt(n, m);
+          const t = 1.1 + rnd() * 0.3;
+          im.setColorAt(n, color.setRGB(t, t * (0.97 + rnd() * 0.06), t * 0.95));
+          variante[n] = v;
+          n++;
+        }
+        im.count = n;
+        geo.setAttribute('aVariante', new THREE.InstancedBufferAttribute(variante, 1));
+        im.computeBoundingSphere();
+        this.escena.add(im);
+        copa.removeFromParent();
+        tronco?.removeFromParent();
+      }
+    }
+  }
+
+  /** Instancias de árboles reales pendientes de su impostor lejano, por zona. */
+  private lodPendiente = new Map<string, { x: number; z: number; radio: number; mat: THREE.Matrix4[]; v: number[] }>();
+
+  /** Apunta las instancias de un modelo de árbol (por zonas) para crear su versión lejana. */
+  private impostoresDeZonas(nombre: string, zonas: ZonaInstancias[], radio: number) {
+    const imp = this.impostor;
+    if (!imp) return;
+    const v = imp.lista.indexOf(nombre);
+    if (v < 0) return;
+    const md = imp.medidas[v];
+    const m = new THREE.Matrix4();
+    const pos = new THREE.Vector3();
+    const q = new THREE.Quaternion();
+    const esc = new THREE.Vector3();
+    for (const zona of zonas) {
+      const clave = `${zona.x},${zona.z}`;
+      let p = this.lodPendiente.get(clave);
+      if (!p) {
+        p = { x: zona.x, z: zona.z, radio, mat: [], v: [] };
+        this.lodPendiente.set(clave, p);
+      }
+      const im = zona.mallas[0] as THREE.InstancedMesh;
+      for (let i = 0; i < im.count; i++) {
+        im.getMatrixAt(i, m);
+        m.decompose(pos, q, esc);
+        pos.y += md.base * esc.y;
+        p.mat.push(new THREE.Matrix4().compose(pos, q, new THREE.Vector3(md.ancho * esc.x, md.alto * esc.y, md.ancho * esc.z)));
+        p.v.push(v);
+      }
+    }
+  }
+
+  /** Una malla de impostores por zona (todas las variantes juntas): solo se ve lejos del ciclista. */
+  private construirImpostoresLod() {
+    const imp = this.impostor;
+    if (!imp) return;
+    const rnd = aleatorio(31);
+    const color = new THREE.Color();
+    for (const p of this.lodPendiente.values()) {
+      if (!p.mat.length) continue;
+      const geo = imp.planos.clone();
+      geo.setAttribute('aVariante', new THREE.InstancedBufferAttribute(new Float32Array(p.v), 1));
+      const im = new THREE.InstancedMesh(geo, imp.material, p.mat.length);
+      p.mat.forEach((m, i) => {
+        im.setMatrixAt(i, m);
+        const t = 1.1 + rnd() * 0.25;
+        im.setColorAt(i, color.setRGB(t, t, t * 0.97));
+      });
+      im.computeBoundingSphere();
+      im.visible = false;
+      this.escena.add(im);
+      this.zonasCercanas.push({ x: p.x, z: p.z, radio: p.radio, mallas: [im], lejos: true });
+    }
+    this.lodPendiente.clear();
+    this.proximaRevisionZonas = 0; // aplicar la visibilidad en la próxima imagen
   }
 
   private crearCasas() {
@@ -1106,44 +1374,86 @@ export class EscenaRecorrido {
     this.escena.add(agua);
   }
 
+  /**
+   * Cordillera alrededor de todo el paisaje: un anillo de relieve fractal con crestas,
+   * prados abajo, bosque, roca en las pendientes y nieve en las cumbres. Los colores
+   * se aclaran con la distancia (perspectiva aérea), porque la niebla no llega tan lejos.
+   */
   private crearMontanas() {
-    const rnd = aleatorio(3);
-    const geos: THREE.BufferGeometry[] = [];
-    for (let i = 0; i < 34; i++) {
-      const a = (i / 34) * Math.PI * 2 + rnd() * 0.1;
-      const d = 5200 + rnd() * 900;
-      const alto = 380 + rnd() * 620;
-      const radio = 900 + rnd() * 900;
-      const g = new THREE.ConeGeometry(radio, alto, 12, 6);
-      // Deformar según el ángulo y la altura (sin grietas en la costura del cono)
-      const p = g.attributes.position as THREE.BufferAttribute;
-      const fase = rnd() * 10;
-      const colores = new Float32Array(p.count * 3);
-      const c = new THREE.Color();
-      const bajo = new THREE.Color(0x6d8398);
-      const medio = new THREE.Color(0x93a7ba);
-      const nieve = new THREE.Color(0xe8eef3);
-      for (let k = 0; k < p.count; k++) {
-        const x = p.getX(k);
-        const z = p.getZ(k);
-        const y = p.getY(k);
-        const ang = Math.atan2(z, x);
-        const h = (y + alto / 2) / alto; // 0 abajo, 1 en la cima
-        const irregular = 1 + 0.18 * Math.sin(3 * ang + fase) + 0.1 * Math.sin(7 * ang + fase * 2) * (1 - h);
-        p.setXYZ(k, x * irregular, y * (1 + 0.08 * Math.sin(5 * ang + fase)), z * irregular);
-        c.copy(bajo).lerp(medio, Math.min(1, h * 1.6));
-        if (alto > 750 && h > 0.72) c.lerp(nieve, suavizado(0.72, 0.85, h));
-        colores.set([c.r, c.g, c.b], k * 3);
-      }
-      g.setAttribute('color', new THREE.BufferAttribute(colores, 3));
-      g.translate(this.tr.centroX + Math.cos(a) * d, alto / 2 - 20, this.tr.centroZ + Math.sin(a) * d);
-      geos.push(g.toNonIndexed());
-      g.dispose();
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (let i = 0; i < this.tr.n; i++) {
+      minX = Math.min(minX, this.tr.x[i]);
+      maxX = Math.max(maxX, this.tr.x[i]);
+      minZ = Math.min(minZ, this.tr.z[i]);
+      maxZ = Math.max(maxZ, this.tr.z[i]);
     }
-    const montes = new THREE.Mesh(
-      mergeGeometries(geos)!,
-      new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true, fog: false }),
-    );
+    const cx = this.tr.centroX;
+    const cz = this.tr.centroZ;
+    // El terreno llega 2600 m más allá del trazado: la cordillera empieza algo antes de su borde
+    const r0 = Math.min(maxX - minX, maxZ - minZ) / 2 + 1200;
+    const r1 = 8400;
+    const nA = this.calidad === 'alta' ? 720 : 400;
+    const nR = this.calidad === 'alta' ? 110 : 64;
+    const altura = (x: number, z: number, r: number) => {
+      const e = suavizado(r0, r0 + 1700, r);
+      const macizo = 0.45 + 0.9 * fbm(x / 7000 + 3, z / 7000 - 2, 3, 5);
+      const h = 120 + 1150 * crestas(x / 2300, z / 2300, 7, 11) ** 1.25 * macizo;
+      return colinas(x, z) - 4 + e * h;
+    };
+    const pos = new Float32Array((nA + 1) * (nR + 1) * 3);
+    const col = new Float32Array((nA + 1) * (nR + 1) * 3);
+    for (let j = 0; j <= nR; j++) {
+      // Más anillos cerca (donde se ve el detalle)
+      const r = r0 + (r1 - r0) * (j / nR) ** 1.4;
+      for (let i = 0; i <= nA; i++) {
+        const a = (i / nA) * Math.PI * 2;
+        const x = cx + Math.cos(a) * r;
+        const z = cz + Math.sin(a) * r;
+        const k = (j * (nA + 1) + i) * 3;
+        pos[k] = x;
+        pos[k + 1] = altura(x, z, r);
+        pos[k + 2] = z;
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const idx: number[] = [];
+    for (let j = 0; j < nR; j++) {
+      for (let i = 0; i < nA; i++) {
+        const a = j * (nA + 1) + i;
+        const b = a + nA + 1;
+        idx.push(a, a + 1, b, a + 1, b + 1, b);
+      }
+    }
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+
+    // Color según altura, pendiente y distancia
+    const nor = geo.attributes.normal as THREE.BufferAttribute;
+    const prado = new THREE.Color(0x5b7a3a);
+    const bosque = new THREE.Color(0x2c4526);
+    const roca = new THREE.Color(0x7a746b);
+    const rocaOscura = new THREE.Color(0x57534d);
+    const nieve = new THREE.Color(0xf2f5f8);
+    const lejos = new THREE.Color(0x9fb4c8);
+    const c = new THREE.Color();
+    for (let v = 0; v < pos.length / 3; v++) {
+      const x = pos[v * 3];
+      const y = pos[v * 3 + 1];
+      const z = pos[v * 3 + 2];
+      const pend = 1 - nor.getY(v); // 0 plano, 1 vertical
+      const manchas = fbm(x / 400, z / 400, 3, 21);
+      c.copy(prado).lerp(bosque, suavizado(0.35, 0.65, manchas) * (1 - suavizado(700, 950, y)));
+      c.lerp(manchas > 0.5 ? roca : rocaOscura, suavizado(0.18, 0.4, pend) + suavizado(900, 1150, y) * 0.8);
+      const lineaNieve = 950 + 180 * (fbm(x / 600, z / 600, 3, 33) - 0.5) + 400 * pend;
+      c.lerp(nieve, suavizado(lineaNieve, lineaNieve + 90, y));
+      const d = Math.hypot(x - cx, z - cz);
+      c.lerp(lejos, 0.15 + 0.55 * suavizado(r0, r1, d));
+      col.set([c.r, c.g, c.b], v * 3);
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const montes = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, fog: false }));
+    montes.receiveShadow = false;
     this.escena.add(montes);
   }
 
@@ -1315,8 +1625,8 @@ export class EscenaRecorrido {
     if (ahora < this.proximaRevisionZonas) return;
     this.proximaRevisionZonas = ahora + 250;
     for (const zona of this.zonasCercanas) {
-      const visible = (zona.x - x) ** 2 + (zona.z - z) ** 2 < zona.radio * zona.radio;
-      for (const m of zona.mallas) m.visible = visible;
+      const dentro = (zona.x - x) ** 2 + (zona.z - z) ** 2 < zona.radio * zona.radio;
+      for (const m of zona.mallas) m.visible = zona.lejos ? !dentro : dentro;
     }
   }
 
@@ -1348,6 +1658,7 @@ export class EscenaRecorrido {
 
   private bucle = (marca?: number) => {
     this.animacion = requestAnimationFrame(this.bucle);
+    tiempoViento.value = performance.now() / 1000;
     // La marca de tiempo del navegador va sincronizada con el refresco de pantalla:
     // usarla (y no un reloj propio) hace el movimiento más regular
     const ahora = marca ?? performance.now();
@@ -1428,6 +1739,9 @@ export class EscenaRecorrido {
       m.dispose();
     });
     this.escena.environment?.dispose();
+    this.texturaRuido?.dispose();
+    this.atlasImpostores?.dispose();
+    this.impostor?.planos.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }

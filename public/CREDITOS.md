@@ -9,9 +9,12 @@ redistribuir sin atribución obligatoria. Aun así, se agradece a sus autores:
 | Árboles, arbustos, hierba, flores y rocas (`modelos/naturaleza/`) — *Stylized Nature MegaKit* (versión estándar) | Quaternius | CC0 | https://opengameart.org/content/stylized-nature-megakit |
 | Asfalto `asphalt_02` (`texturas/asphalt_02_*`) | Poly Haven | CC0 | https://polyhaven.com/a/asphalt_02 |
 | Hierba `sparse_grass` (`texturas/sparse_grass_*`) | Poly Haven | CC0 | https://polyhaven.com/a/sparse_grass |
+| Grava de los arcenes `gravel_floor_02` (`texturas/gravel_floor_02_*`) | Poly Haven | CC0 | https://polyhaven.com/a/gravel_floor_02 |
 | Cielo `kloofendal_48d_partly_cloudy_puresky` (`texturas/*.hdr`) | Poly Haven | CC0 | https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky |
 
-Cambios realizados: se han quitado los mapas de normales y de rugosidad de los modelos y se
-han reducido texturas (512–1024 px) para que la web cargue rápido en tablets. La equipación
-del ciclista (maillot, culotte, guantes, zapatillas) se pinta por código sobre el cuerpo;
-casco y gafas también son por código.
+Cambios realizados: texturas convertidas a JPG (piel y normales del ciclista a 2048 px,
+cortezas a 1024 px, asfalto, hierba y grava a 2048 px; el cielo a 2k y 4k). En la vegetación
+se suaviza la oclusión de los colores de vértice. La equipación del ciclista (maillot,
+culotte, guantes, calcetines, zapatillas) se pinta por código sobre el cuerpo; casco, gafas,
+correas y la bici también se generan por código. Las montañas del fondo y los bosques lejanos
+(impostores de los árboles reales) se generan al cargar el recorrido.

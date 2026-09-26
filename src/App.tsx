@@ -19,7 +19,7 @@ import type { Entreno } from './entrenamiento/tipos';
 import { useGrabacion, type ValoresActuales } from './entrenamiento/useGrabacion';
 import { CATALOGO } from './entrenamientos/catalogo';
 import { cargarPropios, guardarPropios } from './entrenamientos/propios';
-import { desplegar, duracionTotal, potenciaEn, type Entrenamiento, type Tramo } from './entrenamientos/tipos';
+import { desplegar, duracionTotal, potenciaEn, tramoEn, type Entrenamiento, type Tramo } from './entrenamientos/tipos';
 import { useSalida } from './multijugador/useSalida';
 import { cargarAjustes, guardarAjustes, potenciaEstimada } from './potenciaVirtual';
 import {
@@ -87,18 +87,20 @@ function primero(candidatos: [string, number | undefined][]) {
   return { valor: undefined, fuente: undefined };
 }
 
-/** Mejor media de 60 s (para el test de rampa). */
-function mejorMinuto(entreno: Entreno) {
+/** Mejor media de `ventana` segundos (para los tests de FTP). */
+function mejorMedia(entreno: Entreno, ventana: number) {
   const p = entreno.muestras.map((m) => m.p ?? 0);
   let mejor = 0;
   let suma = 0;
   for (let i = 0; i < p.length; i++) {
     suma += p[i];
-    if (i >= 60) suma -= p[i - 60];
-    if (i >= 59) mejor = Math.max(mejor, suma / 60);
+    if (i >= ventana) suma -= p[i - ventana];
+    if (i >= ventana - 1) mejor = Math.max(mejor, suma / ventana);
   }
   return mejor;
 }
+
+type FtpSugerido = { w: number; texto: string };
 
 export default function App() {
   const [pantalla, setPantalla] = useState<Pantalla>('inicio');
@@ -116,7 +118,7 @@ export default function App() {
   // Vatios simulados para probar sin rodillo (null = desactivado)
   const [demoVatios, setDemoVatios] = useState<number | null>(null);
   // Último entrenamiento finalizado (se muestra su resumen) y si falló al guardarse
-  const [terminado, setTerminado] = useState<{ entreno: Entreno; error: string | null; ftpSugerido?: number } | null>(null);
+  const [terminado, setTerminado] = useState<{ entreno: Entreno; error: string | null; ftpSugerido?: FtpSugerido } | null>(null);
   const [versionHistorial, setVersionHistorial] = useState(0);
   // Pendiente simulada (null = no hay modo pendiente activo)
   const pendienteRef = useRef<number | null>(null);
@@ -267,6 +269,8 @@ export default function App() {
   objetivoRef.current = objetivoW;
   const entrenoActivoRef = useRef<EntrenoActivo | null>(null);
   entrenoActivoRef.current = entrenoActivo;
+  const segundosRef = useRef(0);
+  segundosRef.current = grabacion.segundos;
 
   // ---- Física del recorrido y control del rodillo (10 veces por segundo) ----
   const corriendoRef = useRef(false);
@@ -294,8 +298,11 @@ export default function App() {
 
       const rodillo = sensores.ftms;
       if (!rodillo.tieneControl) return;
-      if (entrenoActivoRef.current) {
+      const activo = entrenoActivoRef.current;
+      const libre = activo ? tramoEn(activo.tramos, segundosRef.current)?.libre === true : false;
+      if (activo && !libre) {
         // Entrenamiento guiado: modo ERG (potencia fija), como mucho un envío por segundo
+        pendienteEnviada = null;
         const w = objetivoRef.current;
         if (w !== undefined && w !== potenciaEnviada && t - ultimoEnvio > 1000) {
           potenciaEnviada = w;
@@ -303,7 +310,9 @@ export default function App() {
           void rodillo.fijarPotencia(w);
         }
       } else {
-        // Rodar libre: el rodillo se endurece con la pendiente (cambios de 0,5 %, máx. cada 2 s)
+        // Rodar libre (o tramo «a tope» de un test): el rodillo se endurece con la pendiente
+        // (cambios de 0,5 %, máx. cada 2 s)
+        potenciaEnviada = null;
         const redondeada = Math.round(grado * 2) / 2;
         if (redondeada !== pendienteEnviada && t - ultimoEnvio > 2000) {
           pendienteEnviada = redondeada;
@@ -367,8 +376,12 @@ export default function App() {
     setEntrenoActivo(null);
     setPantalla('inicio');
     if (!entreno) return;
-    const ftpSugerido =
-      activo?.entreno.categoria === 'test' ? Math.round(mejorMinuto(entreno) * 0.75) || undefined : undefined;
+    // Los tests creados por el usuario usan el cálculo del test de rampa
+    const est =
+      activo?.entreno.estimaFtp ??
+      (activo?.entreno.categoria === 'test' ? { ventanaS: 60, factor: 0.75, texto: '75 % de tu mejor minuto' } : undefined);
+    const w = est ? Math.round(mejorMedia(entreno, est.ventanaS) * est.factor) : 0;
+    const ftpSugerido = est && w > 0 ? { w, texto: est.texto } : undefined;
     setTerminado({ entreno, error: null, ftpSugerido });
     try {
       await guardarEntreno(entreno);

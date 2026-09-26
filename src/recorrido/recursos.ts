@@ -17,7 +17,37 @@ export interface ParteModelo {
 
 const cacheModelos = new Map<string, Promise<ParteModelo[]>>();
 const cacheTexturas = new Map<string, Promise<THREE.Texture>>();
-let cacheCielo: Promise<THREE.DataTexture> | null = null;
+const cacheCielo = new Map<string, Promise<THREE.DataTexture>>();
+
+/** Tiempo (s) para el balanceo de hojas y hierba; lo actualiza la escena en cada imagen. */
+export const tiempoViento = { value: 0 };
+
+/**
+ * Balanceo con el viento: se desplaza más cuanto más alto está el vértice.
+ * La fase depende de la posición de cada ejemplar (instancia) para que no se muevan a la vez.
+ */
+function anadirViento(material: THREE.MeshStandardMaterial, fuerza: number) {
+  material.onBeforeCompile = (s) => {
+    s.uniforms.uTiempoViento = tiempoViento;
+    s.vertexShader = s.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform float uTiempoViento;')
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+          vec2 faseV = instanceMatrix[ 3 ].xz;
+        #else
+          vec2 faseV = vec2( 0.0 );
+        #endif
+        float altoV = max( position.y, 0.0 );
+        float rafaga = sin( uTiempoViento * 1.3 + faseV.x * 0.05 + faseV.y * 0.04 ) * 0.5 + 0.5;
+        float vaiven = sin( uTiempoViento * 2.4 + faseV.x * 0.9 + faseV.y * 0.7 + position.x * 0.8 ) * ( 0.4 + 0.6 * rafaga );
+        transformed.x += vaiven * ${fuerza.toFixed(4)} * altoV * altoV;
+        transformed.z += vaiven * ${(fuerza * 0.6).toFixed(4)} * altoV * altoV;`,
+      );
+  };
+  material.customProgramCacheKey = () => `viento-${fuerza}`;
+}
 
 /**
  * Carga un modelo de la carpeta modelos/naturaleza y lo devuelve como piezas
@@ -33,9 +63,27 @@ export function cargarModelo(nombre: string): Promise<ParteModelo[]> {
         if (o instanceof THREE.Mesh) {
           const geometria = (o.geometry as THREE.BufferGeometry).clone();
           geometria.applyMatrix4(o.matrixWorld);
+          // Los colores de vértice del paquete son una oclusión muy marcada (helechos y hierba
+          // salían casi negros): se suaviza a un 55-100 %
+          const colores = geometria.attributes.color as THREE.BufferAttribute | undefined;
+          if (colores) {
+            for (let i = 0; i < colores.count; i++) {
+              for (let c = 0; c < 3; c++) colores.setComponent(i, c, 0.55 + 0.45 * colores.getComponent(i, c));
+            }
+          }
           const material = o.material as THREE.MeshStandardMaterial;
           material.roughness = 0.9;
           material.envMapIntensity = 0.6;
+          // La textura de las rocas es muy oscura: a pleno sol parecían manchas negras
+          if (/rocks/i.test(material.name) && !material.userData.aclarada) {
+            material.userData.aclarada = true;
+            material.color.multiplyScalar(1.9);
+          }
+          // Hojas y hierba se mueven con el viento (los troncos y las piedras no)
+          if (/leaf|leaves|grass|flower/i.test(material.name) && !material.userData.viento) {
+            material.userData.viento = true;
+            anadirViento(material, /Tree|Pine/.test(nombre) ? 0.0016 : 0.05);
+          }
           partes.push({ geometria, material });
         }
       });
@@ -63,15 +111,19 @@ export function cargarTextura(archivo: string, esColor: boolean): Promise<THREE.
   return p;
 }
 
-/** Cielo fotográfico (HDR equirectangular). */
-export function cargarCielo(): Promise<THREE.DataTexture> {
-  if (!cacheCielo) {
-    cacheCielo = new HDRLoader().loadAsync(rutaPublica('texturas/kloofendal_48d_partly_cloudy_puresky_2k.hdr')).then((t) => {
-      t.mapping = THREE.EquirectangularReflectionMapping;
-      return t;
-    });
+/** Cielo fotográfico (HDR equirectangular): 4k en calidad alta, 2k en media. */
+export function cargarCielo(resolucion: '2k' | '4k' = '2k'): Promise<THREE.DataTexture> {
+  let p = cacheCielo.get(resolucion);
+  if (!p) {
+    p = new HDRLoader()
+      .loadAsync(rutaPublica(`texturas/kloofendal_48d_partly_cloudy_puresky_${resolucion}.hdr`))
+      .then((t) => {
+        t.mapping = THREE.EquirectangularReflectionMapping;
+        return t;
+      });
+    cacheCielo.set(resolucion, p);
   }
-  return cacheCielo;
+  return p;
 }
 
 /**

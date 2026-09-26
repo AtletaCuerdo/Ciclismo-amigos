@@ -7,8 +7,8 @@ interface Props {
   entreno: Entreno;
   /** null si se guardó bien; texto del error si no se pudo guardar en el historial. */
   errorGuardado: string | null;
-  /** FTP estimado tras un test (75 % del mejor minuto). */
-  ftpSugerido?: number;
+  /** FTP estimado tras un test y cómo se ha calculado. */
+  ftpSugerido?: { w: number; texto: string };
   ftpActual?: number;
   onAceptarFtp?: (w: number) => void;
   onCerrar: () => void;
@@ -61,20 +61,20 @@ export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual,
         </button>
       </div>
 
-      {ftpSugerido !== undefined && ftpSugerido > 0 && (
+      {ftpSugerido !== undefined && ftpSugerido.w > 0 && (
         <div className="aviso-ftp">
           <p>
-            <strong>FTP estimado: {ftpSugerido} W</strong> (75 % de tu mejor minuto). Tu FTP actual es {ftpActual} W.
+            <strong>FTP estimado: {ftpSugerido.w} W</strong> ({ftpSugerido.texto}). Tu FTP actual es {ftpActual} W.
           </p>
           {onAceptarFtp && !ftpAceptado ? (
             <button
               className="boton-principal"
               onClick={() => {
-                onAceptarFtp(ftpSugerido);
+                onAceptarFtp(ftpSugerido.w);
                 setFtpAceptado(true);
               }}
             >
-              Usar {ftpSugerido} W como mi FTP
+              Usar {ftpSugerido.w} W como mi FTP
             </button>
           ) : (
             ftpAceptado && <p className="detalle">¡Guardado! Los entrenamientos usarán tu nuevo FTP.</p>

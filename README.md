@@ -10,10 +10,13 @@ directamente desde el navegador, rueda en un recorrido 3D o sigue entrenamientos
 - **Tus datos acumulados**: sesiones, horas, km y desnivel, con acceso al historial.
 - **Rodar libre**: la vuelta de 17 km; el rodillo inteligente se endurece con la pendiente.
 - **Entrenamientos**: categorías Recovery, Entrenamiento rápido, Test, Endurance, Sweet Spot,
-  Tapering, Tempo, Threshold y VO2Max. Cada entrenamiento se hace en el recorrido con el rodillo
-  en **modo ERG** (potencia fija según el % de tu FTP). Sin rodillo inteligente, la web muestra
-  los vatios objetivo para seguirlos a mano. El *Test de rampa* calcula un FTP estimado (75 % del
-  mejor minuto) y permite guardarlo.
+  Tapering, Tempo, Threshold y VO2Max, con 4 sesiones cada una (36 en total). Cada
+  entrenamiento se hace en el recorrido con el rodillo en **modo ERG** (potencia fija según el %
+  de tu FTP). Sin rodillo inteligente, la web muestra los vatios objetivo para seguirlos a mano.
+- **Tests de FTP**: rampa (75 % del mejor minuto), rampa rápida de escalones de 30″ (72 % del
+  mejor minuto), 20 minutos (95 % de la mejor media de 20′) y 2 × 8 minutos (90 % de la mejor
+  media de 8′). En los tramos «a tope» de los tests de 20′ y 8′ se suelta el ERG y el rodillo
+  simula la pendiente del recorrido; al terminar, la web propone el FTP y permite guardarlo.
 - **Crea tus entrenamientos**: editor por bloques (constante, rampa, series) con gráfica en
   directo; se guardan en el navegador y aparecen en su categoría como «Mío».
 - **Dispositivos**, datos en directo y **Salida en grupo**. En *Ajustes*: calidad gráfica,
@@ -150,9 +153,14 @@ Botón **Entrar al recorrido**: escena 3D a pantalla completa con el ciclista en
   velocidad media, cadencia (solo si algún sensor la envía) y frecuencia cardiaca.
 - **Perfil de la vuelta**: tramo recorrido sombreado, línea de posición, subidas marcadas,
   metros de subida que quedan en la vuelta y distancia a la próxima subida.
-- **Escenario**: cielo con sol y luz ambiental, sombras, campos de cultivo, lago con chopos,
-  pinos, árboles frondosos, arbustos, rocas, hierba y flores junto a la carretera, casas de
-  campo, vallas, quitamiedos en las bajadas, molinos de viento, montañas y nubes.
+- **Escenario**: cielo fotográfico (4k en calidad alta), sombras, campos de cultivo con manchas
+  de hierba seca y tierra, lago, pinos, árboles frondosos y retorcidos, arbustos, rocas, helechos,
+  setas, hierba y flores que se mueven con el viento, arcenes de grava, casas de campo, vallas,
+  quitamiedos, molinos de viento y nubes. Alrededor, una **cordillera** generada con ruido
+  fractal (crestas, bosque, roca y nieve en las cumbres, con perspectiva aérea).
+- **Bosques lejanos con impostores**: cada árbol real se dibuja una vez en una textura y, a más
+  de ~250 m, se sustituye por tres planos cruzados con esa imagen (LOD). Así hay muchos más
+  árboles sin perder fluidez.
 - **Movimiento suave**: la escena predice la posición con la velocidad y solo corrige
   diferencias de más de 1,5 m (2,5 m para los demás), usando la marca de tiempo del refresco de
   pantalla.
@@ -163,6 +171,19 @@ Botón **Entrar al recorrido**: escena 3D a pantalla completa con el ciclista en
 - Three.js se descarga solo al entrar en el recorrido o abrir el editor del avatar.
 
 ### Tu ciclista (avatar)
+
+- **Cuerpo** con mapas de normales y rugosidad (2048 px). La equipación se pinta píxel a píxel
+  según el hueso más cercano: maillot con cuello, cremallera, puños, paneles laterales,
+  bolsillos traseros y rotulación «CICLISMO AMIGOS»; culotte con franja lateral y banda
+  elástica; guantes sin dedos, calcetines con raya y zapatillas con suela. La ropa tiene brillo
+  de lycra.
+- **Casco** hecho a medida de la cabeza (se ajusta un elipsoide al cráneo del modelo): carcasa
+  con barniz, espuma interior, canto, banda inferior, rejillas con labio redondeado, correas
+  proyectadas sobre la piel, hebilla y ajuste trasero. Modelos: ruta, aero (con pantalla),
+  clásico con visera y gorra de tela. El pelo que quedaría por encima del casco se recorta.
+- **Gafas** envolventes de pantalla con lente de espejo iridiscente.
+- **Bici** con pintura barnizada, llantas con perfil real, radios con cabecillas, bujes, discos
+  de freno, platos dentados, casete, cambio, cinta de manillar, manetas, sillín y bidón.
 
 Colores de maillot, franja, culotte, casco, cuadro y detalles de la bici, tono de piel y peso.
 **Bicis**: ruta clásica, ruta aero, escaladora y cabra de triatlón (con postura acoplada y casco
