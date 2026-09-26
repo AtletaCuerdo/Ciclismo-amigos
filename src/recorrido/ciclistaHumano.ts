@@ -18,6 +18,8 @@ import { clone as clonarConEsqueleto } from 'three/examples/jsm/utils/SkeletonUt
 import type { Avatar, Peinado, Sexo } from './avatar';
 import { EquipoCabeza, GLSL_RECORTE_PELO, medirCabeza, type MedidasCabeza } from './equipamiento';
 import { rutaPublica } from './recursos';
+import { materialCuadro } from './bici';
+import { geometriaZapatilla } from './zapatilla';
 
 // ---------------------------------------------------------------------------
 // Plantillas (se cargan una vez y se clonan para cada ciclista)
@@ -442,17 +444,30 @@ const v3 = new THREE.Vector3();
 const q1 = new THREE.Quaternion();
 const q2 = new THREE.Quaternion();
 const q3 = new THREE.Quaternion();
+const qId = new THREE.Quaternion();
+
+/** Aplica un giro (en coordenadas del mundo) a un hueso. */
+function girarMundo(hueso: THREE.Object3D, giro: THREE.Quaternion) {
+  const mundo = hueso.getWorldQuaternion(q2);
+  const padre = hueso.parent!.getWorldQuaternion(q3).invert();
+  hueso.quaternion.copy(padre.multiply(q1.copy(giro).multiply(mundo)));
+  hueso.updateMatrixWorld(true);
+}
 
 /** Gira `hueso` para que su hijo `hacia` apunte a `objetivo` (todo en coordenadas del mundo). */
-function apuntar(hueso: THREE.Bone, hacia: THREE.Object3D, objetivo: THREE.Vector3) {
+function apuntar(hueso: THREE.Bone, hacia: THREE.Object3D, objetivo: THREE.Vector3, fraccion = 1) {
   const origen = hueso.getWorldPosition(v1);
   const actual = hacia.getWorldPosition(v2).sub(origen).normalize();
   const deseada = v3.copy(objetivo).sub(origen).normalize();
-  const giro = q1.setFromUnitVectors(actual, deseada);
-  const mundo = hueso.getWorldQuaternion(q2);
-  const padre = hueso.parent!.getWorldQuaternion(q3).invert();
-  hueso.quaternion.copy(padre.multiply(giro.multiply(mundo)));
-  hueso.updateMatrixWorld(true);
+  const giro = new THREE.Quaternion().setFromUnitVectors(actual, deseada);
+  if (fraccion < 1) giro.slerpQuaternions(qId, giro, fraccion);
+  girarMundo(hueso, giro);
+}
+
+/** Gira `hueso` para que un vector fijo a él (`local`, en sus coordenadas) apunte a `deseada`. */
+function orientar(hueso: THREE.Object3D, local: THREE.Vector3, deseada: THREE.Vector3) {
+  const actual = local.clone().applyQuaternion(hueso.getWorldQuaternion(new THREE.Quaternion()));
+  girarMundo(hueso, new THREE.Quaternion().setFromUnitVectors(actual.normalize(), deseada.clone().normalize()));
 }
 
 /** Articulación intermedia (rodilla/codo) de una cadena de dos huesos, doblada hacia `polo`. */
@@ -471,19 +486,30 @@ function articulacion3D(o: THREE.Vector3, fin: THREE.Vector3, l1: number, l2: nu
 
 export interface PosturaBici {
   cadera: THREE.Vector3; // coordenadas locales de la bici (+X delante, +Y arriba)
-  hombro: THREE.Vector3;
-  mano: THREE.Vector3;
+  /** Agarre del lado +Z: parte alta de la maneta (ruta) o muñeca en la punta del acople (cabra). */
+  agarre: THREE.Vector3;
+  /** Cabra: codo en el reposabrazos (lado +Z). */
   codo?: THREE.Vector3;
   cabra: boolean;
 }
 
 const ESCALA = 1.03;
 const HUESOS = [
-  'pelvis', 'spine_01', 'neck_01', 'Head',
+  'pelvis', 'spine_01', 'spine_02', 'spine_03', 'neck_01', 'Head',
   'thigh_l', 'calf_l', 'foot_l', 'ball_l', 'thigh_r', 'calf_r', 'foot_r', 'ball_r',
   'upperarm_l', 'lowerarm_l', 'hand_l', 'upperarm_r', 'lowerarm_r', 'hand_r',
 ] as const;
 type NombreHueso = (typeof HUESOS)[number];
+const DEDOS = ['index', 'middle', 'ring', 'pinky'] as const;
+
+interface Mano {
+  hueso: THREE.Bone;
+  /** Dirección de los dedos y normal de la palma, en coordenadas del hueso de la mano. */
+  dedos: THREE.Vector3;
+  palma: THREE.Vector3;
+  falanges: THREE.Bone[][]; // [dedo][01, 02, 03]
+  pulgar: THREE.Bone[];
+}
 
 export class JineteHumano {
   readonly raiz: THREE.Object3D;
@@ -491,8 +517,13 @@ export class JineteHumano {
   private reposo = new Map<THREE.Bone, THREE.Quaternion>();
   private material: THREE.MeshPhysicalMaterial;
   private equipo: EquipoCabeza;
+  private matZapatillas: THREE.MeshPhysicalMaterial;
   private materiales: THREE.Material[] = [];
   private largos = { muslo: 0, gemelo: 0, brazo: 0, antebrazo: 0 };
+  private manos: Record<'l' | 'r', Mano>;
+  private cara = new THREE.Vector3();
+  /** Inclinación del tronco (grados sobre la horizontal), calculada para llegar al manillar. */
+  private anguloTronco = 30;
 
   constructor(
     p: Plantillas,
@@ -527,9 +558,13 @@ export class JineteHumano {
       }
     });
 
-    for (const n of HUESOS) {
+    const hueso = (n: string) => {
       const h = cuerpo.skeleton.bones.find((b) => b.name === n);
       if (!h) throw new Error(`Falta el hueso ${n}`);
+      return h;
+    };
+    for (const n of HUESOS) {
+      const h = hueso(n);
       this.huesos[n] = h;
       this.reposo.set(h, h.quaternion.clone());
     }
@@ -572,12 +607,46 @@ export class JineteHumano {
     });
     cabeza.add(this.equipo.grupo);
 
+    // Zapatillas (en coordenadas de reposo, colgadas de cada pie)
+    this.matZapatillas = materialCuadro('#f1f1f1', avatar.franja);
+    this.materiales.push(this.matZapatillas);
+    for (const lado of ['l', 'r'] as const) {
+      const z = new THREE.Mesh(geometriaZapatilla(cuerpo, sexo, lado), this.matZapatillas);
+      z.castShadow = true;
+      const pie = hueso(lado === "l" ? 'foot_l' : 'foot_r');
+      z.applyMatrix4(pie.matrixWorld.clone().invert());
+      pie.add(z);
+    }
+
     // Orientación: el modelo mira a +Z; la bici avanza en +X
     this.raiz.rotation.y = Math.PI / 2;
     this.raiz.scale.setScalar(ESCALA);
-    this.raiz.updateMatrixWorld(true);
     padre.add(this.raiz);
+    this.raiz.updateMatrixWorld(true);
+
+    // Vectores fijos a los huesos (en reposo: palmas hacia abajo, cara hacia delante)
+    const aLocal = (h: THREE.Object3D, mundo: THREE.Vector3) =>
+      mundo.clone().applyQuaternion(h.getWorldQuaternion(new THREE.Quaternion()).invert()).normalize();
+    const abajo = new THREE.Vector3(0, -1, 0).transformDirection(this.raiz.matrixWorld);
+    const delante = new THREE.Vector3(0, 0, 1).transformDirection(this.raiz.matrixWorld);
+    this.cara = aLocal(H.Head, delante);
+    const mano = (lado: 'l' | 'r'): Mano => {
+      const h = H[`hand_${lado}`];
+      const medio = hueso(`middle_01_${lado}`).getWorldPosition(new THREE.Vector3());
+      const dedos = medio.sub(h.getWorldPosition(new THREE.Vector3()));
+      return {
+        hueso: h,
+        dedos: aLocal(h, dedos),
+        palma: aLocal(h, abajo),
+        falanges: DEDOS.map((n) => [1, 2, 3].map((k) => hueso(`${n}_0${k}_${lado}`))),
+        pulgar: [1, 2, 3].map((k) => hueso(`thumb_0${k}_${lado}`)),
+      };
+    };
+    this.manos = { l: mano('l'), r: mano('r') };
+    for (const m of Object.values(this.manos)) for (const b of [...m.falanges.flat(), ...m.pulgar]) this.reposo.set(b, b.quaternion.clone());
+
     this.colocarCadera();
+    this.ajustarTronco();
   }
 
   /** Coloca la pelvis de forma que las caderas queden sobre el sillín. */
@@ -594,6 +663,79 @@ export class JineteHumano {
     this.raiz.updateMatrixWorld(true);
   }
 
+  private aMundo(v: THREE.Vector3) {
+    return this.raiz.parent!.localToWorld(v.clone());
+  }
+
+  private dirMundo(x: number, y: number, z: number) {
+    return new THREE.Vector3(x, y, z).transformDirection(this.raiz.parent!.matrixWorld);
+  }
+
+  /** Espalda redondeada: la zona lumbar más levantada y la dorsal más plana. */
+  private posarTronco(grados: number) {
+    const H = this.huesos;
+    const dir = (g: number) => {
+      const a = ((grados + g) * Math.PI) / 180;
+      return this.dirMundo(Math.cos(a), Math.sin(a), 0);
+    };
+    const hacia = (h: THREE.Bone, g: number) => apuntar(h, H.neck_01, h.getWorldPosition(new THREE.Vector3()).add(dir(g)));
+    hacia(H.spine_01, 12);
+    hacia(H.spine_02, -2);
+    hacia(H.spine_03, -14);
+  }
+
+  /** Busca la inclinación del tronco con la que los brazos llegan cómodos al manillar. */
+  private ajustarTronco() {
+    const P = this.postura;
+    const H = this.huesos;
+    const padre = this.raiz.parent!;
+    padre.updateMatrixWorld(true);
+    let mejor = Infinity;
+    for (let g = -5; g <= 70; g += 0.5) {
+      for (const [h, q] of this.reposo) h.quaternion.copy(q);
+      this.raiz.updateMatrixWorld(true);
+      this.posarTronco(g);
+      const hombro = padre.worldToLocal(H.upperarm_r.getWorldPosition(new THREE.Vector3()));
+      let error: number;
+      if (P.cabra && P.codo) {
+        // Brazo casi vertical sobre el reposabrazos
+        const codo = P.codo;
+        error = Math.abs(hombro.distanceTo(codo) - this.largos.brazo) + 0.3 * Math.max(0, codo.x - hombro.x - 0.03);
+      } else {
+        const muneca = this.muneca(1).clone();
+        error = Math.abs(hombro.distanceTo(muneca) - 0.9 * (this.largos.brazo + this.largos.antebrazo));
+      }
+      if (error < mejor) {
+        mejor = error;
+        this.anguloTronco = g;
+      }
+    }
+  }
+
+  /** Dedos y palma deseados para cada mano (coordenadas de la bici). */
+  private agarreDeseado(s: number) {
+    if (this.postura.cabra) {
+      // Puños cerrados alrededor de las puntas verticales del acople, palmas enfrentadas
+      const dedos = new THREE.Vector3(1, 0.08, 0).normalize();
+      const palma = new THREE.Vector3(0, 0, -s);
+      return { dedos, palma: palma.addScaledVector(dedos, -palma.dot(dedos)).normalize(), curva: [1.45, 1.45, 1.0], pulgar: 0.9 };
+    }
+    // Manos sobre las manetas: palma encima y algo hacia dentro, dedos por delante y abajo
+    const dedos = new THREE.Vector3(0.93, -0.36, 0).normalize();
+    const palma = new THREE.Vector3(0.1, -0.78, -0.55 * s).normalize();
+    return { dedos, palma: palma.addScaledVector(dedos, -palma.dot(dedos)).normalize(), curva: [0.95, 1.05, 0.7], pulgar: 0.55 };
+  }
+
+  /** Muñeca (coordenadas de la bici) para el lado `s` (+1 = +Z). */
+  private muneca(s: number) {
+    const P = this.postura;
+    const g = P.agarre.clone().setZ(P.agarre.z * s);
+    if (P.cabra) return g;
+    // La palma apoya en lo alto de la maneta: la muñeca queda detrás y por encima
+    const { dedos, palma } = this.agarreDeseado(s);
+    return g.addScaledVector(palma, -0.022).addScaledVector(dedos, -0.056);
+  }
+
   actualizarColores(a: Avatar) {
     const u = this.material.userData.uniformes;
     u.uMaillot.value.set(a.maillot);
@@ -607,6 +749,27 @@ export class JineteHumano {
       Math.min(1.1, tono.b / PIEL_REFERENCIA.b),
     );
     this.equipo.actualizarColores({ casco: a.casco, acento: a.franja });
+    this.matZapatillas.userData.uniformes.uPintura2.value.set(a.franja);
+  }
+
+  /** Orienta la mano (dedos y palma) y cierra los dedos alrededor del manillar. */
+  private agarrar(lado: 'l' | 'r', s: number) {
+    const m = this.manos[lado];
+    const { dedos, palma, curva, pulgar } = this.agarreDeseado(s);
+    const F = this.dirMundo(dedos.x, dedos.y, dedos.z);
+    const N = this.dirMundo(palma.x, palma.y, palma.z);
+    // 1) dedos hacia delante  2) giro alrededor de los dedos hasta que la palma mire a la maneta
+    orientar(m.hueso, m.dedos, F);
+    const actual = m.palma.clone().applyQuaternion(m.hueso.getWorldQuaternion(new THREE.Quaternion()));
+    const a = actual.addScaledVector(F, -actual.dot(F)).normalize();
+    const angulo = Math.atan2(new THREE.Vector3().crossVectors(a, N).dot(F), a.dot(N));
+    girarMundo(m.hueso, new THREE.Quaternion().setFromAxisAngle(F, angulo));
+    // 3) dedos cerrados: cada falange gira hacia la palma
+    const eje = new THREE.Vector3().crossVectors(F, N).normalize();
+    for (const dedo of m.falanges) {
+      dedo.forEach((f, i) => girarMundo(f, new THREE.Quaternion().setFromAxisAngle(eje, curva[i])));
+    }
+    m.pulgar.forEach((f, i) => girarMundo(f, new THREE.Quaternion().setFromAxisAngle(eje, pulgar * (i === 0 ? 0.3 : 0.6))));
   }
 
   /**
@@ -621,41 +784,38 @@ export class JineteHumano {
     padre.updateMatrixWorld(true);
     for (const [h, q] of this.reposo) h.quaternion.copy(q);
     this.raiz.updateMatrixWorld(true);
-    const aMundo = (v: THREE.Vector3) => padre.localToWorld(v.clone());
-    const dirMundo = (x: number, y: number, z: number) =>
-      new THREE.Vector3(x, y, z).transformDirection(padre.matrixWorld);
 
-    // Tronco inclinado hacia el manillar
-    const cuello = P.hombro.clone().add(new THREE.Vector3(0.02, 0.07, 0));
-    apuntar(H.spine_01, H.neck_01, aMundo(cuello));
-    // Cabeza mirando al frente
+    // Tronco inclinado hacia el manillar, cuello y mirada al frente
+    this.posarTronco(this.anguloTronco);
     const pCuello = H.neck_01.getWorldPosition(new THREE.Vector3());
-    apuntar(H.neck_01, H.Head, pCuello.add(dirMundo(P.cabra ? 0.62 : 0.48, P.cabra ? 0.78 : 0.88, 0)));
+    apuntar(H.neck_01, H.Head, pCuello.add(this.dirMundo(P.cabra ? 0.72 : 0.5, P.cabra ? 0.69 : 0.86, 0)));
+    orientar(H.Head, this.cara, this.dirMundo(1, P.cabra ? -0.1 : -0.16, 0));
 
     // Brazos (izquierdo del modelo = lado -Z de la bici)
     for (const [lado, s] of [['l', -1], ['r', 1]] as const) {
       const hombro = H[`upperarm_${lado}`].getWorldPosition(new THREE.Vector3());
-      const mano = aMundo(new THREE.Vector3(P.mano.x, P.mano.y, (P.cabra ? 0.075 : 0.2) * s));
+      const mano = this.aMundo(this.muneca(s));
       const codo = P.codo
-        ? aMundo(new THREE.Vector3(P.codo.x, P.codo.y + 0.03, 0.11 * s))
-        : articulacion3D(hombro, mano, this.largos.brazo, this.largos.antebrazo, dirMundo(-0.3, -1, 0.7 * s));
+        ? this.aMundo(new THREE.Vector3(P.codo.x, P.codo.y, P.codo.z * s))
+        : articulacion3D(hombro, mano, this.largos.brazo, this.largos.antebrazo, this.dirMundo(-0.25, -1, 0.75 * s));
       apuntar(H[`upperarm_${lado}`], H[`lowerarm_${lado}`], codo);
       apuntar(H[`lowerarm_${lado}`], H[`hand_${lado}`], mano);
+      this.agarrar(lado, s);
     }
 
     // Piernas siguiendo a los pedales, con las rodillas hacia delante
     for (const [lado, pedal, fase] of [['l', pedales.izq, Math.PI], ['r', pedales.der, 0]] as const) {
       const cadera = H[`thigh_${lado}`].getWorldPosition(new THREE.Vector3());
-      const pie = aMundo(pedal.clone().add(new THREE.Vector3(-0.03, 0.06, 0)));
-      const rodilla = articulacion3D(cadera, pie, this.largos.muslo, this.largos.gemelo, dirMundo(1, 0.3, 0));
+      const pie = this.aMundo(pedal.clone().add(new THREE.Vector3(-0.03, 0.062, -Math.sign(pedal.z) * 0.012)));
+      const rodilla = articulacion3D(cadera, pie, this.largos.muslo, this.largos.gemelo, this.dirMundo(1, 0.3, 0));
       apuntar(H[`thigh_${lado}`], H[`calf_${lado}`], rodilla);
       apuntar(H[`calf_${lado}`], H[`foot_${lado}`], pie);
       // Punta del pie: algo hacia abajo, más en la parte baja del pedaleo
       const a = anguloBiela + fase;
-      const inclinacion = -0.35 + 0.2 * Math.sin(a);
+      const inclinacion = -0.3 + 0.2 * Math.sin(a);
       const punta = H[`foot_${lado}`]
         .getWorldPosition(new THREE.Vector3())
-        .add(dirMundo(Math.cos(inclinacion), Math.sin(inclinacion), 0).multiplyScalar(0.15));
+        .add(this.dirMundo(Math.cos(inclinacion), Math.sin(inclinacion), 0).multiplyScalar(0.15));
       apuntar(H[`foot_${lado}`], H[`ball_${lado}`], punta);
     }
   }

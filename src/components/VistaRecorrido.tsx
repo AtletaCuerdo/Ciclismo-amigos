@@ -201,36 +201,87 @@ export default function VistaRecorrido({
         <div className="recorrido-cargando">No se pudo iniciar el 3D en este dispositivo: {error}</div>
       )}
 
-      {/* Capa del marcador: rejilla de 3 filas para que los paneles nunca se solapen */}
+      {/* Capa del marcador: todos los datos van arriba; el centro queda libre para ver el recorrido */}
       <div className="hud-capa">
-      {/* Barra superior: tiempo, distancia, pendiente */}
       <div className="hud hud-arriba">
-        <div className="hud-dato">
-          <span className="hud-valor">{formatearTiempo(grabacion.segundos)}</span>
-          <span className="hud-etiqueta">tiempo</span>
-        </div>
-        <div className="hud-dato">
-          <span className="hud-valor">
-            {km(grabacion.distanciaM, 2)}
-            <small> km</small>
-          </span>
-          <span className="hud-etiqueta">
-            distancia · vuelta {vuelta} ({km(enVuelta(yo.distancia))}/{LONGITUD_VUELTA_M / 1000})
-          </span>
-        </div>
-        <div className="hud-dato">
-          <span className="hud-valor" style={{ color: colorPendiente }}>
-            {pend.toFixed(1).replace('.', ',')}
-            <small> %</small>
-          </span>
-          <span className="hud-etiqueta">pendiente</span>
-        </div>
-        <div className="hud-dato hud-secundario">
-          <span className="hud-valor">
-            {Math.round(grabacion.desnivelM)}
-            <small> m</small>
-          </span>
-          <span className="hud-etiqueta">desnivel +</span>
+        <div className="hud-filas">
+          {/* Fila principal: lo que se mira pedaleando */}
+          <div className="hud-fila">
+            <div className="hud-dato potencia">
+              <span className="hud-valor">
+                {yo.potencia !== undefined ? Math.round(yo.potencia) : '--'}
+                <small> W</small>
+              </span>
+              <span className="hud-etiqueta">
+                {demo ? 'vatios (simulación)' : yo.potenciaEstimada ? 'vatios (estimada)' : 'vatios'}
+              </span>
+            </div>
+            {demo && (
+              <input
+                className="demo-vatios"
+                type="range"
+                min={0}
+                max={450}
+                step={10}
+                value={demo.vatios}
+                onChange={(e) => demo.onCambiar(Number(e.target.value))}
+                aria-label="Vatios simulados"
+              />
+            )}
+            <div className="hud-dato">
+              <span className="hud-valor">
+                {yo.velocidad.toFixed(1).replace('.', ',')}
+                <small> km/h</small>
+              </span>
+              <span className="hud-etiqueta">velocidad</span>
+            </div>
+            {yo.hayCadencia && (
+              <div className="hud-dato">
+                <span className="hud-valor">
+                  {Math.round(yo.cadencia)}
+                  <small> rpm</small>
+                </span>
+                <span className="hud-etiqueta">cadencia</span>
+              </div>
+            )}
+            <div className="hud-dato">
+              <span className="hud-valor pulso">
+                {yo.pulso ?? '--'}
+                <small> ppm</small>
+              </span>
+              <span className="hud-etiqueta">pulso</span>
+            </div>
+            <div className="hud-dato">
+              <span className="hud-valor" style={{ color: colorPendiente }}>
+                {pend.toFixed(1).replace('.', ',')}
+                <small> %</small>
+              </span>
+              <span className="hud-etiqueta">pendiente</span>
+            </div>
+          </div>
+          {/* Segunda fila: acumulados y medias */}
+          <div className="hud-fila hud-fila-2">
+            <span>
+              <b>{formatearTiempo(grabacion.segundos)}</b> tiempo
+            </span>
+            <span>
+              <b>{km(grabacion.distanciaM, 2)} km</b> · vuelta {vuelta} ({km(enVuelta(yo.distancia))}/
+              {LONGITUD_VUELTA_M / 1000})
+            </span>
+            <span>
+              <b>{Math.round(grabacion.desnivelM)} m</b> desnivel +
+            </span>
+            <span>
+              <b>{grabacion.potenciaMedia !== undefined ? Math.round(grabacion.potenciaMedia) : '--'} W</b> media
+            </span>
+            <span>
+              <b>
+                {grabacion.velocidadMedia !== undefined ? grabacion.velocidadMedia.toFixed(1).replace('.', ',') : '--'}{' '}
+                km/h
+              </b>{' '}
+              media
+            </span>
+          </div>
         </div>
         <div className="hud-botones">
           <button className="boton-principal" onClick={grabacion.corriendo ? grabacion.pausar : grabacion.iniciar}>
@@ -247,72 +298,8 @@ export default function VistaRecorrido({
         </div>
       </div>
 
-      {/* Zona central: datos a la izquierda y entrenamiento a la derecha */}
-      <div className="hud-medio">
-      {/* Panel lateral: potencia, velocidad, cadencia, pulso */}
-      <div className="hud hud-lateral">
-        <div className="hud-dato grande">
-          <span className="hud-valor">
-            {yo.potencia !== undefined ? Math.round(yo.potencia) : '--'}
-            <small> W</small>
-          </span>
-          <span className="hud-etiqueta">
-            {demo ? 'vatios (simulación)' : yo.potenciaEstimada ? 'vatios (estimada)' : 'vatios'}
-          </span>
-          {demo && (
-            <input
-              className="demo-vatios"
-              type="range"
-              min={0}
-              max={450}
-              step={10}
-              value={demo.vatios}
-              onChange={(e) => demo.onCambiar(Number(e.target.value))}
-              aria-label="Vatios simulados"
-            />
-          )}
-        </div>
-        <div className="hud-par">
-          <span className="hud-etiqueta">medios</span>
-          <span className="hud-valor-peq">
-            {grabacion.potenciaMedia !== undefined ? Math.round(grabacion.potenciaMedia) : '--'} W
-          </span>
-        </div>
-        <div className="hud-separador" />
-        <div className="hud-dato">
-          <span className="hud-valor">
-            {yo.velocidad.toFixed(1).replace('.', ',')}
-            <small> km/h</small>
-          </span>
-          <span className="hud-etiqueta">velocidad</span>
-        </div>
-        <div className="hud-par">
-          <span className="hud-etiqueta">media</span>
-          <span className="hud-valor-peq">
-            {grabacion.velocidadMedia !== undefined ? grabacion.velocidadMedia.toFixed(1).replace('.', ',') : '--'} km/h
-          </span>
-        </div>
-        <div className="hud-separador" />
-        {yo.hayCadencia && (
-          <div className="hud-dato">
-            <span className="hud-valor">
-              {Math.round(yo.cadencia)}
-              <small> rpm</small>
-            </span>
-            <span className="hud-etiqueta">cadencia</span>
-          </div>
-        )}
-        <div className="hud-dato">
-          <span className="hud-valor pulso">
-            {yo.pulso ?? '--'}
-            <small> ppm</small>
-          </span>
-          <span className="hud-etiqueta">frecuencia cardiaca</span>
-        </div>
-      </div>
-
-      {entreno && <PanelEntreno e={entreno} potencia={yo.potencia} />}
-      </div>
+      {/* Zona central libre; el entrenamiento guiado va arriba a la izquierda, pegado a la barra */}
+      <div className="hud-medio">{entreno && <PanelEntreno e={entreno} potencia={yo.potencia} />}</div>
 
       {!grabacion.corriendo && !cargando && (
         <div className="recorrido-aviso">

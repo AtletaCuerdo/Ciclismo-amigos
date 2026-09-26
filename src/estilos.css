@@ -1225,8 +1225,8 @@ p {
 
 .hud-medio {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: flex-start;
+  align-items: flex-start;
   gap: 10px;
   min-height: 0;
 }
@@ -1240,12 +1240,47 @@ p {
   -webkit-backdrop-filter: blur(6px);
 }
 
+/* Barra superior: dos filas de datos a la izquierda y los botones a la derecha */
 .hud-arriba {
   display: flex;
   align-items: center;
-  gap: 8px 22px;
+  gap: 8px 18px;
+  padding: 6px 14px;
+}
+
+.hud-filas {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hud-fila {
+  display: flex;
+  align-items: flex-end;
   flex-wrap: wrap;
-  padding: 8px 14px;
+  gap: 2px 26px;
+}
+
+.hud-fila-2 {
+  align-items: baseline;
+  gap: 2px 20px;
+  padding-top: 3px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 13px;
+  color: var(--texto-suave);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.hud-fila-2 b {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--texto);
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .hud-botones {
@@ -1262,14 +1297,6 @@ p {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.25);
   color: #fff;
-}
-
-.hud-lateral {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px 16px;
-  min-width: 190px;
 }
 
 .hud-dato {
@@ -1291,35 +1318,16 @@ p {
   color: var(--texto-suave);
 }
 
-.hud-dato.grande .hud-valor {
-  font-size: 54px;
+.hud-dato.potencia .hud-valor {
+  font-size: 38px;
   color: #ff8a47;
 }
 
 .hud-etiqueta {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--texto-suave);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-}
-
-.hud-par {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.hud-valor-peq {
-  font-size: 20px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.hud-separador {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.15);
-  margin: 6px 0;
 }
 
 .hud-valor.pulso {
@@ -1327,20 +1335,19 @@ p {
 }
 
 .demo-vatios {
-  width: 170px;
-  height: 36px;
+  width: 150px;
+  height: 32px;
   accent-color: var(--acento);
-  margin-top: 4px;
+  align-self: center;
 }
 
-/* Entrenamiento guiado */
+/* Entrenamiento guiado (arriba a la izquierda, fuera del centro) */
 .hud-entreno {
-  align-self: flex-start;
-  width: min(460px, 58%);
-  padding: 12px 14px;
+  width: min(400px, 46%);
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .hud-entreno-cabecera {
@@ -1486,60 +1493,52 @@ p {
 }
 
 @media (max-width: 760px) {
+  .hud-arriba {
+    flex-wrap: wrap;
+    padding: 6px 10px;
+  }
+  .hud-botones {
+    order: -1;
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .hud-botones button {
+    min-height: 40px;
+    padding: 6px 12px;
+  }
+  .hud-fila {
+    gap: 2px 16px;
+  }
   .hud-valor {
     font-size: 22px;
   }
-  .hud-dato.grande .hud-valor {
-    font-size: 38px;
+  .hud-dato.potencia .hud-valor {
+    font-size: 28px;
   }
-  .hud-secundario {
-    display: none;
+  .hud-fila-2 {
+    font-size: 11px;
+    gap: 2px 12px;
   }
-  .hud-medio {
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: space-between;
-  }
-  .hud-lateral {
-    min-width: 0;
-    padding: 8px 12px;
-    order: 2;
-  }
-  .hud-valor-peq {
-    font-size: 16px;
+  .hud-fila-2 b {
+    font-size: 14px;
   }
   .perfil-cabecera {
     font-size: 12px;
   }
   .hud-entreno {
     width: 100%;
-    order: 1;
   }
   .hud-objetivo .hud-valor {
     font-size: 32px;
   }
 }
 
-/* Pantallas pequeñas: el panel de datos pasa a una fila para no salirse */
+/* Pantallas bajas: perfil más fino */
 @media (max-width: 900px), (max-height: 640px) {
-  .hud-lateral {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 6px 16px;
-  }
-  .hud-separador {
-    display: none;
-  }
-  .hud-par {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0;
-  }
-  .hud-dato.grande .hud-valor {
-    font-size: 38px;
-  }
   .perfil-grafica svg {
     height: 56px;
+  }
+  .hud-objetivo .hud-valor {
+    font-size: 32px;
   }
 }

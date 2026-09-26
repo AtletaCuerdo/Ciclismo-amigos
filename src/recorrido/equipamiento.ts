@@ -13,6 +13,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Casco } from './avatar';
+import { mallaGuardada } from './cacheMallas';
+import { libre, mallaSdf, smax } from './sdf';
 
 const GRADOS = Math.PI / 180;
 
@@ -162,9 +164,9 @@ const suave = (a: number, b: number, x: number) => THREE.MathUtils.smoothstep(x,
 
 const DEFS: Record<Casco, DefCasco> = {
   ruta: {
-    borde: [83, 96, 110],
-    holgura: 0.006,
-    grosor: 0.021,
+    borde: [84, 97, 113],
+    holgura: 0.004,
+    grosor: 0.019,
     // Cola trasera ligeramente apuntada y frente algo más plano
     extra: (d) => 0.016 * suave(0.35, 0.95, -d.z) * campana(d.y, -0.2, 0.4) * (1 - Math.abs(d.x)) - 0.004 * suave(0.6, 1, d.z),
     rejillas: [
@@ -183,7 +185,7 @@ const DEFS: Record<Casco, DefCasco> = {
       [33, -84, -34, 4, -3.5],
       [50, -66, -30, 3.2, -2.5],
     ],
-    banda: 7,
+    banda: 4,
   },
   clasico: {
     borde: [82, 96, 105],
@@ -361,36 +363,138 @@ export function geometriasCasco(clave: string, m: MedidasCabeza, tipo: Casco): G
   const k = `${clave}|${tipo}`;
   let g = cache.get(k);
   if (!g) {
-    g = construirGeometrias(m, tipo);
+    g = construirGeometrias(m, tipo, clave);
     cache.set(k, g);
   }
   return g;
 }
 
-function construirGeometrias(m: MedidasCabeza, tipo: Casco): GeometriasCasco {
+/**
+ * Carcasa del casco como sólido de verdad: capa entre el cráneo (con holgura) y la superficie
+ * exterior, borde inferior redondeado y rejillas que la atraviesan con los cantos suavizados.
+ * El atributo «zona» marca la espuma (paredes de las rejillas e interior), la banda inferior
+ * y el filete de color.
+ */
+function cascoSdf(m: MedidasCabeza, def: DefCasco): THREE.BufferGeometry {
+  const c = m.centro;
+  const dir = new THREE.Vector3();
+  const radios = (x: number, y: number, z: number) => {
+    const r = Math.hypot(x, y, z) || 1e-6;
+    dir.set(x / r, y / r, z / r);
+    const polar = Math.acos(THREE.MathUtils.clamp(dir.y, -1, 1));
+    const az = Math.atan2(dir.x, dir.z);
+    const borde = bordePolar(def, az);
+    const base = radioCraneo(m, dir) + def.holgura;
+    const extra = def.extra(dir);
+    const hb = THREE.MathUtils.smoothstep(polar / borde, 0.72, 1);
+    return { r, polar, borde, rin: base + extra * 0.35, rout: base + def.grosor * (1 - 0.45 * hb) + extra };
+  };
+  // Todo lo que depende solo de la dirección se tabula cada medio grado (acimut × polar)
+  const NA = 720;
+  const NP = 280; // hasta 140°
+  const tIn = new Float32Array((NA + 1) * (NP + 1));
+  const tOut = new Float32Array((NA + 1) * (NP + 1));
+  const tRej = new Float32Array((NA + 1) * (NP + 1));
+  const tBorde = new Float32Array(NA + 1);
+  for (let a = 0; a <= NA; a++) {
+    const az = (a / NA) * Math.PI * 2 - Math.PI;
+    tBorde[a] = bordePolar(def, az);
+    for (let p = 0; p <= NP; p++) {
+      const polar = (p / 2) * GRADOS;
+      direccion(az, polar, dir);
+      const { rin, rout } = radios(dir.x, dir.y, dir.z);
+      const n = a * (NP + 1) + p;
+      tIn[n] = rin;
+      tOut[n] = rout;
+      tRej[n] = def.rejillas.length ? distanciaRejillas(def, dir) * GRADOS : 1;
+    }
+  }
+  const campo = (px: number, py: number, pz: number) => {
+    const x = px - c.x;
+    const y = py - c.y;
+    const z = pz - c.z;
+    const r = Math.hypot(x, y, z) || 1e-6;
+    const polar = Math.acos(THREE.MathUtils.clamp(y / r, -1, 1));
+    const fa = ((Math.atan2(x, z) + Math.PI) / (Math.PI * 2)) * NA;
+    const fp = Math.min(NP - 0.001, (polar / GRADOS) * 2);
+    const a0 = Math.min(NA - 1, Math.floor(fa));
+    const p0 = Math.floor(fp);
+    const ta = fa - a0;
+    const tp = fp - p0;
+    const n = a0 * (NP + 1) + p0;
+    const bil = (t: Float32Array) =>
+      (t[n] * (1 - tp) + t[n + 1] * tp) * (1 - ta) + (t[n + NP + 1] * (1 - tp) + t[n + NP + 2] * tp) * ta;
+    const borde = tBorde[a0] * (1 - ta) + tBorde[a0 + 1] * ta;
+    const capa = Math.max(r - bil(tOut), bil(tIn) - r);
+    let f = smax(capa, (polar - borde) * r, 0.006);
+    if (f > 0.012 || !def.rejillas.length) return f;
+    f = smax(f, -bil(tRej) * r, 0.0045);
+    return f;
+  };
+  const e = m.ejes;
+  const h = Math.max(e.x, e.y, e.zd, e.zt) + def.grosor + 0.1;
+  const g = mallaSdf([libre(campo, [c.x - e.x - 0.05, c.y - 0.08, c.z - e.zt - 0.12], [c.x + e.x + 0.05, c.y + h, c.z + e.zd + 0.06])], {
+    paso: 0.0024,
+    atributo: (px, py, pz) => {
+      const { r, polar, borde, rout } = radios(px - c.x, py - c.y, pz - c.z);
+      // Piel exterior (lo demás es espuma: paredes de las rejillas, canto e interior)
+      const fuera = THREE.MathUtils.clamp((r - (rout - 0.004)) / 0.0025 + 0.5, 0, 1);
+      const w = 0.004 / r; // ancho del borde de color (rad)
+      const banda = def.banda ? THREE.MathUtils.clamp((polar - (borde - def.banda * GRADOS)) / w + 0.5, 0, 1) : 0;
+      const b0 = borde - def.banda * GRADOS - 0.035;
+      const filete = def.banda ? THREE.MathUtils.clamp(Math.min(polar - b0, b0 + 0.013 - polar) / w + 0.5, 0, 1) : 0;
+      return [1 - fuera, fuera * banda, fuera * filete * (1 - banda), 0];
+    },
+  });
+  return g;
+}
+
+/** Material de la carcasa SDF: pintura con barniz, espuma mate, banda negra y filete de color. */
+function materialCascoSdf(color: string, uniformes: Record<string, THREE.IUniform>) {
+  const mat = new THREE.MeshPhysicalMaterial({ color, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.04 });
+  mat.onBeforeCompile = (s) => {
+    Object.assign(s.uniforms, uniformes);
+    s.vertexShader = s.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec4 zona;\nvarying vec4 vZonaC;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvZonaC = zona;');
+    s.fragmentShader = s.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec4 vZonaC;\nuniform vec3 uAcento;')
+      .replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>
+        float zB = 1.0 - clamp( vZonaC.x + vZonaC.y + vZonaC.z, 0.0, 1.0 );
+        float zRugC = 0.3;
+        float zCapaC = 1.0;
+        float zM = zB;
+        if ( vZonaC.x > zM ) { zM = vZonaC.x; diffuseColor.rgb = vec3( 0.045, 0.047, 0.052 ); zRugC = 0.9; zCapaC = 0.0; }
+        if ( vZonaC.y > zM ) { zM = vZonaC.y; diffuseColor.rgb = vec3( 0.03 ); zRugC = 0.35; }
+        if ( vZonaC.z > zM ) { diffuseColor.rgb = uAcento; }`,
+      )
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = zRugC;')
+      .replace(
+        '#include <lights_physical_fragment>',
+        `#include <lights_physical_fragment>
+        #ifdef USE_CLEARCOAT
+          material.clearcoat *= zCapaC;
+        #endif`,
+      );
+  };
+  mat.customProgramCacheKey = () => 'casco-sdf-1';
+  return mat;
+}
+
+function construirGeometrias(m: MedidasCabeza, tipo: Casco, clave: string): GeometriasCasco {
   const def = DEFS[tipo];
   const nAz = 240;
   const nPolar = 72;
   // az de -π a π: la costura queda detrás, en el centro
   const az = (u: number) => (u - 0.5) * Math.PI * 2;
-  const exterior = superficie(nAz, nPolar, (u, v) => puntoCasco(m, def, az(u), v * bordePolar(def, az(u)), true), true);
-
-  let interior: THREE.BufferGeometry | null = null;
-  let borde: THREE.BufferGeometry | null = null;
-  if (!def.tela) {
-    interior = superficie(nAz, nPolar, (u, v) => puntoCasco(m, def, az(u), v * bordePolar(def, az(u)), false), true);
-    // Canto inferior: une la carcasa exterior con la interior, con un pequeño bisel
-    borde = superficie(
-      nAz,
-      3,
-      (u, v) => {
-        const a = az(u);
-        const p = bordePolar(def, a);
-        return puntoCasco(m, def, a, p, true).lerp(puntoCasco(m, def, a, p, false), v);
-      },
-      true,
-    );
-  }
+  // Los cascos rígidos son una sola pieza con grosor (campo de distancia); la gorra, una tela
+  const exterior = def.tela
+    ? superficie(nAz, nPolar, (u, v) => puntoCasco(m, def, az(u), v * bordePolar(def, az(u)), true), true)
+    : mallaGuardada(`casco|${clave}|${tipo}`, () => cascoSdf(m, def));
+  const interior: THREE.BufferGeometry | null = null;
+  const borde: THREE.BufferGeometry | null = null;
 
   let visera: THREE.BufferGeometry | null = null;
   if (tipo === 'clasico' || tipo === 'gorra') {
@@ -591,7 +695,7 @@ export class EquipoCabeza {
     };
 
     // Carcasa: pintura brillante con barniz (o tela en la gorra)
-    this.matCasco = new THREE.MeshPhysicalMaterial({
+    this.matCasco = def.tela ? new THREE.MeshPhysicalMaterial({
       color: colores.casco,
       roughness: def.tela ? 0.85 : 0.32,
       metalness: 0,
@@ -602,9 +706,11 @@ export class EquipoCabeza {
       sheenColor: new THREE.Color(0.5, 0.5, 0.5),
       side: THREE.DoubleSide,
       alphaToCoverage: true,
-    });
-    this.matCasco.onBeforeCompile = (s) => this.shaderCasco(s);
-    this.matCasco.customProgramCacheKey = () => 'casco-ciclista';
+    }) : materialCascoSdf(colores.casco, this.uniformes);
+    if (def.tela) {
+      this.matCasco.onBeforeCompile = (s) => this.shaderCasco(s);
+      this.matCasco.customProgramCacheKey = () => 'casco-ciclista';
+    }
     const exterior = new THREE.Mesh(g.exterior, this.matCasco);
     exterior.castShadow = true;
     this.grupo.add(exterior);
