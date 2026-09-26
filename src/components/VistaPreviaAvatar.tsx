@@ -91,6 +91,8 @@ export default function VistaPreviaAvatar({ avatar, className }: { avatar: Avata
       (suelo.material as THREE.Material).dispose();
       escena.environment?.dispose();
       renderer.dispose();
+      // Liberar el contexto ya (si no, en iPad se acumulan hasta que el sistema corta el 3D)
+      renderer.forceContextLoss();
       renderer.domElement.remove();
       ciclista.current = null;
     };

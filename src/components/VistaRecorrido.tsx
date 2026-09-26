@@ -167,8 +167,8 @@ export default function VistaRecorrido({
       try {
         const e = new EscenaRecorrido(contenedor.current!, avatarRef.current, () => leerRef.current(), calidadActual);
         e.onContextoPerdido = () => {
-          if (reinicios >= 2) {
-            setError('el dispositivo se ha quedado sin memoria gráfica varias veces');
+          if (reinicios >= 3) {
+            setError('el dispositivo se ha quedado sin memoria gráfica varias veces. Cierra otras pestañas o apps y vuelve a entrar.');
             return;
           }
           setAviso('El dispositivo se quedó sin memoria gráfica: se ha reiniciado el recorrido en calidad media.');
@@ -176,10 +176,16 @@ export default function VistaRecorrido({
         };
         escena.current = e;
       } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
+        // Suele pasar si el sistema aún no ha liberado el 3D anterior: se reintenta un poco después
+        console.warn('No se pudo crear la escena', e);
+        if (reinicios < 3) {
+          setReinicios((n) => n + 1);
+          return;
+        }
+        setError('el navegador no deja usar el 3D ahora mismo. Cierra otras pestañas o apps y vuelve a entrar.');
       }
       setCargando(false);
-    }, 50);
+    }, reinicios > 0 ? 1500 : 50); // tras un corte, dar tiempo a que se libere la memoria
     return () => {
       clearTimeout(id);
       escena.current?.destruir();

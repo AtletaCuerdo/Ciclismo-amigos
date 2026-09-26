@@ -1764,6 +1764,8 @@ export class EscenaRecorrido {
     this.atlasImpostores?.dispose();
     this.impostor?.planos.dispose();
     this.renderer.dispose();
+    // Liberar el contexto ya (si no, en iPad se acumulan hasta que el sistema corta el 3D)
+    this.renderer.forceContextLoss();
     this.renderer.domElement.remove();
   }
 }

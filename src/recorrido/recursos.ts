@@ -17,6 +17,31 @@ export interface ParteModelo {
 }
 
 const cacheModelos = new Map<string, Promise<ParteModelo[]>>();
+/** Texturas de los modelos por archivo de imagen (varios modelos usan la misma). */
+const texturasCompartidas = new Map<string, THREE.Texture>();
+
+/**
+ * Cada glTF crea su propia copia de las texturas aunque varios modelos usen la misma imagen
+ * (la corteza y las hojas se subían a la tarjeta gráfica hasta 10 veces, unos 230 MB de más).
+ * Aquí se sustituye cada textura por la primera cargada de ese mismo archivo.
+ */
+function compartirTexturas(material: THREE.MeshStandardMaterial) {
+  for (const clave of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap'] as const) {
+    const t = material[clave];
+    if (!t) continue;
+    const img = t.image as { src?: string; currentSrc?: string } | undefined;
+    const archivo = (img?.currentSrc || img?.src || t.name || '').split('/').pop();
+    if (!archivo) continue;
+    const id = `${archivo}|${t.colorSpace}|${t.flipY}`;
+    const previa = texturasCompartidas.get(id);
+    if (previa) {
+      if (previa !== t) {
+        material[clave] = previa;
+        t.dispose();
+      }
+    } else texturasCompartidas.set(id, t);
+  }
+}
 const cacheTexturas = new Map<string, Promise<THREE.Texture>>();
 const cacheCielo = new Map<string, Promise<THREE.DataTexture>>();
 
@@ -73,6 +98,7 @@ export function cargarModelo(nombre: string): Promise<ParteModelo[]> {
             }
           }
           const material = o.material as THREE.MeshStandardMaterial;
+          compartirTexturas(material);
           material.roughness = 0.9;
           material.envMapIntensity = 0.6;
           // La textura de las rocas es muy oscura: a pleno sol parecían manchas negras
@@ -95,7 +121,6 @@ export function cargarModelo(nombre: string): Promise<ParteModelo[]> {
   return p;
 }
 
-/** Textura de la carpeta texturas/ con repetición activada. */
 let ktx2: KTX2Loader | null = null;
 
 /**
