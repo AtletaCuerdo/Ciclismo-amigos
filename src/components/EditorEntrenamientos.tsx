@@ -118,7 +118,7 @@ export function EditorEntrenamientos({
       if (compartidos.has(e.id)) await onDejarDeCompartir(e);
       else {
         await onCompartir(e);
-        setAviso(`«${e.nombre}» ya está en «De mis amigos» para todo el grupo.`);
+        setAviso(`«${e.nombre}» ya está en «Compartidos» para todo el grupo.`);
       }
     } catch (err) {
       setAviso(err instanceof Error ? err.message : String(err));
@@ -138,7 +138,7 @@ export function EditorEntrenamientos({
         </div>
         <p className="detalle">
           Tus entrenamientos aparecen también en su categoría de «Entrenamientos» (marcados como «Mío»). Con «Compartir» los
-          verán tus amigos en «Entrenamientos → De mis amigos».
+          verá todo el grupo en «Entrenamientos → Compartidos».
         </p>
         {aviso && <p className="aviso-compartir">{aviso}</p>}
         <button className="boton-principal" onClick={() => setEditando(NUEVO())}>

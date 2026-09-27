@@ -241,8 +241,9 @@ export default function App() {
   const [enRecorrido, setEnRecorrido] = useState(false);
   // Entrenamientos compartidos por el grupo (se leen al entrar en entrenamientos o al rodar)
   const compartidos = useCompartidos(pantalla === 'entrenamientos' || pantalla === 'crear' || enRecorrido);
+  // Los compartidos por mí ya están en «propios»: no se repiten
   const todosLosEntrenos = useMemo(
-    () => [...CATALOGO, ...propios, ...compartidos.amigos],
+    () => [...CATALOGO, ...propios, ...compartidos.amigos.filter((e) => !e.deAmigo?.mio)],
     [propios, compartidos.amigos],
   );
   const enRecorridoRef = useRef(false);

@@ -25,7 +25,7 @@ interface Props {
   onGuardarCopia: (e: Entrenamiento) => void;
 }
 
-const AMIGOS = { nombre: '👥 De mis amigos', descripcion: 'Los entrenamientos que ha compartido tu grupo', color: '#ff6a1a' };
+const AMIGOS = { nombre: '👥 Compartidos', descripcion: 'Los entrenamientos que ha compartido el grupo, también los tuyos', color: '#ff6a1a' };
 
 /** Categorías → lista de entrenamientos → ficha con «Empezar». */
 export function PantallaEntrenamientos({
@@ -55,7 +55,7 @@ export function PantallaEntrenamientos({
         onEmpezar={() => onEmpezar(elegido)}
         onVolver={() => setElegido(null)}
         volverA={categoria === 'amigos' ? AMIGOS.nombre : undefined}
-        onGuardarCopia={elegido.deAmigo ? () => onGuardarCopia(elegido) : undefined}
+        onGuardarCopia={elegido.deAmigo && !elegido.deAmigo.mio ? () => onGuardarCopia(elegido) : undefined}
       />
     );
   }
@@ -75,7 +75,7 @@ export function PantallaEntrenamientos({
         {deCategoria.length === 0 && (
           <p className="vacio">
             {categoria === 'amigos'
-              ? 'Tus amigos aún no han compartido ninguno. Comparte los tuyos desde «Crea tus entrenamientos».'
+              ? 'Aún no hay ninguno compartido. Comparte los tuyos desde «Crea tus entrenamientos».'
               : 'Todavía no hay entrenamientos en esta categoría.'}
           </p>
         )}
@@ -87,7 +87,9 @@ export function PantallaEntrenamientos({
                 <div className="tarjeta-entreno-cabecera">
                   <strong>{e.nombre}</strong>
                   {e.propio && <span className="insignia-propio">Mío</span>}
-                  {e.deAmigo && <span className="insignia-compartido">de {e.deAmigo.autor}</span>}
+                  {e.deAmigo && (
+                    <span className="insignia-compartido">{e.deAmigo.mio ? 'Tuyo' : `de ${e.deAmigo.autor}`}</span>
+                  )}
                 </div>
                 <GraficaEntrenamiento tramos={tramos} alto={46} />
                 <div className="tarjeta-entreno-datos">
@@ -169,7 +171,7 @@ function FichaEntrenamiento({
       </div>
       {entreno.deAmigo && (
         <p className="detalle">
-          Compartido por <strong>{entreno.deAmigo.autor}</strong> · {cat?.nombre}
+          Compartido por <strong>{entreno.deAmigo.mio ? 'ti' : entreno.deAmigo.autor}</strong> · {cat?.nombre}
         </p>
       )}
       <p>{entreno.descripcion}</p>

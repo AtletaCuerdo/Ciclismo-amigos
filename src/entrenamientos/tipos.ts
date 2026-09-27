@@ -41,8 +41,8 @@ export interface Entrenamiento {
   bloques: Bloque[];
   /** true si lo ha creado el usuario (se guarda en su navegador). */
   propio?: boolean;
-  /** Compartido por un amigo (llega de la nube; se puede guardar una copia en los míos). */
-  deAmigo?: { autor: string; clave: string; t: number };
+  /** Compartido con el grupo (llega de la nube). `mio`: lo compartí yo; si no, se puede guardar una copia. */
+  deAmigo?: { autor: string; clave: string; t: number; mio?: boolean };
   /** Tests: el FTP estimado es `factor` × la mejor media de `ventanaS` segundos. */
   estimaFtp?: { ventanaS: number; factor: number; texto: string };
 }

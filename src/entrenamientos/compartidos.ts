@@ -49,8 +49,8 @@ function validar(x: unknown): Entrenamiento | null {
 }
 
 /**
- * Lista en directo de los entrenamientos compartidos y funciones para compartir los míos.
- * Los de los demás llegan con `deAmigo`; los que he compartido yo, en `misCompartidos` (ids).
+ * Lista en directo de todos los entrenamientos compartidos (también los míos, con `deAmigo.mio`)
+ * y funciones para compartir los míos. Los ids de los que he compartido yo van en `misCompartidos`.
  */
 export function useCompartidos(activo: boolean) {
   const [amigos, setAmigos] = useState<Entrenamiento[]>([]);
@@ -81,14 +81,16 @@ export function useCompartidos(activo: boolean) {
                 return;
               }
               const idOriginal = (datos as { id?: unknown })?.id;
-              if (v.autorUid === yo.uid) {
-                if (typeof idOriginal === 'string') mios.add(idOriginal);
-                return;
-              }
+              const mio = v.autorUid === yo.uid;
+              if (mio && typeof idOriginal === 'string') mios.add(idOriginal);
               const e = validar(datos);
               if (!e) return;
               const clave = hijo.key as string;
-              lista.push({ ...e, id: `amigo-${clave}`, deAmigo: { autor: String(v.autor), clave, t: Number(v.t) || 0 } });
+              lista.push({
+                ...e,
+                id: `amigo-${clave}`,
+                deAmigo: { autor: String(v.autor), clave, t: Number(v.t) || 0, ...(mio ? { mio: true } : {}) },
+              });
             });
             lista.sort((a, b) => (b.deAmigo?.t ?? 0) - (a.deAmigo?.t ?? 0));
             setAmigos(lista);
