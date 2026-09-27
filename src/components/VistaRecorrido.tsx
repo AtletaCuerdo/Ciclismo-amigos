@@ -133,6 +133,8 @@ const xPerfil = (s: number) => (enVuelta(s) / LONGITUD_VUELTA_M) * ANCHO_PERFIL;
 const yPerfil = (h: number) =>
   ALTO_PERFIL - 8 - ((h - ALTITUD_MIN) / (ALTITUD_MAX - ALTITUD_MIN)) * (ALTO_PERFIL - 30);
 
+const CLAVE_PERFIL = 'rodillos.perfilVuelta';
+
 const km = (m: number, dec = 1) => (m / 1000).toFixed(dec).replace('.', ',');
 
 export default function VistaRecorrido({
@@ -215,6 +217,24 @@ export default function VistaRecorrido({
     return `M0,${ALTO_PERFIL} L${puntos.join(' L')} L${ANCHO_PERFIL},${ALTO_PERFIL} Z`;
   }, []);
 
+  // Perfil pequeño en la esquina o ampliado a lo ancho (se recuerda en este navegador)
+  const [perfilGrande, setPerfilGrande] = useState(() => {
+    try {
+      return localStorage.getItem(CLAVE_PERFIL) === 'grande';
+    } catch {
+      return false;
+    }
+  });
+  const cambiarPerfil = () =>
+    setPerfilGrande((g) => {
+      try {
+        localStorage.setItem(CLAVE_PERFIL, g ? 'pequeno' : 'grande');
+      } catch {
+        // sin almacenamiento: solo dura esta sesión
+      }
+      return !g;
+    });
+
   const yo = leerYo();
   const pend = pendiente(yo.distancia);
   const vuelta = Math.floor(yo.distancia / LONGITUD_VUELTA_M) + 1;
@@ -296,16 +316,18 @@ export default function VistaRecorrido({
               <b>{formatearTiempo(grabacion.segundos)}</b> tiempo
             </span>
             <span>
-              <b>{km(grabacion.distanciaM, 2)} km</b> · vuelta {vuelta} ({km(enVuelta(yo.distancia))}/
-              {LONGITUD_VUELTA_M / 1000})
+              <b>{km(grabacion.distanciaM, 2)} km</b>
+              <span className="hud-vuelta">
+                {' '}· vuelta {vuelta} ({km(enVuelta(yo.distancia))}/{LONGITUD_VUELTA_M / 1000})
+              </span>
             </span>
             <span>
               <b>{Math.round(grabacion.desnivelM)} m</b> desnivel +
             </span>
-            <span>
+            <span className="hud-media">
               <b>{grabacion.potenciaMedia !== undefined ? Math.round(grabacion.potenciaMedia) : '--'} W</b> media
             </span>
-            <span>
+            <span className="hud-media">
               <b>
                 {grabacion.velocidadMedia !== undefined ? grabacion.velocidadMedia.toFixed(1).replace('.', ',') : '--'}{' '}
                 km/h
@@ -347,24 +369,39 @@ export default function VistaRecorrido({
         </div>
       )}
 
-      {/* Perfil de la vuelta: recorrido hecho sombreado, tu posición y la de los demás */}
-      <div className="hud hud-perfil">
+      {/* Perfil de la vuelta (pequeño, en la esquina; al tocarlo se amplía a lo ancho):
+          recorrido hecho sombreado, tu posición y la de los demás */}
+      <div
+        className={`hud hud-perfil ${perfilGrande ? 'grande' : ''}`}
+        role="button"
+        tabIndex={0}
+        title={perfilGrande ? 'Toca para reducir el perfil' : 'Toca para ampliar el perfil'}
+        onClick={cambiarPerfil}
+        onKeyDown={(ev) => (ev.key === 'Enter' || ev.key === ' ') && cambiarPerfil()}
+      >
         <div className="perfil-cabecera">
           <span>
             {subidas.actual ? (
               <>
-                <strong className="subiendo">Subiendo:</strong> quedan {Math.round(subidas.actual.quedanM)} m de subida en{' '}
+                <strong className="subiendo">Subiendo:</strong> {Math.round(subidas.actual.quedanM)} m en{' '}
                 {km(subidas.actual.quedanDistancia)} km
               </>
-            ) : (
+            ) : perfilGrande ? (
               <>
                 <strong>Próxima subida</strong> en {km(subidas.proxima.distancia)} km: +{subidas.proxima.desnivel} m en{' '}
                 {km(subidas.proxima.longitud)} km ({subidas.proxima.pendienteMedia.toFixed(1).replace('.', ',')} % media)
               </>
+            ) : (
+              <>
+                <strong>Subida</strong> en {km(subidas.proxima.distancia)} km: +{subidas.proxima.desnivel} m ·{' '}
+                {subidas.proxima.pendienteMedia.toFixed(1).replace('.', ',')} %
+              </>
             )}
           </span>
           <span>
-            Quedan <strong>{Math.round(subidas.quedanVuelta)} m</strong> de subida en esta vuelta
+            {perfilGrande ? 'Quedan ' : ''}
+            <strong>{Math.round(subidas.quedanVuelta)} m</strong>
+            {perfilGrande ? ' de subida en esta vuelta' : ' ↑ en la vuelta'}
           </span>
         </div>
         <div className="perfil-grafica">
@@ -411,9 +448,10 @@ export default function VistaRecorrido({
           />
         </div>
         <div className="perfil-texto">
-          Vuelta de {LONGITUD_VUELTA_M / 1000} km · {DESNIVEL_VUELTA_M} m de desnivel
-          {rodilloControlado && (entreno ? ' · rodillo en modo ERG' : ' · el rodillo sigue la pendiente')}
-          {!enSalida && ' · únete a la «Salida en grupo» para ver a tus amigos'}
+          {perfilGrande ? 'Vuelta de ' : ''}
+          {LONGITUD_VUELTA_M / 1000} km · {DESNIVEL_VUELTA_M} m{perfilGrande ? ' de desnivel' : ' ↑'}
+          {rodilloControlado && (entreno ? ' · ERG' : ' · el rodillo sigue la pendiente')}
+          {perfilGrande && !enSalida && ' · únete a la «Salida en grupo» para ver a tus amigos'}
         </div>
       </div>
       </div>

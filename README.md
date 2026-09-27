@@ -150,9 +150,11 @@ Botón **Entrar al recorrido**: escena 3D a pantalla completa con el ciclista en
 - **Modo demostración**: casilla para simular vatios sin rodillo, con un deslizador en pantalla.
 - Los demás ciclistas de la *Salida en grupo* aparecen en la carretera con su nombre y avatar.
 - **Marcador**: tiempo, distancia, pendiente, desnivel, vatios y vatios medios, velocidad y
-  velocidad media, cadencia (solo si algún sensor la envía) y frecuencia cardiaca.
-- **Perfil de la vuelta**: tramo recorrido sombreado, línea de posición, subidas marcadas,
-  metros de subida que quedan en la vuelta y distancia a la próxima subida.
+  velocidad media, cadencia (solo si algún sensor la envía) y frecuencia cardiaca, en la barra
+  superior (dos filas). Con el móvil en horizontal va todo en una sola fila, sin las medias.
+- **Perfil de la vuelta**: pequeño en la esquina inferior derecha; al tocarlo se amplía a lo
+  ancho (se recuerda en el navegador). Tramo recorrido sombreado, línea de posición, subidas
+  marcadas, metros de subida que quedan en la vuelta y distancia a la próxima subida.
 - **Escenario**: cielo fotográfico (4k en calidad alta), sombras, campos de cultivo con manchas
   de hierba seca y tierra, lago, pinos, árboles frondosos y retorcidos, arbustos, rocas, helechos,
   setas, hierba y flores que se mueven con el viento, arcenes de grava, casas de campo, vallas,

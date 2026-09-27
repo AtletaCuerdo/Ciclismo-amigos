@@ -1409,16 +1409,33 @@ p {
   fill: rgba(0, 0, 0, 0.35);
 }
 
-/* Perfil de la vuelta */
+/* Perfil de la vuelta: pequeño en la esquina inferior derecha; al tocarlo, a lo ancho */
 .hud-perfil {
+  justify-self: end;
+  width: min(360px, 44vw);
+  padding: 6px 10px 5px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hud-perfil.grande {
+  justify-self: stretch;
+  width: auto;
   padding: 8px 12px 6px;
 }
 
 .perfil-cabecera {
   display: flex;
   justify-content: space-between;
-  gap: 6px 18px;
+  gap: 0 12px;
   flex-wrap: wrap;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.hud-perfil.grande .perfil-cabecera {
+  gap: 6px 18px;
   font-size: 15px;
   margin-bottom: 4px;
 }
@@ -1429,11 +1446,20 @@ p {
 
 .perfil-grafica {
   position: relative;
+  margin-top: 10px; /* sitio para las etiquetas de las subidas */
+}
+
+.hud-perfil.grande .perfil-grafica {
+  margin-top: 4px;
 }
 
 .perfil-grafica svg {
   display: block;
   width: 100%;
+  height: 50px;
+}
+
+.hud-perfil.grande .perfil-grafica svg {
   height: 76px;
 }
 
@@ -1461,17 +1487,21 @@ p {
 .perfil-etiqueta {
   position: absolute;
   transform: translate(-50%, -135%);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   color: #ffd6bd;
   white-space: nowrap;
   pointer-events: none;
 }
 
+.hud-perfil.grande .perfil-etiqueta {
+  font-size: 12px;
+}
+
 .perfil-punto {
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
   border: 2px solid #111;
@@ -1479,15 +1509,15 @@ p {
 }
 
 .perfil-punto.yo {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   background: var(--acento);
   border-color: #fff;
   box-shadow: 0 0 0 3px rgba(255, 106, 26, 0.35);
 }
 
 .perfil-texto {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--texto-suave);
   margin-top: 2px;
 }
@@ -1522,7 +1552,10 @@ p {
   .hud-fila-2 b {
     font-size: 14px;
   }
-  .perfil-cabecera {
+  .hud-perfil {
+    width: min(300px, 62vw);
+  }
+  .hud-perfil.grande .perfil-cabecera {
     font-size: 12px;
   }
   .hud-entreno {
@@ -1535,7 +1568,7 @@ p {
 
 /* Pantallas bajas: perfil más fino */
 @media (max-width: 900px), (max-height: 640px) {
-  .perfil-grafica svg {
+  .hud-perfil.grande .perfil-grafica svg {
     height: 56px;
   }
   .hud-objetivo .hud-valor {
@@ -1550,4 +1583,97 @@ p {
   transform: translateX(-50%);
   max-width: min(560px, calc(100% - 32px));
   font-size: 16px;
+}
+
+/* Móvil en horizontal: todo el marcador en una sola fila y el perfil aún más pequeño */
+@media (orientation: landscape) and (max-height: 520px) {
+  .hud-capa {
+    top: max(6px, env(safe-area-inset-top));
+    bottom: max(6px, env(safe-area-inset-bottom));
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    gap: 6px;
+  }
+  .hud-arriba {
+    flex-wrap: nowrap;
+    gap: 10px;
+    padding: 4px 10px;
+  }
+  .hud-filas {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 14px;
+  }
+  .hud-fila {
+    flex-wrap: nowrap;
+    gap: 12px;
+  }
+  .hud-fila-2 {
+    padding-top: 0;
+    padding-left: 12px;
+    border-top: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.18);
+    font-size: 9px;
+    gap: 10px;
+  }
+  .hud-fila-2 > span {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.05;
+  }
+  .hud-fila-2 b {
+    font-size: 15px;
+  }
+  .hud-vuelta,
+  .hud-media {
+    display: none !important;
+  }
+  .hud-valor {
+    font-size: 19px;
+  }
+  .hud-dato.potencia .hud-valor {
+    font-size: 24px;
+  }
+  .hud-etiqueta {
+    font-size: 9px;
+  }
+  .demo-vatios {
+    width: 80px;
+  }
+  .hud-botones {
+    order: 0;
+    width: auto;
+    gap: 6px;
+  }
+  .hud-botones button {
+    min-height: 34px;
+    padding: 4px 10px;
+    font-size: 14px;
+  }
+  .hud-perfil {
+    width: min(260px, 36vw);
+    padding: 4px 8px 3px;
+  }
+  .perfil-cabecera {
+    font-size: 10px;
+  }
+  .perfil-grafica svg,
+  .hud-perfil.grande .perfil-grafica svg {
+    height: 36px;
+  }
+  .perfil-texto {
+    display: none;
+  }
+  .hud-entreno {
+    width: min(340px, 45%);
+    padding: 6px 10px;
+    gap: 3px;
+  }
+  .hud-objetivo .hud-valor {
+    font-size: 26px;
+  }
+  .recorrido-aviso {
+    font-size: 16px;
+    padding: 10px 16px;
+  }
 }

@@ -48,9 +48,14 @@ tiene que llamarse dentro del propio clic.
 - `pruebas/`: páginas de prueba locales (en `.gitignore`), p. ej.
   `pruebas/ciclista.html?vista=lado|manos|pies|cockpit|bici|transmision|cabeza…&modelo=…&casco=…`.
 
-## Estado actual (2026-09-26)
+## Estado actual (2026-09-27)
 
-Publicado: commit `9d2cb19` (26-09-2026 por la noche):
+27-09: paso 3 del plan. Perfil de la vuelta pequeño en la esquina inferior derecha (al tocarlo
+se amplía; clave `rodillos.perfilVuelta`) y, con el móvil en horizontal (`max-height: 520px`),
+el marcador en una sola fila sin las medias ni el detalle de la vuelta.
+
+Antes (26-09): iPad (KTX2, límites iOS, recuperación del contexto WebGL), pantalla siempre
+encendida (NoSleep) y aerodinámica según bici, casco y ruedas. Commit `9d2cb19`:
 - Marcador del recorrido en la barra superior, en dos filas; el centro queda libre.
 - Bici nueva: geometría real (la rueda ya no toca el cuadro), cuadro y cockpit de una pieza
   con uniones suaves, logotipo en el diagonal, manetas, cadena de eslabones, discos perforados.
@@ -59,11 +64,12 @@ Publicado: commit `9d2cb19` (26-09-2026 por la noche):
 - Casco rígido de verdad (grosor, rejillas con paredes de espuma, banda fina) y zapatillas.
 - Generar las mallas cuesta unos 2-3 s la primera vez; luego se leen de IndexedDB.
 
-### Pendiente de probar
-- Rendimiento en iPad con Bluefy (fps y carga de unos 30 MB). En el navegador de escritorio de
-  Claude iba a unos 30 fps con cerca de 1 M de triángulos en calidad alta.
+### Probado
+- iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
 ### Próximos pasos
+- Paso 4 del plan: salto gráfico con modelos CC0/CC-BY (el usuario acepta CC-BY con una
+  pantalla de Créditos en Ajustes). Esperar a que dé la orden.
 - Cuentas de usuario e historial en Firebase.
 - Integración con Strava a través del NAS del amigo.
 - Compartir entre amigos los entrenamientos creados.
