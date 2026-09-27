@@ -17,6 +17,9 @@ directamente desde el navegador, rueda en un recorrido 3D o sigue entrenamientos
   diseños propios basados en los protocolos clásicos del entrenamiento por potencia. Cada
   entrenamiento se hace en el recorrido con el rodillo en **modo ERG** (potencia fija según el %
   de tu FTP). Sin rodillo inteligente, la web muestra los vatios objetivo para seguirlos a mano.
+- **Al terminar un entrenamiento** salen tres opciones: terminar y guardar, seguir rodando libre
+  (el rodillo vuelve a seguir la pendiente) o hacer otro entrenamiento sin salir. Todo se guarda
+  y se sube como una sola actividad. Rodando libre, el botón «📋 Entreno» permite empezar uno.
 - **Tests de FTP**: rampa (75 % del mejor minuto), rampa rápida de escalones de 30″ (72 % del
   mejor minuto), 20 minutos (95 % de la mejor media de 20′) y 2 × 8 minutos (90 % de la mejor
   media de 8′). En los tramos «a tope» de los tests de 20′ y 8′ se suelta el ERG y el rodillo

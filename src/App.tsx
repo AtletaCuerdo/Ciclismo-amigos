@@ -65,6 +65,8 @@ export interface EntrenoActivo {
   entreno: Entrenamiento;
   tramos: Tramo[];
   total: number;
+  /** Segundo de la grabación en el que empezó (se pueden encadenar varios en una sesión). */
+  inicioS: number;
 }
 
 const DATOS_VACIOS: Datos = { ftms: {}, pm: {}, csc: {}, hr: {} };
@@ -282,7 +284,7 @@ export default function App() {
   );
 
   // ---- Objetivo del entrenamiento guiado (W) ----
-  const objetivoPct = entrenoActivo ? potenciaEn(entrenoActivo.tramos, grabacion.segundos) : undefined;
+  const objetivoPct = entrenoActivo ? potenciaEn(entrenoActivo.tramos, grabacion.segundos - entrenoActivo.inicioS) : undefined;
   const objetivoW = objetivoPct !== undefined ? Math.round((objetivoPct * perfil.ftp) / 100) : undefined;
   const objetivoRef = useRef<number | undefined>(undefined);
   objetivoRef.current = objetivoW;
@@ -322,7 +324,7 @@ export default function App() {
       const rodillo = sensores.ftms;
       if (!rodillo.tieneControl) return;
       const activo = entrenoActivoRef.current;
-      const libre = activo ? tramoEn(activo.tramos, segundosRef.current)?.libre === true : false;
+      const libre = activo ? tramoEn(activo.tramos, segundosRef.current - activo.inicioS)?.libre === true : false;
       if (activo && !libre) {
         // Entrenamiento guiado: modo ERG (potencia fija), como mucho un envío por segundo
         pendienteEnviada = null;
@@ -378,8 +380,17 @@ export default function App() {
   }, []);
 
   // ---- Empezar, terminar y salir ----
+  // Lo hecho en la sesión actual: nombres de los entrenamientos (para el título en Strava)
+  // y el último test (para proponer el FTP aunque después se siga rodando)
+  const sesionRef = useRef<{ nombres: string[]; test?: Entrenamiento }>({ nombres: [] });
+  const apuntarEnSesion = (e: Entrenamiento) => {
+    sesionRef.current.nombres.push(e.nombre);
+    if (e.estimaFtp || e.categoria === 'test') sesionRef.current.test = e;
+  };
+
   const rodarLibre = () => {
     mantenerPantallaEncendida(); // dentro del clic: el navegador lo exige
+    sesionRef.current = { nombres: [] };
     setEntrenoActivo(null);
     setTerminado(null);
     setEnRecorrido(true);
@@ -388,14 +399,28 @@ export default function App() {
   const empezarEntreno = (e: Entrenamiento) => {
     const tramos = desplegar(e.bloques);
     mantenerPantallaEncendida();
-    setEntrenoActivo({ entreno: e, tramos, total: duracionTotal(tramos) });
+    sesionRef.current = { nombres: [] };
+    apuntarEnSesion(e);
+    setEntrenoActivo({ entreno: e, tramos, total: duracionTotal(tramos), inicioS: 0 });
     setTerminado(null);
     setEnRecorrido(true);
   };
 
+  /** Otro entrenamiento dentro de la misma sesión (todo acaba en una sola actividad). */
+  const encadenarEntreno = (e: Entrenamiento) => {
+    const tramos = desplegar(e.bloques);
+    apuntarEnSesion(e);
+    setEntrenoActivo({ entreno: e, tramos, total: duracionTotal(tramos), inicioS: grabacion.segundos });
+  };
+
+  /** Al acabar un entrenamiento, seguir rodando libre (el rodillo vuelve a seguir la pendiente). */
+  const seguirLibre = () => setEntrenoActivo(null);
+
   /** Guarda la sesión y vuelve al inicio con el resumen. */
   const terminar = async () => {
     const activo = entrenoActivo;
+    const sesion = sesionRef.current;
+    sesionRef.current = { nombres: [] };
     const entreno = grabacion.finalizar();
     soltarPantalla();
     setEnRecorrido(false);
@@ -403,12 +428,13 @@ export default function App() {
     setPantalla('inicio');
     if (!entreno) return;
     // Los tests creados por el usuario usan el cálculo del test de rampa
+    const test = activo?.entreno.categoria === 'test' || activo?.entreno.estimaFtp ? activo.entreno : sesion.test;
     const est =
-      activo?.entreno.estimaFtp ??
-      (activo?.entreno.categoria === 'test' ? { ventanaS: 60, factor: 0.75, texto: '75 % de tu mejor minuto' } : undefined);
+      test?.estimaFtp ??
+      (test?.categoria === 'test' ? { ventanaS: 60, factor: 0.75, texto: '75 % de tu mejor minuto' } : undefined);
     const w = est ? Math.round(mejorMedia(entreno, est.ventanaS) * est.factor) : 0;
     const ftpSugerido = est && w > 0 ? { w, texto: est.texto } : undefined;
-    const nombreEntreno = activo?.entreno.nombre;
+    const nombreEntreno = sesion.nombres.length ? [...new Set(sesion.nombres)].join(' + ') : undefined;
     setTerminado({ entreno, error: null, ftpSugerido, nombreEntreno });
     try {
       await guardarEntreno(entreno);
@@ -687,9 +713,18 @@ export default function App() {
             demo={usarDemo ? { vatios: demoVatios!, onCambiar: setDemoVatios } : null}
             entreno={
               entrenoActivo
-                ? { ...entrenoActivo, segundos: grabacion.segundos, objetivoW, ftp: perfil.ftp, erg: hayErg }
+                ? {
+                    ...entrenoActivo,
+                    segundos: grabacion.segundos - entrenoActivo.inicioS,
+                    objetivoW,
+                    ftp: perfil.ftp,
+                    erg: hayErg,
+                  }
                 : null
             }
+            entrenamientos={todosLosEntrenos}
+            onOtroEntreno={encadenarEntreno}
+            onSeguirLibre={seguirLibre}
             onTerminar={() => void terminar()}
             onSalir={salirRecorrido}
           />

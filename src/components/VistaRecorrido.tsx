@@ -16,7 +16,8 @@ import {
   infoSubidas,
   pendiente,
 } from '../recorrido/perfil';
-import type { Tramo } from '../entrenamientos/tipos';
+import type { Entrenamiento, Tramo } from '../entrenamientos/tipos';
+import { SelectorEntreno } from './SelectorEntreno';
 import { GraficaEntrenamiento } from './GraficaEntrenamiento';
 import { formatearTiempo } from './Metrica';
 import { mantenerPantallaEncendida } from '../pantallaEncendida';
@@ -58,6 +59,12 @@ interface Props {
     ftp: number;
     erg: boolean;
   } | null;
+  /** Todos los entrenamientos (para elegir otro sin salir del recorrido). */
+  entrenamientos: Entrenamiento[];
+  /** Empieza otro entrenamiento en la misma sesión (se guarda todo como una sola actividad). */
+  onOtroEntreno: (e: Entrenamiento) => void;
+  /** Deja el entrenamiento y sigue rodando libre. */
+  onSeguirLibre: () => void;
   onTerminar: () => void;
   onSalir: () => void;
 }
@@ -88,7 +95,7 @@ function PanelEntreno({ e, potencia }: { e: NonNullable<Props['entreno']>; poten
         </span>
       </div>
       {acabado ? (
-        <div className="hud-entreno-fin">¡Entrenamiento completado! Pulsa «Terminar» para guardarlo.</div>
+        <div className="hud-entreno-fin">¡Entrenamiento completado!</div>
       ) : (
         actual && (
           <div className="hud-entreno-datos">
@@ -147,9 +154,15 @@ export default function VistaRecorrido({
   rodilloControlado,
   demo,
   entreno,
+  entrenamientos,
+  onOtroEntreno,
+  onSeguirLibre,
   onTerminar,
   onSalir,
 }: Props) {
+  // Elegir entrenamiento sin salir: al acabar uno o mientras se rueda libre
+  const [eligiendo, setEligiendo] = useState(false);
+  const acabado = entreno !== null && entreno.segundos >= entreno.total;
   const contenedor = useRef<HTMLDivElement>(null);
   const escena = useRef<EscenaRecorrido | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -349,6 +362,11 @@ export default function VistaRecorrido({
           >
             {grabacion.corriendo ? 'Pausa' : grabacion.hayDatos ? 'Seguir' : 'Empezar'}
           </button>
+          {!entreno && (
+            <button className="boton-secundario" onClick={() => setEligiendo(true)} title="Hacer un entrenamiento guiado sin salir">
+              📋 Entreno
+            </button>
+          )}
           {grabacion.hayDatos && (
             <button className="boton-principal boton-finalizar" onClick={onTerminar}>
               Terminar
@@ -362,6 +380,37 @@ export default function VistaRecorrido({
 
       {/* Zona central libre; el entrenamiento guiado va arriba a la izquierda, pegado a la barra */}
       <div className="hud-medio">{entreno && <PanelEntreno e={entreno} potencia={yo.potencia} />}</div>
+
+      {/* Al completar un entrenamiento: terminar, seguir libre o encadenar otro */}
+      {acabado && !eligiendo && (
+        <div className="fin-entreno">
+          <strong>¡{entreno.entreno.nombre} completado!</strong>
+          <span>¿Qué quieres hacer ahora?</span>
+          <div className="fin-entreno-botones">
+            <button className="boton-principal boton-finalizar" onClick={onTerminar}>
+              ✅ Terminar y guardar
+            </button>
+            <button className="boton-secundario" onClick={onSeguirLibre}>
+              🚴 Seguir rodando libre
+            </button>
+            <button className="boton-secundario" onClick={() => setEligiendo(true)}>
+              ➕ Hacer otro entrenamiento
+            </button>
+          </div>
+          <small>Si sigues, todo se guardará y subirá como una sola actividad.</small>
+        </div>
+      )}
+      {eligiendo && (
+        <SelectorEntreno
+          entrenamientos={entrenamientos}
+          titulo={entreno ? 'Elige el siguiente entrenamiento' : 'Elige un entrenamiento'}
+          onElegir={(e) => {
+            setEligiendo(false);
+            onOtroEntreno(e);
+          }}
+          onCancelar={() => setEligiendo(false)}
+        />
+      )}
 
       {!grabacion.corriendo && !cargando && (
         <div className="recorrido-aviso">

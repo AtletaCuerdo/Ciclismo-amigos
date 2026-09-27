@@ -1775,3 +1775,118 @@ p {
   color: #1f8a4c;
   font-weight: 600;
 }
+
+/* Fin de un entrenamiento: terminar, seguir libre u otro entrenamiento */
+.fin-entreno {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(560px, calc(100% - 24px));
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 18px 14px;
+  text-align: center;
+  background: rgba(15, 17, 21, 0.88);
+  border-radius: 16px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 5;
+}
+.fin-entreno strong {
+  font-size: 22px;
+  color: #4ade80;
+}
+.fin-entreno-botones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 6px 0 2px;
+}
+.fin-entreno-botones button {
+  min-height: 48px;
+}
+.fin-entreno small {
+  color: var(--texto-suave);
+}
+
+/* Selector de entrenamientos dentro del recorrido */
+.selector-entreno-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+.selector-entreno {
+  width: min(760px, calc(100% - 20px));
+  max-height: calc(100% - 30px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: rgba(15, 17, 21, 0.94);
+  color: var(--texto);
+  border-radius: 16px;
+}
+.selector-entreno-cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 18px;
+}
+.selector-categorias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.selector-categorias button {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 2px solid;
+  background: transparent;
+  color: var(--texto);
+  font-size: 13px;
+  cursor: pointer;
+}
+.selector-categorias button.activa {
+  color: #111;
+  font-weight: 700;
+}
+.selector-lista {
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+  padding-right: 4px;
+}
+.selector-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  color: var(--texto);
+  cursor: pointer;
+}
+.selector-tarjeta:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.selector-tarjeta-cabecera {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.selector-tarjeta-cabecera span {
+  font-size: 12px;
+  color: var(--texto-suave);
+}
