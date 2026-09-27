@@ -211,6 +211,13 @@ comparte**.
 > [`firebase/database.rules.json`](firebase/database.rules.json) en Realtime Database → Reglas;
 > si no, los demás te verán con colores por defecto (el resto funciona igual).
 
+### Cuentas de usuario
+
+Botón **👤 Entrar** (arriba): con **Google** o con **cualquier correo y contraseña** (Firebase
+Authentication). Con la sesión iniciada, el ciclista, el FTP y el peso, los entrenamientos propios y
+el historial se guardan también en la nube (`usuarios/{uid}` en la Realtime Database) y son los
+mismos en el PC, el iPad o el móvil. Al entrar se juntan lo del dispositivo y lo de la nube.
+
 ### Historial
 
 Totales acumulados (sesiones, horas, km, desnivel, kJ) y la lista de entrenamientos, con opción de

@@ -8,6 +8,9 @@ import { PanelStrava } from './components/Strava';
 import { PanelFtp } from './components/PanelFtp';
 import { procesarVueltaDeStrava } from './strava/strava';
 import { useInstalar } from './instalar';
+import { cargarFirebase, useUsuario } from './cuenta/cuenta';
+import { Nube, desactivarEspejo } from './cuenta/sincronizar';
+import { PantallaCuenta, type EstadoSync } from './components/PantallaCuenta';
 import { ControlesRodillo } from './components/ControlesRodillo';
 import { EditorAvatar } from './components/EditorAvatar';
 import { EditorEntrenamientos } from './components/EditorEntrenamientos';
@@ -52,7 +55,24 @@ const VistaPreviaAvatar = lazy(() => import('./components/VistaPreviaAvatar'));
 
 type Fuente = 'ftms' | 'pm' | 'csc' | 'hr';
 type NombreMetrica = 'potencia' | 'cadencia' | 'velocidad' | 'pulso';
-type Pantalla = 'inicio' | 'avatar' | 'entrenamientos' | 'crear' | 'historial' | 'ajustes';
+type Pantalla = 'inicio' | 'avatar' | 'entrenamientos' | 'crear' | 'historial' | 'ajustes' | 'cuenta';
+
+/** Momento del último cambio del perfil en este dispositivo (para saber cuál es más reciente). */
+const CLAVE_PERFIL_T = 'rodillos.perfil.t';
+const leerPerfilT = () => {
+  try {
+    return Number(localStorage.getItem(CLAVE_PERFIL_T)) || 0;
+  } catch {
+    return 0;
+  }
+};
+const guardarPerfilT = (t: number) => {
+  try {
+    localStorage.setItem(CLAVE_PERFIL_T, String(t));
+  } catch {
+    // no es grave
+  }
+};
 
 /** Un valor con la hora a la que llegó, para descartar datos viejos. */
 interface Lectura {
@@ -152,13 +172,68 @@ export default function App() {
     setCalidadEstado(c);
     guardarCalidad(c);
   };
+  // Con cuenta, los cambios del perfil se suben a la nube (agrupados: el FTP se teclea)
+  const nubeRef = useRef<Nube | null>(null);
+  const temporizadorPerfil = useRef<ReturnType<typeof setTimeout>>();
   const cambiarPerfil = (p: Perfil) => {
     setPerfilEstado(p);
     guardarPerfil(p);
+    guardarPerfilT(Date.now());
+    clearTimeout(temporizadorPerfil.current);
+    temporizadorPerfil.current = setTimeout(() => void nubeRef.current?.subirPerfil(p).catch(() => {}), 1500);
   };
 
   // ---- Entrenamientos ----
   const [propios, setPropios] = useState<Entrenamiento[]>(cargarPropios);
+  const cambiarPropios = (lista: Entrenamiento[]) => {
+    setPropios(lista);
+    guardarPropios(lista);
+    void nubeRef.current?.subirPropios(lista).catch(() => {});
+  };
+
+  // ---- Cuenta de usuario y sincronización con la nube ----
+  const { usuario, cargando: cargandoCuenta, refrescar: refrescarUsuario } = useUsuario();
+  const [sync, setSync] = useState<EstadoSync>({ tipo: 'nada' });
+  const perfilRef = useRef(perfil);
+  perfilRef.current = perfil;
+  const propiosRef = useRef(propios);
+  propiosRef.current = propios;
+  const sincronizar = async (uid: string) => {
+    setSync({ tipo: 'sincronizando' });
+    try {
+      const { fb } = await cargarFirebase();
+      const nube = new Nube(fb, uid);
+      const r = await nube.sincronizar({ perfil: perfilRef.current, perfilT: leerPerfilT(), propios: propiosRef.current });
+      if (r.perfil) {
+        setPerfilEstado(r.perfil);
+        guardarPerfil(r.perfil);
+      }
+      if (r.propios) {
+        setPropios(r.propios);
+        guardarPropios(r.propios);
+      }
+      if (r.historialCambiado || r.subidos) setVersionHistorial((v) => v + 1);
+      nube.activarEspejo();
+      nubeRef.current = nube;
+      setSync({ tipo: 'ok', subidos: r.subidos, bajados: r.bajados, hora: Date.now() });
+    } catch (e) {
+      const codigo = String((e as { code?: string })?.code ?? e);
+      setSync({
+        tipo: 'error',
+        texto: /permission/i.test(codigo) ? 'faltan las reglas nuevas de Firebase (Realtime Database → Reglas).' : String(e),
+      });
+    }
+  };
+  useEffect(() => {
+    if (!usuario) {
+      nubeRef.current = null;
+      desactivarEspejo();
+      setSync({ tipo: 'nada' });
+      return;
+    }
+    void sincronizar(usuario.uid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usuario?.uid]);
   const todosLosEntrenos = useMemo(() => [...CATALOGO, ...propios], [propios]);
   const [entrenoActivo, setEntrenoActivo] = useState<EntrenoActivo | null>(null);
 
@@ -476,6 +551,13 @@ export default function App() {
           <span className="marca-icono" aria-hidden>🚴</span> RideCrew
         </button>
         <div className="barra-acciones">
+          <button
+            className={`boton-secundario boton-cuenta ${usuario ? 'con-sesion' : ''}`}
+            onClick={() => setPantalla('cuenta')}
+            title={usuario ? `Sesión iniciada: ${usuario.email}` : 'Entra o crea tu cuenta'}
+          >
+            👤 {usuario ? usuario.nombre.split(' ')[0] : 'Entrar'}
+          </button>
           {instalacion.disponible && (
             <button
               className="boton-secundario boton-instalar"
@@ -514,6 +596,16 @@ export default function App() {
             />
           )}
 
+          {!cargandoCuenta && !usuario && (
+            <section className="aviso-cuenta">
+              <span>
+                <strong>Crea tu cuenta gratis</strong> y tendrás tu historial, tu ciclista y tu FTP en todos tus dispositivos.
+              </span>
+              <button className="boton-principal" onClick={() => setPantalla('cuenta')}>
+                Entrar o crear cuenta
+              </button>
+            </section>
+          )}
           <section className="inicio-cabecera">
             <div className="tarjeta-ciclista">
               <Suspense fallback={<div className="vista-previa-avatar pequena cargando">Cargando…</div>}>
@@ -632,11 +724,21 @@ export default function App() {
         <EditorEntrenamientos
           propios={propios}
           ftp={perfil.ftp}
-          onGuardar={(lista) => {
-            setPropios(lista);
-            guardarPropios(lista);
-          }}
+          onGuardar={cambiarPropios}
           onProbar={empezarEntreno}
+          onVolver={volver}
+        />
+      )}
+
+      {pantalla === 'cuenta' && (
+        <PantallaCuenta
+          usuario={usuario}
+          cargando={cargandoCuenta}
+          sync={sync}
+          onRefrescar={() => {
+            void refrescarUsuario();
+            if (usuario) void sincronizar(usuario.uid);
+          }}
           onVolver={volver}
         />
       )}

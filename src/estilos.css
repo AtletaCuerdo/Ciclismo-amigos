@@ -1925,3 +1925,125 @@ p {
   margin-right: 8px;
   vertical-align: -1px;
 }
+
+/* Cuenta de usuario */
+.boton-cuenta.con-sesion {
+  border-color: #1f8a4c;
+  color: #1f8a4c;
+  font-weight: 700;
+}
+.aviso-cuenta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin: 0 0 14px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: #fff4ec;
+  border: 1px solid #ffd2b3;
+}
+.panel-cuenta {
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.panel-cuenta p {
+  margin: 0;
+}
+.cuenta-usuario {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cuenta-usuario img,
+.cuenta-inicial {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+.cuenta-inicial {
+  display: grid;
+  place-items: center;
+  background: var(--acento);
+  color: #fff;
+  font-weight: 800;
+  font-size: 22px;
+}
+.cuenta-usuario div {
+  display: flex;
+  flex-direction: column;
+}
+.boton-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  border-radius: 10px;
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+}
+.boton-google span {
+  font-weight: 900;
+  color: #4285f4;
+  font-size: 20px;
+}
+.separador-cuenta {
+  text-align: center;
+  font-size: 13px;
+  color: #8a94a3;
+}
+.pestanas-cuenta {
+  display: flex;
+  gap: 6px;
+}
+.pestanas-cuenta button {
+  flex: 1;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid #d0d5dd;
+  background: transparent;
+  cursor: pointer;
+  font-weight: 600;
+}
+.pestanas-cuenta button.activa {
+  background: var(--acento);
+  border-color: var(--acento);
+  color: #fff;
+}
+.formulario-cuenta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.formulario-cuenta label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.formulario-cuenta input {
+  font: inherit;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #d0d5dd;
+}
+.enlace-boton {
+  background: none;
+  border: 0;
+  color: var(--acento);
+  text-decoration: underline;
+  cursor: pointer;
+  align-self: flex-start;
+  padding: 0;
+}
+.estado-sync {
+  font-weight: 600;
+}

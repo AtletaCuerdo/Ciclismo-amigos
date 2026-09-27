@@ -2,7 +2,8 @@
  * Historial guardado en el propio navegador (IndexedDB).
  * Los resúmenes y las muestras van en almacenes separados para que listar
  * el historial sea rápido aunque haya muchas horas grabadas.
- * Más adelante esto se sustituirá (o se sincronizará) con el servidor.
+ * Con una cuenta iniciada, cada cambio se copia también en la nube (ver cuenta/sincronizar.ts),
+ * que registra aquí su «espejo».
  */
 import type { Entreno, EntrenoGuardado, Muestra } from './tipos';
 
@@ -48,12 +49,25 @@ async function transaccion<T>(
   }
 }
 
-export async function guardarEntreno(e: Entreno) {
+/** Copia en la nube de lo que se guarda o borra aquí (null sin cuenta iniciada). */
+let espejo: { guardar: (e: Entreno) => Promise<void>; borrar: (id: string) => Promise<void> } | null = null;
+export function establecerEspejo(e: typeof espejo) {
+  espejo = e;
+}
+
+/** Guarda solo en este dispositivo (lo usa también la descarga desde la nube). */
+export async function guardarEntrenoLocal(e: Entreno) {
   const { muestras, ...resumen } = e;
   await transaccion([RESUMENES, MUESTRAS], 'readwrite', (tx) => {
     tx.objectStore(RESUMENES).put(resumen);
     tx.objectStore(MUESTRAS).put({ id: e.id, muestras });
   });
+}
+
+export async function guardarEntreno(e: Entreno) {
+  await guardarEntrenoLocal(e);
+  // Si falla la nube, queda guardado aquí y se subirá en la próxima sincronización
+  await espejo?.guardar(e).catch((err) => console.warn('No se pudo subir el entrenamiento a la nube', err));
 }
 
 export async function listarEntrenos(): Promise<EntrenoGuardado[]> {
@@ -77,6 +91,7 @@ export async function borrarEntreno(id: string) {
     tx.objectStore(RESUMENES).delete(id);
     tx.objectStore(MUESTRAS).delete(id);
   });
+  await espejo?.borrar(id).catch((err) => console.warn('No se pudo borrar de la nube', err));
 }
 
 export function nuevoId() {

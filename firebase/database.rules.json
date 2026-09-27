@@ -9,35 +9,111 @@
           "$uid": {
             ".write": "auth != null && auth.uid === $uid",
             ".validate": "newData.hasChildren(['nombre', 't'])",
-            "nombre": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30" },
-            "vatios": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3000" },
-            "velocidad": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 150" },
-            "cadencia": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 250" },
-            "distancia": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
-            "t": { ".validate": "newData.isNumber() && newData.val() <= now" },
-            "$otro": { ".validate": false }
+            "nombre": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+            },
+            "vatios": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3000"
+            },
+            "velocidad": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 150"
+            },
+            "cadencia": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 250"
+            },
+            "distancia": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000"
+            },
+            "t": {
+              ".validate": "newData.isNumber() && newData.val() <= now"
+            },
+            "$otro": {
+              ".validate": false
+            }
           }
         },
         "avatares": {
           "$uid": {
             ".write": "auth != null && auth.uid === $uid",
             ".validate": "newData.hasChildren(['maillot', 'franja', 'culotte', 'casco', 'bici', 'piel'])",
-            "maillot": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
-            "franja": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
-            "culotte": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
-            "casco": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
-            "bici": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
-            "piel": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
-            "bici2": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
-            "modelo": { ".validate": "newData.val() === 'ruta' || newData.val() === 'aero' || newData.val() === 'escaladora' || newData.val() === 'cabra'" },
-            "ruedas": { ".validate": "newData.val() === 'bajo' || newData.val() === 'medio' || newData.val() === 'alto' || newData.val() === 'lenticular'" },
-            "sexo": { ".validate": "newData.val() === 'hombre' || newData.val() === 'mujer'" },
-            "pelo": { ".validate": "newData.val() === 'calvo' || newData.val() === 'rapado' || newData.val() === 'corto' || newData.val() === 'largo' || newData.val() === 'monos'" },
-            "colorPelo": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)" },
-            "barba": { ".validate": "newData.isBoolean()" },
-            "cascoModelo": { ".validate": "newData.val() === 'ruta' || newData.val() === 'aero' || newData.val() === 'clasico' || newData.val() === 'gorra'" },
-            "$otro": { ".validate": false }
+            "maillot": {
+              ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)"
+            },
+            "franja": {
+              ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)"
+            },
+            "culotte": {
+              ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)"
+            },
+            "casco": {
+              ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)"
+            },
+            "bici": {
+              ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)"
+            },
+            "piel": {
+              ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)"
+            },
+            "bici2": {
+              ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)"
+            },
+            "modelo": {
+              ".validate": "newData.val() === 'ruta' || newData.val() === 'aero' || newData.val() === 'escaladora' || newData.val() === 'cabra'"
+            },
+            "ruedas": {
+              ".validate": "newData.val() === 'bajo' || newData.val() === 'medio' || newData.val() === 'alto' || newData.val() === 'lenticular'"
+            },
+            "sexo": {
+              ".validate": "newData.val() === 'hombre' || newData.val() === 'mujer'"
+            },
+            "pelo": {
+              ".validate": "newData.val() === 'calvo' || newData.val() === 'rapado' || newData.val() === 'corto' || newData.val() === 'largo' || newData.val() === 'monos'"
+            },
+            "colorPelo": {
+              ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)"
+            },
+            "barba": {
+              ".validate": "newData.isBoolean()"
+            },
+            "cascoModelo": {
+              ".validate": "newData.val() === 'ruta' || newData.val() === 'aero' || newData.val() === 'clasico' || newData.val() === 'gorra'"
+            },
+            "$otro": {
+              ".validate": false
+            }
           }
+        }
+      }
+    },
+    "usuarios": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "perfil": {
+          ".validate": "newData.hasChildren(['avatar', 'pesoKg', 'ftp'])"
+        },
+        "propios": {
+          "$id": {
+            ".validate": "newData.hasChildren(['id', 'nombre', 'bloques'])"
+          }
+        },
+        "historial": {
+          "$id": {
+            ".validate": "newData.hasChildren(['id', 'inicio', 'resumen'])"
+          }
+        },
+        "muestras": {
+          "$id": {
+            ".validate": "newData.isString() && newData.val().length < 3000000"
+          }
+        },
+        "borrados": {
+          "$id": {
+            ".validate": "newData.isNumber()"
+          }
+        },
+        "$otro": {
+          ".validate": false
         }
       }
     }

@@ -37,6 +37,10 @@ tiene que llamarse dentro del propio clic.
   entrenamientos propios (`propios.ts`, se guardan en el navegador) y tipos.
 - `src/entrenamiento/`: grabación de la sesión, resumen, exportación TCX y almacén del historial.
 - `src/multijugador/`: Firebase y el hook `useSalida` para la salida en grupo.
+- `src/cuenta/`: cuentas (Firebase Auth: Google y correo/contraseña; la anónima sigue para la salida
+  en grupo) y sincronización «primero en local» en `usuarios/{uid}/…` (perfil, propios, historial,
+  muestras en texto y `borrados` para que lo borrado no vuelva). El historial local avisa a la nube
+  con `establecerEspejo` (almacen.ts). Pantalla: `components/PantallaCuenta.tsx`.
 - `src/strava/strava.ts` + `src/components/Strava.tsx`: subida automática a Strava (OAuth; cada
   ciclista guarda su refresh token en el navegador). Oculto mientras no existan
   `VITE_STRAVA_CLIENT_ID` y `VITE_STRAVA_INTERMEDIARIO` (irán en `.env.production`; no son secretos).
