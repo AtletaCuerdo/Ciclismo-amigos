@@ -4,6 +4,8 @@ import type { RangoPotencia } from './ble/parsers';
 import { bluetoothDisponible, type EventosSensor, type TipoLog } from './ble/SensorBle';
 import { AjustesSensorCsc } from './components/AjustesSensorCsc';
 import { Creditos } from './components/Creditos';
+import { PanelStrava } from './components/Strava';
+import { procesarVueltaDeStrava } from './strava/strava';
 import { ControlesRodillo } from './components/ControlesRodillo';
 import { EditorAvatar } from './components/EditorAvatar';
 import { EditorEntrenamientos } from './components/EditorEntrenamientos';
@@ -119,7 +121,22 @@ export default function App() {
   // Vatios simulados para probar sin rodillo (null = desactivado)
   const [demoVatios, setDemoVatios] = useState<number | null>(null);
   // Último entrenamiento finalizado (se muestra su resumen) y si falló al guardarse
-  const [terminado, setTerminado] = useState<{ entreno: Entreno; error: string | null; ftpSugerido?: FtpSugerido } | null>(null);
+  const [terminado, setTerminado] = useState<{
+    entreno: Entreno;
+    error: string | null;
+    ftpSugerido?: FtpSugerido;
+    nombreEntreno?: string;
+  } | null>(null);
+  // Mensaje al volver de la página de permisos de Strava
+  const [avisoStrava, setAvisoStrava] = useState<string | null>(null);
+  useEffect(() => {
+    void procesarVueltaDeStrava().then((m) => {
+      if (m) {
+        setAvisoStrava(m);
+        setPantalla('ajustes');
+      }
+    });
+  }, []);
   const [versionHistorial, setVersionHistorial] = useState(0);
   // Pendiente simulada (null = no hay modo pendiente activo)
   const pendienteRef = useRef<number | null>(null);
@@ -390,12 +407,13 @@ export default function App() {
       (activo?.entreno.categoria === 'test' ? { ventanaS: 60, factor: 0.75, texto: '75 % de tu mejor minuto' } : undefined);
     const w = est ? Math.round(mejorMedia(entreno, est.ventanaS) * est.factor) : 0;
     const ftpSugerido = est && w > 0 ? { w, texto: est.texto } : undefined;
-    setTerminado({ entreno, error: null, ftpSugerido });
+    const nombreEntreno = activo?.entreno.nombre;
+    setTerminado({ entreno, error: null, ftpSugerido, nombreEntreno });
     try {
       await guardarEntreno(entreno);
       setVersionHistorial((v) => v + 1);
     } catch (e) {
-      setTerminado({ entreno, error: e instanceof Error ? e.message : String(e), ftpSugerido });
+      setTerminado({ entreno, error: e instanceof Error ? e.message : String(e), ftpSugerido, nombreEntreno });
     }
   };
 
@@ -450,6 +468,7 @@ export default function App() {
               errorGuardado={terminado.error}
               ftpSugerido={terminado.ftpSugerido}
               ftpActual={perfil.ftp}
+              nombreEntreno={terminado.nombreEntreno}
               onAceptarFtp={(w) => cambiarPerfil({ ...perfil, ftp: w })}
               onCerrar={() => setTerminado(null)}
             />
@@ -601,6 +620,12 @@ export default function App() {
             </button>
             <h2>Ajustes</h2>
           </div>
+          {avisoStrava && (
+            <div className="aviso aviso-strava" onClick={() => setAvisoStrava(null)}>
+              {avisoStrava}
+            </div>
+          )}
+          <PanelStrava />
           <section className="panel">
             <h2>Gráficos del recorrido</h2>
             <label className="selector-calidad">

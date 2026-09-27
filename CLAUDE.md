@@ -35,6 +35,11 @@ tiene que llamarse dentro del propio clic.
   entrenamientos propios (`propios.ts`, se guardan en el navegador) y tipos.
 - `src/entrenamiento/`: grabación de la sesión, resumen, exportación TCX y almacén del historial.
 - `src/multijugador/`: Firebase y el hook `useSalida` para la salida en grupo.
+- `src/strava/strava.ts` + `src/components/Strava.tsx`: subida automática a Strava (OAuth; cada
+  ciclista guarda su refresh token en el navegador). Oculto mientras no existan
+  `VITE_STRAVA_CLIENT_ID` y `VITE_STRAVA_INTERMEDIARIO` (irán en `.env.production`; no son secretos).
+- `servidor-strava/`: intermediario para Cloudflare Workers (`worker.js`, guarda el Client Secret)
+  y `GUIA.md` con los pasos que hace el usuario (aplicación en Strava + Worker).
 - `src/components/`: pantallas y paneles de React.
 - `firebase/database.rules.json`: reglas de la Realtime Database. Si cambian, el usuario tiene
   que pegarlas a mano en la consola de Firebase.
@@ -72,6 +77,11 @@ encendida (NoSleep) y aerodinámica según bici, casco y ruedas. Commit `9d2cb19
 flor escaneados (Poly Haven, CC0) junto a la carretera, en lugar de las rocas estilizadas; pantalla
 de Créditos en Ajustes. Solo se dibujan cerca (45-190 m) y sin mapas de oclusión/rugosidad para
 ahorrar memoria en el iPad.
+
+27-09 (tarde): subida automática a Strava programada y probada con un Strava simulado
+(conectar, subir, esperar el procesado, poner «Virtual Ride», desconectar). Falta que el usuario
+cree la aplicación de Strava y el Worker (ver `servidor-strava/GUIA.md`) y me pase el Client ID y
+la dirección del Worker. Strava limita las apps nuevas a 1 atleta: hay que pedir más capacidad.
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).

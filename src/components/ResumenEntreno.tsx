@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { compartirTcx, descargarTcx, puedeCompartir } from '../entrenamiento/tcx';
 import type { Entreno } from '../entrenamiento/tipos';
 import { Metrica, formatearTiempo } from './Metrica';
+import { BotonStrava, textosStrava } from './Strava';
+import { leerConexion, stravaDisponible } from '../strava/strava';
 
 interface Props {
   entreno: Entreno;
@@ -10,6 +12,8 @@ interface Props {
   /** FTP estimado tras un test y cómo se ha calculado. */
   ftpSugerido?: { w: number; texto: string };
   ftpActual?: number;
+  /** Nombre del entrenamiento guiado (para Strava); vacío al rodar libre. */
+  nombreEntreno?: string;
   onAceptarFtp?: (w: number) => void;
   onCerrar: () => void;
 }
@@ -43,7 +47,9 @@ export function BotonesTcx({ entreno }: { entreno: Entreno }) {
 }
 
 /** Pantalla que aparece al pulsar "Finalizar": resumen y descarga del archivo. */
-export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual, onAceptarFtp, onCerrar }: Props) {
+export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual, nombreEntreno, onAceptarFtp, onCerrar }: Props) {
+  const strava = stravaDisponible() && leerConexion() !== null;
+  const textos = textosStrava(entreno, nombreEntreno);
   const r = entreno.resumen;
   const ref = useRef<HTMLElement>(null);
   const [ftpAceptado, setFtpAceptado] = useState(false);
@@ -108,6 +114,12 @@ export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual,
       )}
 
       <h3>Subirlo a Strava</h3>
+      {strava && (
+        <BotonStrava id={entreno.id} obtener={async () => entreno} nombre={textos.nombre} descripcion={textos.descripcion} auto />
+      )}
+      {strava ? (
+        <p className="detalle">También puedes descargar el archivo:</p>
+      ) : (
       <ol className="pasos">
         <li>Descarga el archivo con el botón de abajo.</li>
         <li>
@@ -119,6 +131,7 @@ export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual,
         </li>
         <li>En la actividad, marca el tipo «Bicicleta virtual» o «Rodillo» si Strava no lo detecta.</li>
       </ol>
+      )}
       <BotonesTcx entreno={entreno} />
     </section>
   );

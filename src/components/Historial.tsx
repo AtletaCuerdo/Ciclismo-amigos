@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { borrarEntreno, cargarEntreno, listarEntrenos } from '../entrenamiento/almacen';
 import { descargarTcx } from '../entrenamiento/tcx';
+import { BotonStrava, textosStrava } from './Strava';
 import type { EntrenoGuardado } from '../entrenamiento/tipos';
 import { formatearTiempo } from './Metrica';
 
@@ -115,6 +116,12 @@ export function Historial({ version }: Props) {
                 <button className="boton-secundario" onClick={() => void descargar(g)}>
                   .tcx
                 </button>
+                <BotonStrava
+                  id={g.id}
+                  obtener={() => cargarEntreno(g)}
+                  nombre={textosStrava(g).nombre}
+                  descripcion={textosStrava(g).descripcion}
+                />
                 <button className="boton-secundario boton-peligro" onClick={() => void borrar(g)}>
                   Borrar
                 </button>

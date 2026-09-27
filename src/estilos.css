@@ -1690,3 +1690,50 @@ p {
   margin: 8px 0 0;
   font-size: 15px;
 }
+
+/* Strava */
+.boton-strava {
+  background: #fc4c02;
+  color: #fff;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 44px;
+}
+.boton-strava:hover {
+  background: #e34402;
+}
+.panel-strava p {
+  margin: 0 0 10px;
+}
+.panel-strava .casilla {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.estado-strava {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 10px;
+  font-weight: 600;
+}
+.historial-acciones .estado-strava {
+  margin: 0;
+  font-size: 13px;
+}
+.historial-acciones .boton-strava {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.error-strava {
+  color: #c0392b;
+}
+.aviso-strava {
+  cursor: pointer;
+}
