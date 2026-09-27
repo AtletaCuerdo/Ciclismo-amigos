@@ -2414,3 +2414,23 @@ p {
     font-size: 13px;
   }
 }
+
+/* ---------- Entrenamientos compartidos ---------- */
+
+.insignia-compartido {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e8f6ee;
+  color: var(--ok);
+  white-space: nowrap;
+}
+
+.aviso-compartir {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #e8f6ee;
+  color: #14683a;
+  font-weight: 600;
+}

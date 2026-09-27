@@ -106,6 +106,28 @@
         }
       }
     },
+    "compartidos": {
+      ".read": "auth != null",
+      "$clave": {
+        ".write": "auth != null && ((!data.exists() && newData.child('autorUid').val() === auth.uid) || (data.exists() && data.child('autorUid').val() === auth.uid && (!newData.exists() || newData.child('autorUid').val() === auth.uid)))",
+        ".validate": "newData.hasChildren(['autorUid', 'autor', 't', 'entreno']) && $clave.beginsWith(auth.uid + '_')",
+        "autorUid": {
+          ".validate": "newData.isString()"
+        },
+        "autor": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+        },
+        "t": {
+          ".validate": "newData.isNumber() && newData.val() <= now"
+        },
+        "entreno": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20000"
+        },
+        "$otro": {
+          ".validate": false
+        }
+      }
+    },
     "usuarios": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",

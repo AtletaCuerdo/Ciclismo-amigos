@@ -18,14 +18,31 @@ interface Props {
   hayErg: boolean;
   onEmpezar: (e: Entrenamiento) => void;
   onVolver: () => void;
+  /** Entrenamientos que han compartido los amigos. */
+  deAmigos: Entrenamiento[];
+  errorAmigos: string | null;
+  /** Guarda una copia en «mis entrenamientos». */
+  onGuardarCopia: (e: Entrenamiento) => void;
 }
 
+const AMIGOS = { nombre: '👥 De mis amigos', descripcion: 'Los entrenamientos que ha compartido tu grupo', color: '#ff6a1a' };
+
 /** Categorías → lista de entrenamientos → ficha con «Empezar». */
-export function PantallaEntrenamientos({ entrenamientos, ftp, onCambiarFtp, hayErg, onEmpezar, onVolver }: Props) {
-  const [categoria, setCategoria] = useState<Categoria | null>(null);
+export function PantallaEntrenamientos({
+  entrenamientos,
+  ftp,
+  onCambiarFtp,
+  hayErg,
+  onEmpezar,
+  onVolver,
+  deAmigos,
+  errorAmigos,
+  onGuardarCopia,
+}: Props) {
+  const [categoria, setCategoria] = useState<Categoria | 'amigos' | null>(null);
   const [elegido, setElegido] = useState<Entrenamiento | null>(null);
-  const cat = CATEGORIAS.find((c) => c.id === categoria);
-  const deCategoria = entrenamientos.filter((e) => e.categoria === categoria);
+  const cat = categoria === 'amigos' ? AMIGOS : CATEGORIAS.find((c) => c.id === categoria);
+  const deCategoria = categoria === 'amigos' ? deAmigos : entrenamientos.filter((e) => e.categoria === categoria);
 
   // ---- Ficha de un entrenamiento ----
   if (elegido) {
@@ -37,6 +54,8 @@ export function PantallaEntrenamientos({ entrenamientos, ftp, onCambiarFtp, hayE
         hayErg={hayErg}
         onEmpezar={() => onEmpezar(elegido)}
         onVolver={() => setElegido(null)}
+        volverA={categoria === 'amigos' ? AMIGOS.nombre : undefined}
+        onGuardarCopia={elegido.deAmigo ? () => onGuardarCopia(elegido) : undefined}
       />
     );
   }
@@ -52,7 +71,14 @@ export function PantallaEntrenamientos({ entrenamientos, ftp, onCambiarFtp, hayE
           <h2 style={{ color: cat.color }}>{cat.nombre}</h2>
         </div>
         <p className="detalle">{cat.descripcion}</p>
-        {deCategoria.length === 0 && <p className="vacio">Todavía no hay entrenamientos en esta categoría.</p>}
+        {categoria === 'amigos' && errorAmigos && <p className="aviso">{errorAmigos}</p>}
+        {deCategoria.length === 0 && (
+          <p className="vacio">
+            {categoria === 'amigos'
+              ? 'Tus amigos aún no han compartido ninguno. Comparte los tuyos desde «Crea tus entrenamientos».'
+              : 'Todavía no hay entrenamientos en esta categoría.'}
+          </p>
+        )}
         <div className="lista-entrenos">
           {deCategoria.map((e) => {
             const tramos = desplegar(e.bloques);
@@ -61,6 +87,7 @@ export function PantallaEntrenamientos({ entrenamientos, ftp, onCambiarFtp, hayE
                 <div className="tarjeta-entreno-cabecera">
                   <strong>{e.nombre}</strong>
                   {e.propio && <span className="insignia-propio">Mío</span>}
+                  {e.deAmigo && <span className="insignia-compartido">de {e.deAmigo.autor}</span>}
                 </div>
                 <GraficaEntrenamiento tramos={tramos} alto={46} />
                 <div className="tarjeta-entreno-datos">
@@ -88,6 +115,11 @@ export function PantallaEntrenamientos({ entrenamientos, ftp, onCambiarFtp, hayE
         Entrenamientos guiados en modo ERG: el rodillo pone la resistencia justa para cada tramo según tu FTP ({ftp} W).
       </p>
       <div className="rejilla-categorias">
+        <button className="tarjeta-categoria" style={{ borderTopColor: AMIGOS.color }} onClick={() => setCategoria('amigos')}>
+          <strong>{AMIGOS.nombre}</strong>
+          <span>{AMIGOS.descripcion}</span>
+          <small>{deAmigos.length === 1 ? '1 entrenamiento' : `${deAmigos.length} entrenamientos`}</small>
+        </button>
         {CATEGORIAS.map((c) => {
           const n = entrenamientos.filter((e) => e.categoria === c.id).length;
           return (
@@ -110,6 +142,8 @@ function FichaEntrenamiento({
   hayErg,
   onEmpezar,
   onVolver,
+  volverA,
+  onGuardarCopia,
 }: {
   entreno: Entrenamiento;
   ftp: number;
@@ -117,7 +151,10 @@ function FichaEntrenamiento({
   hayErg: boolean;
   onEmpezar: () => void;
   onVolver: () => void;
+  volverA?: string;
+  onGuardarCopia?: () => void;
 }) {
+  const [copiado, setCopiado] = useState(false);
   const tramos = useMemo(() => desplegar(entreno.bloques), [entreno]);
   const [textoFtp, setTextoFtp] = useState(String(ftp));
   const cat = CATEGORIAS.find((c) => c.id === entreno.categoria);
@@ -126,10 +163,15 @@ function FichaEntrenamiento({
     <section className="pantalla">
       <div className="cabecera-pantalla">
         <button className="boton-volver" onClick={onVolver}>
-          ← {cat?.nombre}
+          ← {volverA ?? cat?.nombre}
         </button>
         <h2>{entreno.nombre}</h2>
       </div>
+      {entreno.deAmigo && (
+        <p className="detalle">
+          Compartido por <strong>{entreno.deAmigo.autor}</strong> · {cat?.nombre}
+        </p>
+      )}
       <p>{entreno.descripcion}</p>
       <GraficaEntrenamiento tramos={tramos} alto={130} />
       <div className="datos-entreno">
@@ -169,6 +211,18 @@ function FichaEntrenamiento({
       <button className="boton-principal boton-grande" onClick={onEmpezar}>
         Empezar entrenamiento
       </button>
+      {onGuardarCopia && (
+        <button
+          className="boton-secundario boton-grande"
+          disabled={copiado}
+          onClick={() => {
+            onGuardarCopia();
+            setCopiado(true);
+          }}
+        >
+          {copiado ? '✅ Guardado en «Crea tus entrenamientos»' : '📥 Guardar en los míos'}
+        </button>
+      )}
     </section>
   );
 }

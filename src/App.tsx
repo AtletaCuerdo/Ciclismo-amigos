@@ -27,6 +27,7 @@ import { tituloRueda, type Entreno } from './entrenamiento/tipos';
 import { useGrabacion, type ValoresActuales } from './entrenamiento/useGrabacion';
 import { CATALOGO } from './entrenamientos/catalogo';
 import { cargarPropios, guardarPropios } from './entrenamientos/propios';
+import { useCompartidos } from './entrenamientos/compartidos';
 import { desplegar, duracionTotal, potenciaEn, tramoEn, type Entrenamiento, type Tramo } from './entrenamientos/tipos';
 import { cargarNombre, guardarNombre, useConectados, useSalida, type Ciclista } from './multijugador/useSalida';
 import { cargarAjustes, guardarAjustes, potenciaEstimada } from './potenciaVirtual';
@@ -234,11 +235,16 @@ export default function App() {
     void sincronizar(usuario.uid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuario?.uid]);
-  const todosLosEntrenos = useMemo(() => [...CATALOGO, ...propios], [propios]);
   const [entrenoActivo, setEntrenoActivo] = useState<EntrenoActivo | null>(null);
 
   // ---- Recorrido virtual ----
   const [enRecorrido, setEnRecorrido] = useState(false);
+  // Entrenamientos compartidos por el grupo (se leen al entrar en entrenamientos o al rodar)
+  const compartidos = useCompartidos(pantalla === 'entrenamientos' || pantalla === 'crear' || enRecorrido);
+  const todosLosEntrenos = useMemo(
+    () => [...CATALOGO, ...propios, ...compartidos.amigos],
+    [propios, compartidos.amigos],
+  );
   const enRecorridoRef = useRef(false);
   enRecorridoRef.current = enRecorrido;
   const fisicaRef = useRef(new FisicaVirtual());
@@ -555,6 +561,39 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', aviso);
   }, []);
 
+  // ---- Compartir entrenamientos con el grupo ----
+  const compartirEntreno = async (e: Entrenamiento) => {
+    let autor = nombreVisible;
+    if (!autor) autor = window.prompt('¿Con qué nombre verán tus amigos este entrenamiento?')?.trim().slice(0, 30) ?? '';
+    if (!autor) throw new Error('Hace falta un nombre para compartirlo.');
+    if (!nombreSalida.trim()) {
+      guardarNombre(autor);
+      setNombreSalida(autor);
+    }
+    await compartidos.compartir(e, autor);
+  };
+  /** Al guardar mis entrenamientos, los compartidos se actualizan también para el grupo. */
+  const guardarPropiosCompartidos = (lista: Entrenamiento[]) => {
+    const antes = new Map(propios.map((e) => [e.id, e]));
+    cambiarPropios(lista);
+    for (const e of lista)
+      if (compartidos.misCompartidos.has(e.id) && antes.get(e.id) !== e) void compartirEntreno(e).catch(() => {});
+    for (const e of propios)
+      if (compartidos.misCompartidos.has(e.id) && !lista.some((x) => x.id === e.id))
+        void compartidos.dejarDeCompartir(e).catch(() => {});
+  };
+  /** Copia de un entrenamiento de un amigo en «mis entrenamientos». */
+  const guardarCopia = (e: Entrenamiento) => {
+    const { deAmigo, ...resto } = e;
+    const copia: Entrenamiento = {
+      ...resto,
+      id: `propio-${Date.now()}`,
+      propio: true,
+      descripcion: [e.descripcion, deAmigo ? `(De ${deAmigo.autor})` : ''].filter(Boolean).join(' '),
+    };
+    cambiarPropios([...propios, copia]);
+  };
+
   // ---- Empezar, terminar y salir ----
   // Lo hecho en la sesión actual: nombres de los entrenamientos (para el título en Strava)
   // y el último test (para proponer el FTP aunque después se siga rodando)
@@ -830,6 +869,9 @@ export default function App() {
 
       {pantalla === 'entrenamientos' && (
         <PantallaEntrenamientos
+          deAmigos={compartidos.amigos}
+          errorAmigos={compartidos.error}
+          onGuardarCopia={guardarCopia}
           entrenamientos={todosLosEntrenos}
           ftp={perfil.ftp}
           onCambiarFtp={(ftp) => cambiarPerfil({ ...perfil, ftp })}
@@ -843,7 +885,10 @@ export default function App() {
         <EditorEntrenamientos
           propios={propios}
           ftp={perfil.ftp}
-          onGuardar={cambiarPropios}
+          onGuardar={guardarPropiosCompartidos}
+          compartidos={compartidos.misCompartidos}
+          onCompartir={compartirEntreno}
+          onDejarDeCompartir={compartidos.dejarDeCompartir}
           onProbar={empezarEntreno}
           onVolver={volver}
         />

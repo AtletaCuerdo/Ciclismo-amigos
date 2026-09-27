@@ -19,6 +19,10 @@ interface Props {
   onGuardar: (lista: Entrenamiento[]) => void;
   onProbar: (e: Entrenamiento) => void;
   onVolver: () => void;
+  /** Ids de mis entrenamientos compartidos con el grupo. */
+  compartidos: Set<string>;
+  onCompartir: (e: Entrenamiento) => Promise<void>;
+  onDejarDeCompartir: (e: Entrenamiento) => Promise<void>;
 }
 
 const NUEVO = (): Entrenamiento => ({
@@ -94,8 +98,33 @@ function EditorBloque({ b, onCambiar }: { b: Bloque; onCambiar: (b: Bloque) => v
 
 const NOMBRE_BLOQUE = { constante: 'Constante', rampa: 'Rampa', intervalos: 'Series' } as const;
 
-export function EditorEntrenamientos({ propios, ftp, onGuardar, onProbar, onVolver }: Props) {
+export function EditorEntrenamientos({
+  propios,
+  ftp,
+  onGuardar,
+  onProbar,
+  onVolver,
+  compartidos,
+  onCompartir,
+  onDejarDeCompartir,
+}: Props) {
   const [editando, setEditando] = useState<Entrenamiento | null>(null);
+  const [ocupado, setOcupado] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const alternarCompartir = async (e: Entrenamiento) => {
+    setOcupado(e.id);
+    setAviso(null);
+    try {
+      if (compartidos.has(e.id)) await onDejarDeCompartir(e);
+      else {
+        await onCompartir(e);
+        setAviso(`«${e.nombre}» ya está en «De mis amigos» para todo el grupo.`);
+      }
+    } catch (err) {
+      setAviso(err instanceof Error ? err.message : String(err));
+    }
+    setOcupado(null);
+  };
   const tramos = useMemo(() => (editando ? desplegar(editando.bloques) : []), [editando]);
 
   if (!editando) {
@@ -108,9 +137,10 @@ export function EditorEntrenamientos({ propios, ftp, onGuardar, onProbar, onVolv
           <h2>Crea tus entrenamientos</h2>
         </div>
         <p className="detalle">
-          Tus entrenamientos aparecen también en su categoría de «Entrenamientos» (marcados como «Mío»). Se guardan en este
-          dispositivo.
+          Tus entrenamientos aparecen también en su categoría de «Entrenamientos» (marcados como «Mío»). Con «Compartir» los
+          verán tus amigos en «Entrenamientos → De mis amigos».
         </p>
+        {aviso && <p className="aviso-compartir">{aviso}</p>}
         <button className="boton-principal" onClick={() => setEditando(NUEVO())}>
           + Nuevo entrenamiento
         </button>
@@ -124,6 +154,7 @@ export function EditorEntrenamientos({ propios, ftp, onGuardar, onProbar, onVolv
                 <div className="tarjeta-entreno-cabecera">
                   <strong>{e.nombre}</strong>
                   <span className="insignia-propio">{CATEGORIAS.find((c) => c.id === e.categoria)?.nombre}</span>
+                  {compartidos.has(e.id) && <span className="insignia-compartido">👥 Compartido</span>}
                 </div>
                 <GraficaEntrenamiento tramos={t} alto={46} />
                 <div className="tarjeta-entreno-datos">
@@ -132,6 +163,9 @@ export function EditorEntrenamientos({ propios, ftp, onGuardar, onProbar, onVolv
                   <span className="acciones-fila">
                     <button className="boton-secundario" onClick={() => setEditando(e)}>
                       Editar
+                    </button>
+                    <button className="boton-secundario" onClick={() => void alternarCompartir(e)} disabled={ocupado === e.id}>
+                      {compartidos.has(e.id) ? 'Dejar de compartir' : '👥 Compartir'}
                     </button>
                     <button
                       className="boton-secundario boton-peligro"
