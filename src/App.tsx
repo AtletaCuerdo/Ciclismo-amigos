@@ -28,7 +28,7 @@ import { useGrabacion, type ValoresActuales } from './entrenamiento/useGrabacion
 import { CATALOGO } from './entrenamientos/catalogo';
 import { cargarPropios, guardarPropios } from './entrenamientos/propios';
 import { desplegar, duracionTotal, potenciaEn, tramoEn, type Entrenamiento, type Tramo } from './entrenamientos/tipos';
-import { cargarNombre, guardarNombre, useConectados, useSalida } from './multijugador/useSalida';
+import { cargarNombre, guardarNombre, useConectados, useSalida, type Ciclista } from './multijugador/useSalida';
 import { cargarAjustes, guardarAjustes, potenciaEstimada } from './potenciaVirtual';
 import {
   avatarAleatorio,
@@ -41,9 +41,9 @@ import {
   type Perfil,
 } from './recorrido/avatar';
 import type { OtroCiclista } from './recorrido/escena';
-import { FisicaVirtual, equipoAvatar } from './recorrido/fisica';
+import { FisicaVirtual, ahorroRebufo, equipoAvatar } from './recorrido/fisica';
 import { mantenerPantallaEncendida, soltarPantalla } from './pantallaEncendida';
-import { pendiente as pendienteRuta } from './recorrido/perfil';
+import { LONGITUD_VUELTA_M, pendiente as pendienteRuta } from './recorrido/perfil';
 
 // El recorrido 3D y la vista previa del ciclista (Three.js) se descargan solo al usarlos
 const VistaRecorrido = lazy(() => import('./components/VistaRecorrido'));
@@ -359,13 +359,26 @@ export default function App() {
     setAdelanto(destino - grabacion.distanciaM);
   };
 
+  // La distancia se actualiza una vez por segundo; entre medias se estima con la velocidad
+  // (hace falta precisión de metros para saber si vas a rueda)
+  const marcaDistRef = useRef({ s: 0, t: 0 });
+  const posicionAhora = () => {
+    const m = marcaDistRef.current;
+    if (m.s !== distanciaRef.current) {
+      m.s = distanciaRef.current;
+      m.t = performance.now();
+      return m.s;
+    }
+    return m.s + (velVirtualRef.current / 3.6) * Math.min(1.5, (performance.now() - m.t) / 1000);
+  };
+
   // ---- Salida en grupo (multijugador con Firebase) ----
   const salida = useSalida(
     () => ({
       vatios: actualRef.current.potencia,
       velocidad: leerActual().velocidad,
       cadencia: actualRef.current.cadencia,
-      distancia: distanciaRef.current,
+      distancia: enRecorridoRef.current ? posicionAhora() : distanciaRef.current,
     }),
     perfil.avatar,
   );
@@ -388,9 +401,20 @@ export default function App() {
   // Aerodinámica y peso de la bici según el equipo elegido (bici, casco y ruedas)
   const equipoRef = useRef(equipoAvatar(perfil.avatar));
   equipoRef.current = equipoAvatar(perfil.avatar);
+  // Rebufo: los demás ciclistas y la hora del servidor, para saber a qué distancia van ahora
+  const otrosRef = useRef<Ciclista[]>([]);
+  otrosRef.current = salida.ciclistas.filter((c) => c.uid !== salida.miUid);
+  const desfaseRef = useRef(0);
+  desfaseRef.current = salida.desfaseServidor;
+  /** Ahorro de aire actual por ir a rueda (0 … 0,3) y segundos acumulados a rueda. */
+  const rebufoRef = useRef(0);
+  const segundosRuedaRef = useRef(0);
   useEffect(() => {
     if (!enRecorrido) return;
+    rebufoRef.current = 0;
+    segundosRuedaRef.current = 0;
     let anterior = performance.now();
+    let rebufoEnviado = 0;
     let pendienteEnviada: number | null = null;
     let potenciaEnviada: number | null = null;
     let ultimoEnvio = 0;
@@ -400,7 +424,29 @@ export default function App() {
       anterior = t;
       const f = fisicaRef.current;
       f.masaKg = pesoRef.current + equipoRef.current.pesoBiciKg;
-      f.cda = equipoRef.current.cda;
+      // ¿Voy a rueda de alguien? Se estima dónde está cada uno ahora mismo
+      let objetivoRebufo = 0;
+      if (corriendoRef.current && f.v > 2) {
+        const yo = posicionAhora();
+        const ahoraSrv = Date.now() + desfaseRef.current;
+        const huecos = otrosRef.current
+          .filter((c) => (c.velocidad ?? 0) > 7)
+          .map((c) => {
+            const edad = Math.min(2, Math.max(0, (ahoraSrv - c.t) / 1000));
+            const pos = (c.distancia ?? 0) + ((c.velocidad ?? 0) / 3.6) * edad;
+            // En el mismo punto del circuito aunque vaya una vuelta por delante o por detrás
+            let h = (pos - yo) % LONGITUD_VUELTA_M;
+            if (h > LONGITUD_VUELTA_M / 2) h -= LONGITUD_VUELTA_M;
+            if (h < -LONGITUD_VUELTA_M / 2) h += LONGITUD_VUELTA_M;
+            return h;
+          });
+        objetivoRebufo = ahorroRebufo(huecos);
+      }
+      // Suavizado: el rebufo entra y sale en ~1 s, sin parpadeos
+      rebufoRef.current += (objetivoRebufo - rebufoRef.current) * Math.min(1, dt * 2);
+      if (rebufoRef.current < 0.005) rebufoRef.current = 0;
+      if (rebufoRef.current > 0.05) segundosRuedaRef.current += dt;
+      f.cda = equipoRef.current.cda * (1 - rebufoRef.current);
       const grado = pendienteRuta(distanciaRef.current);
       // La pendiente del recorrido alimenta el desnivel acumulado de la grabación
       pendienteRef.current = grado;
@@ -423,13 +469,15 @@ export default function App() {
         }
       } else {
         // Rodar libre (o tramo «a tope» de un test): el rodillo se endurece con la pendiente
-        // (cambios de 0,5 %, máx. cada 2 s)
+        // y se ablanda a rueda (cambios de 0,5 % o 5 % de aire, máx. cada 2 s)
         potenciaEnviada = null;
         const redondeada = Math.round(grado * 2) / 2;
-        if (redondeada !== pendienteEnviada && t - ultimoEnvio > 2000) {
+        const rebufo = Math.round(rebufoRef.current * 20) / 20;
+        if ((redondeada !== pendienteEnviada || rebufo !== rebufoEnviado) && t - ultimoEnvio > 2000) {
           pendienteEnviada = redondeada;
+          rebufoEnviado = rebufo;
           ultimoEnvio = t;
-          void rodillo.fijarPendiente(redondeada);
+          void rodillo.fijarPendiente(redondeada, rebufo);
         }
       }
     }, 100);
@@ -437,6 +485,7 @@ export default function App() {
       clearInterval(id);
       pendienteRef.current = null;
       velVirtualRef.current = 0;
+      rebufoRef.current = 0;
       fisicaRef.current.detener();
     };
   }, [enRecorrido, sensores]);
@@ -868,6 +917,8 @@ export default function App() {
               potencia: actualRef.current.potencia,
               potenciaEstimada: actualRef.current.potenciaEsEstimada,
               pulso: actualRef.current.pulso,
+              rebufo: rebufoRef.current,
+              segundosRueda: segundosRuedaRef.current,
             })}
             otros={otrosCiclistas}
             grabacion={grabacion}
@@ -876,6 +927,12 @@ export default function App() {
             errorSalida={salida.error}
             onUnirseSalida={unirseDesdeRecorrido}
             onJuntoA={ponerEnPunto}
+            chat={{
+              mensajes: salida.mensajes,
+              miUid: salida.miUid,
+              rechazado: salida.chatRechazado,
+              onEnviar: salida.enviarMensaje,
+            }}
             rodilloControlado={hayErg}
             demo={usarDemo ? { vatios: demoVatios!, onCambiar: setDemoVatios } : null}
             entreno={

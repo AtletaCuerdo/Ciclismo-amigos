@@ -18,6 +18,8 @@ import {
 } from '../recorrido/perfil';
 import type { Entrenamiento, Tramo } from '../entrenamientos/tipos';
 import { SelectorEntreno } from './SelectorEntreno';
+import { ChatGrupo } from './ChatGrupo';
+import type { Mensaje } from '../multijugador/useSalida';
 import { GraficaEntrenamiento } from './GraficaEntrenamiento';
 import { formatearTiempo } from './Metrica';
 import { mantenerPantallaEncendida } from '../pantallaEncendida';
@@ -27,6 +29,10 @@ export interface DatosHud extends DatosYo {
   potenciaEstimada: boolean;
   pulso?: number;
   hayCadencia: boolean;
+  /** Ahorro de aire por ir a rueda (0 … 0,3). */
+  rebufo: number;
+  /** Tiempo acumulado a rueda en esta sesión (s). */
+  segundosRueda: number;
 }
 
 interface Props {
@@ -52,6 +58,13 @@ interface Props {
   onUnirseSalida: () => void;
   /** Ponerse en el punto `s` del circuito (junto a un amigo). */
   onJuntoA: (s: number) => void;
+  /** Chat del grupo (solo en la salida). */
+  chat: {
+    mensajes: Mensaje[];
+    miUid: string | null;
+    rechazado: boolean;
+    onEnviar: (texto: string) => Promise<boolean>;
+  } | null;
   rodilloControlado: boolean;
   /** Modo demostración: deslizador de vatios simulados (null si no está activo). */
   demo: { vatios: number; onCambiar: (w: number) => void } | null;
@@ -161,6 +174,7 @@ export default function VistaRecorrido({
   errorSalida,
   onUnirseSalida,
   onJuntoA,
+  chat,
   rodilloControlado,
   demo,
   entreno,
@@ -290,6 +304,12 @@ export default function VistaRecorrido({
                 {demo ? 'vatios (simulación)' : yo.potenciaEstimada ? 'vatios (estimada)' : 'vatios'}
               </span>
             </div>
+            {yo.rebufo > 0.03 && (
+              <div className="hud-rebufo" title="Vas a rueda: el aire te frena menos y el rodillo se suaviza">
+                <span className="hud-rebufo-valor">🌬️ −{Math.round(yo.rebufo * 100)} %</span>
+                <span className="hud-etiqueta">a rueda</span>
+              </div>
+            )}
             {demo && (
               <input
                 className="demo-vatios"
@@ -347,6 +367,11 @@ export default function VistaRecorrido({
             <span>
               <b>{Math.round(grabacion.desnivelM)} m</b> desnivel +
             </span>
+            {yo.segundosRueda >= 1 && (
+              <span className="hud-media">
+                <b>🌬️ {formatearTiempo(Math.round(yo.segundosRueda))}</b> a rueda
+              </span>
+            )}
             <span className="hud-media">
               <b>{grabacion.potenciaMedia !== undefined ? Math.round(grabacion.potenciaMedia) : '--'} W</b> media
             </span>
@@ -439,6 +464,11 @@ export default function VistaRecorrido({
         </div>
       )}
 
+      {/* Abajo: el chat del grupo a la izquierda y el perfil de la vuelta a la derecha */}
+      <div className="hud-abajo">
+      {enSalida && chat && (
+        <ChatGrupo mensajes={chat.mensajes} miUid={chat.miUid} rechazado={chat.rechazado} onEnviar={chat.onEnviar} />
+      )}
       {/* Perfil de la vuelta (pequeño, en la esquina; al tocarlo se amplía a lo ancho):
           recorrido hecho sombreado, tu posición y la de los demás */}
       <div
@@ -523,6 +553,7 @@ export default function VistaRecorrido({
           {rodilloControlado && (entreno ? ' · ERG' : ' · el rodillo sigue la pendiente')}
           {perfilGrande && !enSalida && ' · únete a la «Salida en grupo» para ver a tus amigos'}
         </div>
+      </div>
       </div>
       </div>
     </div>

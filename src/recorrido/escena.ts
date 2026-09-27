@@ -318,6 +318,8 @@ export class EscenaRecorrido {
   private yo: Ciclista3D;
   private sYo = 0;
   private vYo = 0;
+  /** Mi posición lateral: a rueda me pongo detrás del de delante. */
+  private carrilYo = MI_CARRIL;
   private ultimaDist = 0;
   private tUltimaDist = 0;
   private otros = new Map<string, EstadoOtro>();
@@ -1739,7 +1741,22 @@ export class EscenaRecorrido {
     this.vYo += (yo.velocidad / 3.6 - this.vYo) * Math.min(1, dt * 3);
     // Yo: la física y la grabación integran la misma velocidad, así que casi no hace falta corregir
     this.sYo = this.avanzar(this.sYo, this.ultimaDist, this.tUltimaDist, this.vYo, ahora, dt, 1.5, 0.3);
-    const p = this.puntoEn(this.sYo, MI_CARRIL, this.punto);
+    // A rueda (alguien 0,3-12 m por delante), mi ciclista se coloca detrás de él
+    let carrilObjetivo = MI_CARRIL;
+    let huecoMin = Infinity;
+    for (const e of this.otros.values()) {
+      let h = (e.sRender - this.sYo) % LONGITUD_VUELTA_M;
+      if (h > LONGITUD_VUELTA_M / 2) h -= LONGITUD_VUELTA_M;
+      if (h < -LONGITUD_VUELTA_M / 2) h += LONGITUD_VUELTA_M;
+      if (h > 0.3 && h < 12 && h < huecoMin) {
+        huecoMin = h;
+        carrilObjetivo = e.carril;
+      }
+    }
+    // Muy pegado (menos que una bici), medio cuerpo al lado para no atravesarlo al adelantar
+    if (huecoMin < 2.2) carrilObjetivo += carrilObjetivo > 0 ? -0.9 : 0.9;
+    this.carrilYo += (carrilObjetivo - this.carrilYo) * Math.min(1, dt * 0.8);
+    const p = this.puntoEn(this.sYo, this.carrilYo, this.punto);
     this.yo.colocar(p.pos, p.dx, p.dz, pendiente(this.sYo));
     this.yo.pedalear(this.vYo, yo.cadencia, dt);
     const miX = p.pos.x;

@@ -82,6 +82,27 @@
               ".validate": false
             }
           }
+        },
+        "chat": {
+          "$id": {
+            ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || (data.exists() && !newData.exists() && (data.child('uid').val() === auth.uid || data.child('t').val() < now - 86400000)))",
+            ".validate": "newData.hasChildren(['uid', 'nombre', 'texto', 't'])",
+            "uid": {
+              ".validate": "newData.isString()"
+            },
+            "nombre": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+            },
+            "texto": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 200"
+            },
+            "t": {
+              ".validate": "newData.isNumber() && newData.val() <= now"
+            },
+            "$otro": {
+              ".validate": false
+            }
+          }
         }
       }
     },

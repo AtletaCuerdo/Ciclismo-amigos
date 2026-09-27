@@ -4,6 +4,7 @@
  * Estructura en la base de datos:
  *   salas/{sala}/ciclistas/{uid} = { nombre, vatios, velocidad, cadencia, distancia, t }
  *   salas/{sala}/avatares/{uid}  = { maillot, franja, culotte, casco, bici, piel }
+ *   salas/{sala}/chat/{id}       = { uid, nombre, texto, t }  (mensajes del grupo)
  * El avatar va aparte: si las reglas de Firebase aún no lo permiten, falla solo
  * esa escritura y la salida en grupo sigue funcionando (con avatar por defecto).
  *
@@ -35,6 +36,21 @@ export interface MisDatos {
   cadencia?: number;
   distancia: number; // m
 }
+
+export interface Mensaje {
+  id: string;
+  uid: string;
+  nombre: string;
+  texto: string;
+  t: number; // hora del servidor (ms)
+}
+
+/** Mensajes que se cargan del chat (los últimos) y antigüedad máxima que se muestra. */
+const MENSAJES_MAX = 40;
+const MENSAJE_CADUCA_MS = 3 * 60 * 60 * 1000;
+/** Los mensajes de más de un día los borra cualquiera al entrar (lo permiten las reglas). */
+const MENSAJE_BORRAR_MS = 24 * 60 * 60 * 1000;
+export const TEXTO_MAX = 200;
 
 export type EstadoSalida = 'fuera' | 'entrando' | 'dentro' | 'sin-conexion';
 
@@ -77,6 +93,8 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
   const [desfaseServidor, setDesfaseServidor] = useState(0);
   const [avatares, setAvatares] = useState<Record<string, Avatar>>({});
   const [avatarRechazado, setAvatarRechazado] = useState(false);
+  const [mensajes, setMensajes] = useState<Mensaje[]>([]);
+  const [chatRechazado, setChatRechazado] = useState(false);
   const avatarRef = useRef(avatar);
   avatarRef.current = avatar;
 
@@ -187,6 +205,28 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
         ),
       );
 
+      // Chat del grupo: los últimos mensajes, en directo
+      cancelar.push(
+        fb.onValue(
+          fb.query(fb.ref(fb.db, `salas/${sala}/chat`), fb.limitToLast(MENSAJES_MAX)),
+          (snap) => {
+            const lista: Mensaje[] = [];
+            snap.forEach((hijo) => {
+              const v = hijo.val();
+              if (v && typeof v.texto === 'string' && typeof v.nombre === 'string')
+                lista.push({ id: hijo.key as string, uid: String(v.uid), nombre: v.nombre, texto: v.texto, t: Number(v.t) || 0 });
+            });
+            setMensajes(lista);
+            setChatRechazado(false);
+            // Limpieza: borrar los mensajes viejos para que la base de datos no crezca
+            const limite = Date.now() - MENSAJE_BORRAR_MS;
+            for (const m of lista)
+              if (m.t && m.t < limite) fb.remove(fb.ref(fb.db, `salas/${sala}/chat/${m.id}`)).catch(() => undefined);
+          },
+          () => setChatRechazado(true),
+        ),
+      );
+
       // Envío de mis datos una vez por segundo
       const temporizador = setInterval(() => {
         fb.set(miRef, miNodo()).catch((e) => setError(mensaje(e)));
@@ -218,7 +258,28 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
     }
     setCiclistas([]);
     setAvatares({});
+    setMensajes([]);
     setEstado('fuera');
+  };
+
+  /** Envía un mensaje al chat del grupo. */
+  const enviarMensaje = async (texto: string) => {
+    const s = sesion.current;
+    const limpio = texto.trim().slice(0, TEXTO_MAX);
+    if (!s || !limpio) return false;
+    try {
+      await s.fb.push(s.fb.ref(s.fb.db, `salas/${s.sala}/chat`), {
+        uid: s.uid,
+        nombre: s.nombre,
+        texto: limpio,
+        t: s.fb.serverTimestamp(),
+      });
+      setChatRechazado(false);
+      return true;
+    } catch {
+      setChatRechazado(true);
+      return false;
+    }
   };
 
   // Si cambio mi avatar estando en la salida, lo comparto al momento
@@ -245,7 +306,22 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
     .filter((c) => ahoraServidor - c.t < CADUCIDAD_MS)
     .sort((a, b) => (b.distancia ?? 0) - (a.distancia ?? 0));
 
-  return { estado, error, ciclistas: visibles, miUid, avatares, avatarRechazado, unirse, salir };
+  const mensajesVisibles = mensajes.filter((m) => ahoraServidor - m.t < MENSAJE_CADUCA_MS);
+
+  return {
+    estado,
+    error,
+    ciclistas: visibles,
+    miUid,
+    avatares,
+    avatarRechazado,
+    desfaseServidor,
+    mensajes: mensajesVisibles,
+    chatRechazado,
+    enviarMensaje,
+    unirse,
+    salir,
+  };
 }
 
 /**

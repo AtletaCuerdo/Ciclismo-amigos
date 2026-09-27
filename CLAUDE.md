@@ -94,6 +94,20 @@ ahorrar memoria en el iPad.
 cree la aplicación de Strava y el Worker (ver `servidor-strava/GUIA.md`) y me pase el Client ID y
 la dirección del Worker. Strava limita las apps nuevas a 1 atleta: hay que pedir más capacidad.
 
+27-09 (noche): rodar con amigos (el objetivo principal de la web). Inicio: «Amigos rodando ahora»
+(, solo lectura) y «Rodar a su lado». El punto del circuito es  + km grabados
+(la grabación, el TCX y Strava siguen con lo pedaleado). Entrar al recorrido une a la salida en grupo.
+Rebufo ( en fisica.ts): hasta −30 % de aire a menos de 3 m de otro y nada a 12 m; también
+baja el Cw que se envía al rodillo; indicador junto a los vatios y tiempo a rueda. Chat del grupo
+(, ) con mensajes rápidos; **necesita las reglas nuevas pegadas**.
+
+27-09 (noche): rodar con amigos, el objetivo principal de la web. Inicio: «Amigos rodando ahora»
+(`useConectados`, solo lectura) y «Rodar a su lado». El punto del circuito es `adelanto` + km grabados
+(la grabación, el TCX y Strava siguen con lo pedaleado). Entrar al recorrido une a la salida en grupo.
+Rebufo (`ahorroRebufo` en `fisica.ts`): hasta −30 % de aire a menos de 3 m de otro y nada a 12 m; también
+baja el Cw que se envía al rodillo; indicador junto a los vatios y tiempo a rueda. Chat del grupo
+(`salas/{sala}/chat`, `ChatGrupo.tsx`) con mensajes rápidos; necesita las reglas nuevas pegadas.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
