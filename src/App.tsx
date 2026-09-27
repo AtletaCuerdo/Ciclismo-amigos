@@ -5,6 +5,7 @@ import { bluetoothDisponible, type EventosSensor, type TipoLog } from './ble/Sen
 import { AjustesSensorCsc } from './components/AjustesSensorCsc';
 import { Creditos } from './components/Creditos';
 import { PanelStrava } from './components/Strava';
+import { PanelFtp } from './components/PanelFtp';
 import { procesarVueltaDeStrava } from './strava/strava';
 import { useInstalar } from './instalar';
 import { ControlesRodillo } from './components/ControlesRodillo';
@@ -665,6 +666,7 @@ export default function App() {
               {avisoStrava}
             </div>
           )}
+          <PanelFtp perfil={perfil} onCambiar={cambiarPerfil} />
           <PanelStrava />
           <section className="panel">
             <h2>Gráficos del recorrido</h2>

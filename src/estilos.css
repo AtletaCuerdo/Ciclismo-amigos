@@ -1890,3 +1890,38 @@ p {
   font-size: 12px;
   color: var(--texto-suave);
 }
+
+/* Ajustes: FTP, peso y zonas */
+.campos-ftp {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin: 8px 0 12px;
+}
+.wkg {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.wkg strong {
+  font-size: 22px;
+}
+.tabla-zonas {
+  width: 100%;
+  max-width: 520px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.tabla-zonas td {
+  padding: 5px 6px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+}
+.muestra-zona {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  margin-right: 8px;
+  vertical-align: -1px;
+}
