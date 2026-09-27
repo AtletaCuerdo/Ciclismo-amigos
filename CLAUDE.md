@@ -39,7 +39,11 @@ tiene que llamarse dentro del propio clic.
 - `firebase/database.rules.json`: reglas de la Realtime Database. Si cambian, el usuario tiene
   que pegarlas a mano en la consola de Firebase.
 - `public/modelos` y `public/texturas`: recursos CC0 (Quaternius, Poly Haven); créditos en
-  `public/CREDITOS.md`.
+  `public/CREDITOS.md` y en Ajustes (`src/components/Creditos.tsx`; si se usa algo CC-BY, citarlo ahí).
+- `public/modelos/realistas/`: modelos escaneados de Poly Haven (rocas, tocones, tronco, ramas,
+  helecho, plantas con flor) simplificados con gltf-transform (`simplify`, `resize 512`, `webp`).
+  Los originales están fuera del repo en `CLAUDE/recursos-3d/polyhaven/modelos/`. Los árboles de
+  Poly Haven pesan 40-950 MB (calidad cine): no sirven en tiempo real.
 - Texturas del suelo en KTX2 (comprimidas para la GPU, clave para que el iPad no se quede sin
   memoria) junto a los JPG de respaldo. Si se cambia un JPG, regenerar con
   `herramientas/comprimir-texturas.mjs`. El transcodificador está en `public/basis/`.
@@ -64,12 +68,18 @@ encendida (NoSleep) y aerodinámica según bici, casco y ruedas. Commit `9d2cb19
 - Casco rígido de verdad (grosor, rejillas con paredes de espuma, banda fina) y zapatillas.
 - Generar las mallas cuesta unos 2-3 s la primera vez; luego se leen de IndexedDB.
 
+27-09: paso 4 del plan. Rocas con musgo, tocones, tronco caído, ramas, helechos y plantas con
+flor escaneados (Poly Haven, CC0) junto a la carretera, en lugar de las rocas estilizadas; pantalla
+de Créditos en Ajustes. Solo se dibujan cerca (45-190 m) y sin mapas de oclusión/rugosidad para
+ahorrar memoria en el iPad.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
 ### Próximos pasos
-- Paso 4 del plan: salto gráfico con modelos CC0/CC-BY (el usuario acepta CC-BY con una
-  pantalla de Créditos en Ajustes). Esperar a que dé la orden.
+- Probar en el iPad el paso 4 (memoria y fps con los modelos escaneados).
+- Posible cambio de nombre de la web (el usuario tiene opciones; ver niveles: solo nombre visible,
+  renombrar el repositorio o dominio propio).
 - Cuentas de usuario e historial en Firebase.
 - Integración con Strava a través del NAS del amigo.
 - Compartir entre amigos los entrenamientos creados.

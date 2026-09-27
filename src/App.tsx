@@ -3,6 +3,7 @@ import { Potenciometro, Pulsometro, RodilloFtms, SensorCsc } from './ble/disposi
 import type { RangoPotencia } from './ble/parsers';
 import { bluetoothDisponible, type EventosSensor, type TipoLog } from './ble/SensorBle';
 import { AjustesSensorCsc } from './components/AjustesSensorCsc';
+import { Creditos } from './components/Creditos';
 import { ControlesRodillo } from './components/ControlesRodillo';
 import { EditorAvatar } from './components/EditorAvatar';
 import { EditorEntrenamientos } from './components/EditorEntrenamientos';
@@ -615,6 +616,7 @@ export default function App() {
           )}
           <AjustesSensorCsc ajustes={ajustes} onCambiar={setAjustes} />
           <RegistroLog entradas={log} onLimpiar={() => setLog([])} />
+          <Creditos />
         </section>
       )}
 

@@ -82,7 +82,9 @@ function anadirViento(material: THREE.MeshStandardMaterial, fuerza: number) {
 export function cargarModelo(nombre: string): Promise<ParteModelo[]> {
   let p = cacheModelos.get(nombre);
   if (!p) {
-    p = new GLTFLoader().loadAsync(rutaPublica(`modelos/naturaleza/${nombre}.gltf`)).then((gltf) => {
+    // «realistas/…»: modelos escaneados de Poly Haven (GLB simplificado con sus texturas dentro)
+    const ruta = nombre.startsWith('realistas/') ? `modelos/${nombre}.glb` : `modelos/naturaleza/${nombre}.gltf`;
+    p = new GLTFLoader().loadAsync(rutaPublica(ruta)).then((gltf) => {
       const partes: ParteModelo[] = [];
       gltf.scene.updateMatrixWorld(true);
       gltf.scene.traverse((o) => {
@@ -99,6 +101,34 @@ export function cargarModelo(nombre: string): Promise<ParteModelo[]> {
           }
           const material = o.material as THREE.MeshStandardMaterial;
           compartirTexturas(material);
+          if (nombre.startsWith('realistas/')) {
+            // Las hierbas escaneadas vienen con transparencia por mezcla: con recorte se
+            // ordenan bien y no se ven «a través» de otras plantas
+            if (material.transparent || material.alphaTest > 0) {
+              material.transparent = false;
+              material.depthWrite = true;
+              material.alphaTest = 0.45;
+              material.side = THREE.DoubleSide;
+            }
+            material.envMapIntensity = 0.7;
+            // Sin mapas de oclusión/rugosidad/metal: apenas se notan a esta distancia y cada uno
+            // ocupa memoria gráfica (importante en el iPad). Rugosidad fija de piedra/planta.
+            for (const clave of ['aoMap', 'roughnessMap', 'metalnessMap'] as const) {
+              const t = material[clave];
+              if (t) {
+                material[clave] = null;
+                if (t !== material.map && t !== material.normalMap) t.dispose();
+              }
+            }
+            material.roughness = 0.85;
+            material.metalness = 0;
+            if (/fern|shrub|weed|grass|celandine|sorrel/i.test(nombre) && !material.userData.viento) {
+              material.userData.viento = true;
+              anadirViento(material, 0.12);
+            }
+            partes.push({ geometria, material });
+            return;
+          }
           material.roughness = 0.9;
           material.envMapIntensity = 0.6;
           // La textura de las rocas es muy oscura: a pleno sol parecían manchas negras

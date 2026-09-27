@@ -1082,17 +1082,61 @@ export class EscenaRecorrido {
     this.construirImpostoresLod();
     poner(['TwistedTree_1', 'TwistedTree_3', 'TwistedTree_5'], 200, () => junto(16, 160, 1.4), escalaUniforme(0.55, 0.85), { celda: 300, visibleHasta: 300, sombra });
     poner(['DeadTree_1', 'DeadTree_3'], 40, () => junto(14, 140, 1.4), escalaUniforme(0.6, 0.9), { celda: 300, visibleHasta: 300 });
-    // Arbustos, rocas y piedras
-    poner(['Bush_Common', 'Bush_Common_Flowers'], 2200, () => junto(7, 110, 1.6), escalaUniforme(0.8, 1.6), { celda: 250, visibleHasta: 300 });
-    poner(['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'], 700, () => junto(7, 220, 1.6), escalaUniforme(0.7, 2.6), { celda: 250, visibleHasta: 320, hundir: 0.15 }, 0.25);
-    poner(['Pebble_Round_1', 'Pebble_Round_2', 'Pebble_Round_3'], 1800, () => junto(5.4, 12, 1.5), escalaUniforme(0.8, 2), { celda: 250, visibleHasta: 120 }, 0.25);
+    // Arbustos
+    poner(['Bush_Common', 'Bush_Common_Flowers'], 1600, () => junto(7, 110, 1.6), escalaUniforme(0.8, 1.6), { celda: 250, visibleHasta: 300 });
+    // Rocas, piedras, tocones y plantas escaneadas (Poly Haven); si no cargan, las estilizadas
+    const realistas = await this.cargarRealistas();
+    if (this.destruida) return;
+    if (realistas) {
+      const r = (n: string) => realistas[n].map((pp) => [pp.geometria, pp.material] as [THREE.BufferGeometry, THREE.Material]);
+      const ponerR = (
+        lista: string[],
+        total: number,
+        lugar: () => { x: number; z: number; y: number } | null,
+        escala: () => [number, number, number],
+        opciones: { celda: number; visibleHasta?: number; hundir?: number; sombra?: boolean },
+        variacion = 0.12,
+      ) => {
+        for (const n of lista) instanciar(r(n), Math.round((total / lista.length) * f), lugar, escala, (c) => tono(c, variacion), opciones);
+      };
+      ponerR(['rock_moss_set_01', 'rock_moss_set_02'], 480, () => junto(8, 200, 1.5), escalaUniforme(0.35, 1.3), { celda: 200, visibleHasta: 190, hundir: 0.15, sombra });
+      ponerR(['rock_07', 'stone_01'], 1600, () => junto(5.4, 14, 1.4), () => {
+        const s = 1.5 + rnd() * 3.5;
+        return [s, s * (0.7 + rnd() * 0.5), s];
+      }, { celda: 150, visibleHasta: 60 });
+      ponerR(['tree_stump_01', 'tree_stump_02'], 140, () => junto(9, 90, 1.5), escalaUniforme(0.7, 1.1), { celda: 200, visibleHasta: 180, hundir: 0.05, sombra });
+      ponerR(['dead_tree_trunk'], 90, () => junto(9, 80, 1.5), escalaUniforme(0.8, 1.3), { celda: 200, visibleHasta: 170, hundir: 0.08, sombra });
+      ponerR(['dry_branches_medium_01'], 260, () => junto(6, 40, 1.6), escalaUniforme(0.8, 1.4), { celda: 150, visibleHasta: 60 });
+      ponerR(['fern_02'], 1000, () => junto(6, 45, 1.8), escalaUniforme(0.7, 1.3), { celda: 150, visibleHasta: 70 });
+      ponerR(['weed_plant_02', 'celandine_01', 'shrub_sorrel_01', 'shrub_03'], 2400, () => junto(5.5, 22, 2), escalaUniforme(1.2, 2.4), { celda: 150, visibleHasta: 45 });
+      ponerR(['shrub_04'], 300, () => junto(5.5, 22, 2), escalaUniforme(1.2, 2.2), { celda: 150, visibleHasta: 45 });
+    } else {
+      poner(['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'], 700, () => junto(7, 220, 1.6), escalaUniforme(0.7, 2.6), { celda: 250, visibleHasta: 320, hundir: 0.15 }, 0.25);
+      poner(['Pebble_Round_1', 'Pebble_Round_2', 'Pebble_Round_3'], 1800, () => junto(5.4, 12, 1.5), escalaUniforme(0.8, 2), { celda: 250, visibleHasta: 120 }, 0.25);
+    }
     // Hierba baja, flores y plantas en las cunetas (la alta, solo de vez en cuando)
     poner(['Grass_Common_Short', 'Grass_Wispy_Short'], 13000, () => junto(5.4, 35, 2.2), escalaUniforme(0.7, 1.3), { celda: 250, visibleHasta: 160 });
     poner(['Grass_Common_Tall', 'Grass_Wispy_Tall'], 4000, () => junto(7, 40, 1.8), escalaUniforme(0.6, 1.05), { celda: 250, visibleHasta: 160 });
     poner(['Flower_3_Group', 'Flower_4_Group'], 2400, () => junto(6, 40, 1.8), escalaUniforme(0.7, 1.2), { celda: 250, visibleHasta: 140 }, 0.1);
-    poner(['Fern_1', 'Clover_1', 'Clover_2'], 3000, () => junto(6, 60, 1.8), escalaUniforme(0.8, 1.4), { celda: 250, visibleHasta: 140 });
-    poner(['Plant_1_Big', 'Plant_7_Big'], 1400, () => junto(6.5, 50, 1.8), escalaUniforme(0.7, 1.3), { celda: 250, visibleHasta: 140 });
+    poner(['Fern_1', 'Clover_1', 'Clover_2'], realistas ? 1500 : 3000, () => junto(6, 60, 1.8), escalaUniforme(0.8, 1.4), { celda: 250, visibleHasta: 140 });
+    poner(['Plant_1_Big', 'Plant_7_Big'], realistas ? 700 : 1400, () => junto(6.5, 50, 1.8), escalaUniforme(0.7, 1.3), { celda: 250, visibleHasta: 140 });
     poner(['Mushroom_Common'], 300, () => junto(8, 40, 1.5), escalaUniforme(0.8, 1.6), { celda: 250, visibleHasta: 80 });
+  }
+
+  /** Modelos escaneados de Poly Haven (null si alguno no se puede descargar). */
+  private async cargarRealistas(): Promise<Record<string, ParteModelo[]> | null> {
+    const nombres = [
+      'rock_moss_set_01', 'rock_moss_set_02', 'rock_07', 'stone_01', 'tree_stump_01',
+      'tree_stump_02', 'dead_tree_trunk', 'dry_branches_medium_01', 'fern_02',
+      'weed_plant_02', 'celandine_01', 'shrub_sorrel_01', 'shrub_03', 'shrub_04',
+    ];
+    try {
+      const cargados = await Promise.all(nombres.map((n) => cargarModelo(`realistas/${n}`)));
+      return Object.fromEntries(nombres.map((n, i) => [n, cargados[i]]));
+    } catch (e) {
+      console.warn('No se pudieron cargar los modelos escaneados; se usan los estilizados', e);
+      return null;
+    }
   }
 
   /**

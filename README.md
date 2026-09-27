@@ -160,6 +160,9 @@ Botón **Entrar al recorrido**: escena 3D a pantalla completa con el ciclista en
   setas, hierba y flores que se mueven con el viento, arcenes de grava, casas de campo, vallas,
   quitamiedos, molinos de viento y nubes. Alrededor, una **cordillera** generada con ruido
   fractal (crestas, bosque, roca y nieve en las cumbres, con perspectiva aérea).
+- **Modelos escaneados** (Poly Haven, CC0) junto a la carretera: rocas con musgo, tocones, tronco
+  caído, ramas secas, helechos y plantas silvestres con flor. Se simplifican a unos pocos miles de
+  triángulos y solo se dibujan cerca del ciclista.
 - **Bosques lejanos con impostores**: cada árbol real se dibuja una vez en una textura y, a más
   de ~250 m, se sustituye por tres planos cruzados con esa imagen (LOD). Así hay muchos más
   árboles sin perder fluidez.
