@@ -3,6 +3,7 @@
  * Para añadir uno nuevo basta con añadirlo a esta lista.
  * Potencias en % del FTP; duraciones en segundos (m(10) = 10 minutos).
  */
+import { BIBLIOTECA } from './biblioteca';
 import type { Bloque, Entrenamiento } from './tipos';
 
 const m = (minutos: number) => Math.round(minutos * 60);
@@ -10,7 +11,7 @@ const constante = (minutos: number, potencia: number): Bloque => ({ tipo: 'const
 /** Repite un grupo de bloques `n` veces. */
 const repetir = (n: number, bloques: Bloque[]) => Array.from({ length: n }, () => bloques).flat();
 
-export const CATALOGO: Entrenamiento[] = [
+const BASE: Entrenamiento[] = [
   // ---- Recovery ----
   {
     id: 'recovery-30',
@@ -353,7 +354,7 @@ export const CATALOGO: Entrenamiento[] = [
   },
   {
     id: 'tempo-40-continuo',
-    nombre: 'Tempo continuo 40′',
+    nombre: 'Tempo: 40′ seguidos',
     categoria: 'tempo',
     descripcion: 'Cuarenta minutos seguidos subiendo poco a poco del 76 % al 84 %. Físico y mental.',
     bloques: [
@@ -474,3 +475,6 @@ export const CATALOGO: Entrenamiento[] = [
     ],
   },
 ];
+
+/** Catálogo completo: el de siempre más la biblioteca ampliada. */
+export const CATALOGO: Entrenamiento[] = [...BASE, ...BIBLIOTECA];

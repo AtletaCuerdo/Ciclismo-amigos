@@ -604,6 +604,7 @@ export default function App() {
       {pantalla === 'crear' && (
         <EditorEntrenamientos
           propios={propios}
+          ftp={perfil.ftp}
           onGuardar={(lista) => {
             setPropios(lista);
             guardarPropios(lista);

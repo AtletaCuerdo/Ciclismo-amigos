@@ -10,9 +10,12 @@ import {
   type Entrenamiento,
 } from '../entrenamientos/tipos';
 import { GraficaEntrenamiento } from './GraficaEntrenamiento';
+import { ImportarEntrenamientos } from './ImportarEntrenamientos';
 
 interface Props {
   propios: Entrenamiento[];
+  /** FTP del ciclista (para pasar a % los archivos .erg, que vienen en vatios). */
+  ftp: number;
   onGuardar: (lista: Entrenamiento[]) => void;
   onProbar: (e: Entrenamiento) => void;
   onVolver: () => void;
@@ -91,7 +94,7 @@ function EditorBloque({ b, onCambiar }: { b: Bloque; onCambiar: (b: Bloque) => v
 
 const NOMBRE_BLOQUE = { constante: 'Constante', rampa: 'Rampa', intervalos: 'Series' } as const;
 
-export function EditorEntrenamientos({ propios, onGuardar, onProbar, onVolver }: Props) {
+export function EditorEntrenamientos({ propios, ftp, onGuardar, onProbar, onVolver }: Props) {
   const [editando, setEditando] = useState<Entrenamiento | null>(null);
   const tramos = useMemo(() => (editando ? desplegar(editando.bloques) : []), [editando]);
 
@@ -111,6 +114,7 @@ export function EditorEntrenamientos({ propios, onGuardar, onProbar, onVolver }:
         <button className="boton-principal" onClick={() => setEditando(NUEVO())}>
           + Nuevo entrenamiento
         </button>
+        <ImportarEntrenamientos ftp={ftp} onGuardar={(nuevos) => onGuardar([...propios, ...nuevos])} />
         <div className="lista-entrenos">
           {propios.length === 0 && <p className="vacio">Aún no has creado ninguno.</p>}
           {propios.map((e) => {

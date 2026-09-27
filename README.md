@@ -13,13 +13,17 @@ directamente desde el navegador, rueda en un recorrido 3D o sigue entrenamientos
 - **Tus datos acumulados**: sesiones, horas, km y desnivel, con acceso al historial.
 - **Rodar libre**: la vuelta de 17 km; el rodillo inteligente se endurece con la pendiente.
 - **Entrenamientos**: categorías Recovery, Entrenamiento rápido, Test, Endurance, Sweet Spot,
-  Tapering, Tempo, Threshold y VO2Max, con 4 sesiones cada una (36 en total). Cada
+  Tapering, Tempo, Threshold y VO2Max: 128 sesiones (10-15 por categoría), con nombres y
+  diseños propios basados en los protocolos clásicos del entrenamiento por potencia. Cada
   entrenamiento se hace en el recorrido con el rodillo en **modo ERG** (potencia fija según el %
   de tu FTP). Sin rodillo inteligente, la web muestra los vatios objetivo para seguirlos a mano.
 - **Tests de FTP**: rampa (75 % del mejor minuto), rampa rápida de escalones de 30″ (72 % del
   mejor minuto), 20 minutos (95 % de la mejor media de 20′) y 2 × 8 minutos (90 % de la mejor
   media de 8′). En los tramos «a tope» de los tests de 20′ y 8′ se suelta el ERG y el rodillo
   simula la pendiente del recorrido; al terminar, la web propone el FTP y permite guardarlo.
+- **Importar entrenamientos**: en «Crea tus entrenamientos», botón para cargar archivos **.zwo**
+  (Zwift), **.mrc** o **.erg** (varios a la vez). Se convierten a nuestros bloques, se les asigna
+  una categoría según la intensidad (se puede cambiar) y quedan como «Mío».
 - **Crea tus entrenamientos**: editor por bloques (constante, rampa, series) con gráfica en
   directo; se guardan en el navegador y aparecen en su categoría como «Mío».
 - **Dispositivos**, datos en directo y **Salida en grupo**. En *Ajustes*: calidad gráfica,

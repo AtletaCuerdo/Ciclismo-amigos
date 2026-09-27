@@ -1755,3 +1755,23 @@ p {
     padding: 6px 10px;
   }
 }
+
+/* Importar entrenamientos */
+.importar-entrenos {
+  margin: 14px 0;
+}
+.importar-entrenos h3 {
+  margin: 0 0 4px;
+}
+.importar-entrenos .tarjeta-entreno-cabecera select {
+  font: inherit;
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+.aviso-importar {
+  margin: 2px 0 0;
+}
+.aviso-ok {
+  color: #1f8a4c;
+  font-weight: 600;
+}

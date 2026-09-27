@@ -31,7 +31,9 @@ tiene que llamarse dentro del propio clic.
   **subir VERSION si cambia su generación**), humano con IK de piernas, brazos, agarre de dedos y
   tronco ajustado al manillar (`ciclistaHumano.ts`), casco y gafas (`equipamiento.ts`), zapatillas
   (`zapatilla.ts`), avatar, física, perfil de 17 km y terreno.
-- `src/entrenamientos/`: catálogo de 36 entrenamientos (`catalogo.ts`, potencias en % del FTP),
+- `src/entrenamientos/`: 128 entrenamientos: base (`catalogo.ts`) + biblioteca ampliada (`biblioteca.ts`,
+  propia, basada en protocolos clásicos; potencias en % del FTP), importador de archivos .zwo/.mrc/.erg
+  (`importar.ts`, categoría automática por intensidad),
   entrenamientos propios (`propios.ts`, se guardan en el navegador) y tipos.
 - `src/entrenamiento/`: grabación de la sesión, resumen, exportación TCX y almacén del historial.
 - `src/multijugador/`: Firebase y el hook `useSalida` para la salida en grupo.
