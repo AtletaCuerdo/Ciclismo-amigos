@@ -1,4 +1,7 @@
-# Ciclismo amigos (Web Bluetooth)
+# RideCrew (Web Bluetooth)
+
+Nombre provisional para usarla con los amigos; el repositorio y la dirección siguen siendo
+`Ciclismo-amigos` (no hace falta dominio).
 
 Web para rodar y entrenar en rodillo con amigos: conecta rodillos y sensores por Bluetooth LE
 directamente desde el navegador, rueda en un recorrido 3D o sigue entrenamientos en modo ERG.

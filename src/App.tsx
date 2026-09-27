@@ -444,7 +444,7 @@ export default function App() {
     <div className="app">
       <header className="barra-superior">
         <button className="marca" onClick={volver}>
-          <span className="marca-icono" aria-hidden>🚴</span> Ciclismo amigos
+          <span className="marca-icono" aria-hidden>🚴</span> RideCrew
         </button>
         <button className="boton-secundario" onClick={() => setPantalla('ajustes')}>
           ⚙️ Ajustes

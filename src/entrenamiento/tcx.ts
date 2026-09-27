@@ -40,7 +40,7 @@ export function generarTcx(e: Entreno): string {
   if (r.cadenciaMedia) vuelta += `<Cadence>${Math.min(254, Math.round(r.cadenciaMedia))}</Cadence>`;
   vuelta += '<TriggerMethod>Manual</TriggerMethod>';
 
-  const notas = `Entrenamiento en rodillo${r.potenciaEstimada ? ' (potencia estimada)' : ''} · Prueba de rodillos`;
+  const notas = `Entrenamiento en rodillo${r.potenciaEstimada ? ' (potencia estimada)' : ''} · RideCrew`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:ns3="http://www.garmin.com/xmlschemas/ActivityExtension/v2">

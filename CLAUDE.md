@@ -1,4 +1,4 @@
-# Ciclismo amigos: web de rodillos
+# RideCrew (repositorio Ciclismo-amigos): web de rodillos
 
 Web para rodar y entrenar en rodillo con amigos. Conecta rodillos y sensores por Web Bluetooth
 desde el navegador, con recorrido 3D, entrenamientos ERG y salida en grupo en tiempo real.
@@ -58,6 +58,11 @@ tiene que llamarse dentro del propio clic.
   `pruebas/ciclista.html?vista=lado|manos|pies|cockpit|bici|transmision|cabeza…&modelo=…&casco=…`.
 
 ## Estado actual (2026-09-27)
+
+Nombre visible provisional: **RideCrew** (título, cabecera, icono «RC», rotulación del maillot,
+TCX y Strava). La dirección, el repositorio, Firebase y las claves de localStorage siguen con
+«ciclismo-amigos». Cyclink se descartó: es marca de Shimano en la UE.
+
 
 27-09: paso 3 del plan. Perfil de la vuelta pequeño en la esquina inferior derecha (al tocarlo
 se amplía; clave `rodillos.perfilVuelta`) y, con el móvil en horizontal (`max-height: 520px`),

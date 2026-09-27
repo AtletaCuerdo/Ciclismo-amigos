@@ -210,7 +210,7 @@ function rotulacion() {
     ctx.font = 'italic 900 92px "Arial Black", system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('CICLISMO AMIGOS', 512, 68, 1000);
+    ctx.fillText('RIDECREW', 512, 68, 1000);
     texturaTexto = new THREE.CanvasTexture(lienzo);
     texturaTexto.anisotropy = 4;
   }
