@@ -22,6 +22,17 @@ export interface Resumen {
   pulsoMedio?: number;
   pulsoMax?: number;
   kilojulios: number;
+  /** Tiempo a rueda de otro ciclista (rebufo) en la salida en grupo, s. */
+  segundosRueda?: number;
+}
+
+/** Título según el porcentaje del tiempo que se ha ido a rueda (para las risas del grupo). */
+export function tituloRueda(segundosRueda: number, duracionS: number) {
+  const pct = duracionS > 0 ? (segundosRueda / duracionS) * 100 : 0;
+  if (pct >= 60) return { pct, titulo: 'Chupa ruedas oficial 🧛' };
+  if (pct >= 35) return { pct, titulo: 'Especialista en ir a rueda 🦊' };
+  if (pct >= 10) return { pct, titulo: 'Buen compañero de grupo 🤝' };
+  return { pct, titulo: 'Siempre dando la cara al viento 💪' };
 }
 
 /** Lo que se guarda de cada entrenamiento en el historial (sin las muestras). */

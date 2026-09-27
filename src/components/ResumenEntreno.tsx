@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { compartirTcx, descargarTcx, puedeCompartir } from '../entrenamiento/tcx';
-import type { Entreno } from '../entrenamiento/tipos';
+import { tituloRueda, type Entreno } from '../entrenamiento/tipos';
 import { Metrica, formatearTiempo } from './Metrica';
 import { BotonStrava, textosStrava } from './Strava';
 import { leerConexion, stravaDisponible } from '../strava/strava';
@@ -103,6 +103,15 @@ export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual,
         <Metrica etiqueta="Pulso máx." valor={r.pulsoMax} unidad="ppm" />
         <Metrica etiqueta="Trabajo" valor={r.kilojulios} unidad="kJ" />
         {r.desnivelM > 0 && <Metrica etiqueta="Desnivel +" valor={r.desnivelM} unidad="m" />}
+        {r.segundosRueda !== undefined && r.segundosRueda > 0 && (
+          <div className="metrica metrica-rueda">
+            <div className="metrica-etiqueta">🌬️ A rueda</div>
+            <div className="metrica-valor">{formatearTiempo(r.segundosRueda)}</div>
+            <div className="metrica-fuente">
+              {Math.round(tituloRueda(r.segundosRueda, r.duracionS).pct)} % · {tituloRueda(r.segundosRueda, r.duracionS).titulo}
+            </div>
+          </div>
+        )}
       </div>
 
       {errorGuardado ? (

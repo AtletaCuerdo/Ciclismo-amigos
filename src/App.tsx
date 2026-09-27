@@ -15,7 +15,7 @@ import { ControlesRodillo } from './components/ControlesRodillo';
 import { EditorAvatar } from './components/EditorAvatar';
 import { EditorEntrenamientos } from './components/EditorEntrenamientos';
 import { Historial } from './components/Historial';
-import { Metrica } from './components/Metrica';
+import { Metrica, formatearTiempo } from './components/Metrica';
 import { PanelSalida } from './components/PanelSalida';
 import { PantallaEntrenamientos } from './components/PantallaEntrenamientos';
 import { RegistroLog, type EntradaLog } from './components/RegistroLog';
@@ -23,7 +23,7 @@ import { ResumenAcumulado } from './components/ResumenAcumulado';
 import { ResumenEntreno } from './components/ResumenEntreno';
 import { TarjetaConexion, type InfoConexion } from './components/TarjetaConexion';
 import { guardarEntreno } from './entrenamiento/almacen';
-import type { Entreno } from './entrenamiento/tipos';
+import { tituloRueda, type Entreno } from './entrenamiento/tipos';
 import { useGrabacion, type ValoresActuales } from './entrenamiento/useGrabacion';
 import { CATALOGO } from './entrenamientos/catalogo';
 import { cargarPropios, guardarPropios } from './entrenamientos/propios';
@@ -604,6 +604,17 @@ export default function App() {
     const sesion = sesionRef.current;
     sesionRef.current = { nombres: [] };
     const entreno = grabacion.finalizar();
+    // Tiempo a rueda (rebufo): al resumen y, si voy en grupo, al chat para que lo vean todos
+    const rueda = Math.round(segundosRuedaRef.current);
+    if (entreno && rueda >= 1) {
+      entreno.resumen.segundosRueda = rueda;
+      if (salida.estado === 'dentro') {
+        const { pct, titulo } = tituloRueda(rueda, entreno.resumen.duracionS);
+        void salida.enviarMensaje(
+          `🏁 He terminado: ${(entreno.resumen.distanciaM / 1000).toFixed(1).replace('.', ',')} km y ${formatearTiempo(rueda)} a rueda (${Math.round(pct)} %). ${titulo}`,
+        );
+      }
+    }
     soltarPantalla();
     setEnRecorrido(false);
     setEntrenoActivo(null);

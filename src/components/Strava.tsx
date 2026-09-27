@@ -4,6 +4,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import type { Entreno, EntrenoGuardado } from '../entrenamiento/tipos';
+import { formatearTiempo } from './Metrica';
 import {
   cambiarAutoSubida,
   conectarStrava,
@@ -165,6 +166,7 @@ export function textosStrava(e: EntrenoGuardado, nombreEntreno?: string) {
   const nombre = nombreEntreno ? `${nombreEntreno} · rodillo` : `Rodaje virtual · ${km} km`;
   const partes = [`${km} km`];
   if (r.desnivelM > 0) partes.push(`${Math.round(r.desnivelM)} m de desnivel`);
+  if (r.segundosRueda) partes.push(`🌬️ ${formatearTiempo(r.segundosRueda)} a rueda`);
   if (r.potenciaMedia !== undefined) partes.push(`${Math.round(r.potenciaMedia)} W de media${r.potenciaEstimada ? ' (estimada)' : ''}`);
   const descripcion = `${nombreEntreno ? `Entrenamiento «${nombreEntreno}». ` : ''}${partes.join(' · ')}. Rodado en rodillo con RideCrew.`;
   return { nombre, descripcion };

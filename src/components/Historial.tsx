@@ -111,6 +111,9 @@ export function Historial({ version }: Props) {
                 )}
                 {r.pulsoMedio !== undefined && <span>{Math.round(r.pulsoMedio)} ppm</span>}
                 {r.desnivelM > 0 && <span>{Math.round(r.desnivelM)} m+</span>}
+                {r.segundosRueda !== undefined && r.segundosRueda > 0 && (
+                  <span title="Tiempo a rueda de otro ciclista">🌬️ {formatearTiempo(r.segundosRueda)} a rueda</span>
+                )}
               </div>
               <div className="historial-acciones">
                 <button className="boton-secundario" onClick={() => void descargar(g)}>
