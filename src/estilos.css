@@ -1737,3 +1737,21 @@ p {
 .aviso-strava {
   cursor: pointer;
 }
+
+/* Botón «Instalar RideCrew» en la barra superior */
+.barra-acciones {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.boton-instalar {
+  border-color: var(--acento);
+  color: var(--acento);
+  font-weight: 700;
+}
+@media (max-width: 520px) {
+  .boton-instalar {
+    font-size: 13px;
+    padding: 6px 10px;
+  }
+}

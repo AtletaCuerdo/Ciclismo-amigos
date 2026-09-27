@@ -6,6 +6,7 @@ import { AjustesSensorCsc } from './components/AjustesSensorCsc';
 import { Creditos } from './components/Creditos';
 import { PanelStrava } from './components/Strava';
 import { procesarVueltaDeStrava } from './strava/strava';
+import { useInstalar } from './instalar';
 import { ControlesRodillo } from './components/ControlesRodillo';
 import { EditorAvatar } from './components/EditorAvatar';
 import { EditorEntrenamientos } from './components/EditorEntrenamientos';
@@ -439,6 +440,7 @@ export default function App() {
   ];
 
   const volver = () => setPantalla('inicio');
+  const instalacion = useInstalar();
 
   return (
     <div className="app">
@@ -446,9 +448,20 @@ export default function App() {
         <button className="marca" onClick={volver}>
           <span className="marca-icono" aria-hidden>🚴</span> RideCrew
         </button>
-        <button className="boton-secundario" onClick={() => setPantalla('ajustes')}>
-          ⚙️ Ajustes
-        </button>
+        <div className="barra-acciones">
+          {instalacion.disponible && (
+            <button
+              className="boton-secundario boton-instalar"
+              onClick={() => void instalacion.instalar()}
+              title="Crea un acceso directo en el escritorio y abre RideCrew en su propia ventana"
+            >
+              ⬇️ Instalar RideCrew
+            </button>
+          )}
+          <button className="boton-secundario" onClick={() => setPantalla('ajustes')}>
+            ⚙️ Ajustes
+          </button>
+        </div>
       </header>
 
       {(sinBluetooth || sinHttps) && (
