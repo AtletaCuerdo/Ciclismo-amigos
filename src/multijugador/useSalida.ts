@@ -48,7 +48,7 @@ export function cargarNombre() {
   }
 }
 
-function guardarNombre(nombre: string) {
+export function guardarNombre(nombre: string) {
   try {
     localStorage.setItem(CLAVE_NOMBRE, nombre);
   } catch {
@@ -246,4 +246,64 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
     .sort((a, b) => (b.distancia ?? 0) - (a.distancia ?? 0));
 
   return { estado, error, ciclistas: visibles, miUid, avatares, avatarRechazado, unirse, salir };
+}
+
+/**
+ * Quién está rodando ahora en la sala, sin unirse (solo lectura): para la pantalla
+ * de inicio, donde se elige al amigo junto al que aparecer.
+ */
+export function useConectados(activo: boolean, sala = SALA_POR_DEFECTO) {
+  const [ciclistas, setCiclistas] = useState<Ciclista[]>([]);
+  const [desfaseServidor, setDesfaseServidor] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  // Se vuelve a pintar cada pocos segundos para ocultar a quien deja de enviar datos
+  const [, refrescar] = useState(0);
+
+  useEffect(() => {
+    if (!activo) {
+      setCiclistas([]);
+      return;
+    }
+    let cerrado = false;
+    const cancelar: (() => void)[] = [];
+    (async () => {
+      try {
+        const fb = await import('./firebase');
+        await fb.entrarAnonimo();
+        if (cerrado) return;
+        cancelar.push(
+          fb.onValue(fb.ref(fb.db, '.info/serverTimeOffset'), (snap) => setDesfaseServidor(Number(snap.val()) || 0)),
+        );
+        cancelar.push(
+          fb.onValue(
+            fb.ref(fb.db, `salas/${sala}/ciclistas`),
+            (snap) => {
+              const lista: Ciclista[] = [];
+              snap.forEach((hijo) => {
+                const v = hijo.val();
+                if (v && typeof v.nombre === 'string') lista.push({ uid: hijo.key as string, ...v });
+              });
+              setCiclistas(lista);
+              setError(null);
+            },
+            (e) => setError(mensaje(e)),
+          ),
+        );
+      } catch (e) {
+        if (!cerrado) setError(mensaje(e));
+      }
+    })();
+    const id = setInterval(() => refrescar((n) => n + 1), 5000);
+    return () => {
+      cerrado = true;
+      clearInterval(id);
+      cancelar.forEach((c) => c());
+    };
+  }, [activo, sala]);
+
+  const ahoraServidor = Date.now() + desfaseServidor;
+  const visibles = ciclistas
+    .filter((c) => ahoraServidor - c.t < CADUCIDAD_MS)
+    .sort((a, b) => (b.distancia ?? 0) - (a.distancia ?? 0));
+  return { ciclistas: visibles, error };
 }

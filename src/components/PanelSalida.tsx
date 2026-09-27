@@ -1,112 +1,117 @@
 import { useState } from 'react';
-import { cargarNombre, type Ciclista, type EstadoSalida } from '../multijugador/useSalida';
+import type { Ciclista } from '../multijugador/useSalida';
+import { LONGITUD_VUELTA_M, enVuelta } from '../recorrido/perfil';
 
 interface Props {
-  estado: EstadoSalida;
+  /** Quién está rodando ahora en el recorrido. */
+  conectados: Ciclista[];
   error: string | null;
-  ciclistas: Ciclista[];
-  miUid: string | null;
-  grabando: boolean;
-  onUnirse: (nombre: string) => void;
-  onSalir: () => void;
+  /** Nombre con el que te verán (el guardado o el de la cuenta). */
+  nombre: string;
+  onCambiarNombre: (nombre: string) => void;
+  /** Entrar en el recorrido junto a ese amigo. */
+  onRodarJunto: (uid: string) => void;
 }
 
-const TEXTO_ESTADO: Record<EstadoSalida, string> = {
-  fuera: 'No estás en la salida',
-  entrando: 'Conectando…',
-  dentro: 'En la salida',
-  'sin-conexion': 'Sin conexión, reintentando…',
-};
+const km = (m: number) => (m / 1000).toFixed(1).replace('.', ',');
 
-const fmt = (v: number | undefined, dec = 0) => (v === undefined ? '--' : v.toFixed(dec));
+/**
+ * Amigos rodando ahora: se actualiza solo. Tocar a un amigo te lleva al recorrido
+ * a su lado, en el mismo punto del circuito, llegues cuando llegues.
+ */
+export function PanelSalida({ conectados, error, nombre, onCambiarNombre, onRodarJunto }: Props) {
+  const [editando, setEditando] = useState(false);
+  const [borrador, setBorrador] = useState(nombre);
 
-/** Salida en grupo: unirse con un nombre y ver a los demás en directo. */
-export function PanelSalida({ estado, error, ciclistas, miUid, grabando, onUnirse, onSalir }: Props) {
-  const [nombre, setNombre] = useState(cargarNombre);
-  const dentro = estado === 'dentro' || estado === 'sin-conexion';
+  const guardar = () => {
+    const n = borrador.trim().slice(0, 30);
+    if (n) onCambiarNombre(n);
+    setEditando(false);
+  };
 
   return (
-    <section className="panel">
+    <section className="panel panel-amigos">
       <div className="cabecera-panel">
-        <h2>Salida en grupo</h2>
-        <span className={`chip-salida chip-${estado}`}>{TEXTO_ESTADO[estado]}</span>
+        <h2>👥 Amigos rodando ahora</h2>
+        <span className={`chip-salida ${conectados.length ? 'chip-dentro' : 'chip-fuera'}`}>
+          {conectados.length === 0
+            ? 'Nadie'
+            : `${conectados.length} rodando`}
+        </span>
       </div>
 
-      {!dentro ? (
-        <form
-          className="fila-unirse"
-          onSubmit={(e) => {
-            e.preventDefault();
-            onUnirse(nombre);
-          }}
-        >
-          <input
-            type="text"
-            value={nombre}
-            maxLength={30}
-            placeholder="Tu nombre"
-            autoComplete="nickname"
-            onChange={(e) => setNombre(e.target.value)}
-            aria-label="Tu nombre"
-          />
-          <button className="boton-principal" type="submit" disabled={estado === 'entrando'}>
-            Unirme a la salida
-          </button>
-        </form>
+      {conectados.length === 0 ? (
+        <p className="detalle">
+          Ahora mismo no rueda nadie. Empieza tú («Rodar libre» o un entrenamiento): tus amigos te verán aquí y
+          podrán aparecer a tu lado.
+        </p>
       ) : (
-        <div className="fila-unirse">
-          <span className="detalle">
-            Rodando como <strong>{nombre}</strong>
-            {!grabando && ' · tu distancia cuenta cuando ruedas en el recorrido'}
-          </span>
-          <button className="boton-secundario" onClick={onSalir}>
-            Salir
-          </button>
-        </div>
+        <ul className="lista-amigos">
+          {conectados.map((c) => (
+            <li key={c.uid}>
+              <button className="amigo" onClick={() => onRodarJunto(c.uid)} title={`Aparecer junto a ${c.nombre}`}>
+                <span className="amigo-punto" aria-hidden />
+                <span className="amigo-datos">
+                  <strong>{c.nombre}</strong>
+                  <span className="detalle">
+                    km {km(enVuelta(c.distancia ?? 0))} de {LONGITUD_VUELTA_M / 1000}
+                    {c.vatios !== undefined && ` · ${c.vatios} W`}
+                    {c.velocidad !== undefined && ` · ${c.velocidad.toFixed(1).replace('.', ',')} km/h`}
+                  </span>
+                </span>
+                <span className="amigo-accion">🚴 Rodar a su lado</span>
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
 
       {error && <p className="aviso">{error}</p>}
 
-      {dentro && (
-        <table className="tabla-salida">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Ciclista</th>
-              <th>W</th>
-              <th>km/h</th>
-              <th>rpm</th>
-              <th>km</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ciclistas.length === 0 && (
-              <tr>
-                <td colSpan={6} className="detalle">
-                  Esperando datos…
-                </td>
-              </tr>
+      <div className="fila-unirse">
+        {editando ? (
+          <form
+            className="fila-unirse"
+            onSubmit={(e) => {
+              e.preventDefault();
+              guardar();
+            }}
+          >
+            <input
+              type="text"
+              value={borrador}
+              maxLength={30}
+              placeholder="Tu nombre"
+              autoComplete="nickname"
+              autoFocus
+              onChange={(e) => setBorrador(e.target.value)}
+              aria-label="Tu nombre"
+            />
+            <button className="boton-principal" type="submit">
+              Guardar
+            </button>
+          </form>
+        ) : (
+          <span className="detalle">
+            {nombre ? (
+              <>
+                Al rodar, tus amigos te verán como <strong>{nombre}</strong>.{' '}
+              </>
+            ) : (
+              'Pon tu nombre para que tus amigos te vean al rodar. '
             )}
-            {ciclistas.map((c, i) => (
-              <tr key={c.uid} className={c.uid === miUid ? 'yo' : undefined}>
-                <td>{i + 1}</td>
-                <td className="nombre-ciclista">
-                  {c.nombre}
-                  {c.uid === miUid && ' (tú)'}
-                </td>
-                <td>{fmt(c.vatios)}</td>
-                <td>{fmt(c.velocidad, 1)}</td>
-                <td>{fmt(c.cadencia)}</td>
-                <td>{fmt(c.distancia !== undefined ? c.distancia / 1000 : undefined, 2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      <p className="detalle">
-        Los demás verán tu nombre, vatios, velocidad, cadencia y distancia mientras estés en la salida.
-      </p>
+            <button
+              className="boton-enlace"
+              onClick={() => {
+                setBorrador(nombre);
+                setEditando(true);
+              }}
+            >
+              {nombre ? 'Cambiar' : 'Poner nombre'}
+            </button>
+          </span>
+        )}
+      </div>
     </section>
   );
 }

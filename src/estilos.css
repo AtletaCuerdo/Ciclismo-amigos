@@ -2047,3 +2047,158 @@ p {
 .estado-sync {
   font-weight: 600;
 }
+
+/* ---------- Amigos rodando ahora (inicio) ---------- */
+
+.lista-amigos {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.amigo {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  text-align: left;
+  background: var(--acento-suave);
+  border: 2px solid var(--acento);
+  border-radius: 14px;
+  color: var(--texto);
+  cursor: pointer;
+}
+
+.amigo:hover {
+  filter: brightness(0.97);
+}
+
+.amigo-punto {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 4px rgba(31, 157, 85, 0.2);
+}
+
+.amigo-datos {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.amigo-datos strong {
+  font-size: 19px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.amigo-accion {
+  flex: none;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--acento);
+  color: #fff;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.boton-enlace {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--acento);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (max-width: 480px) {
+  .amigo {
+    flex-wrap: wrap;
+  }
+  .amigo-accion {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* ---------- Grupo dentro del recorrido ---------- */
+
+.hud-grupo {
+  margin-left: auto;
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  max-width: min(300px, 46vw);
+  max-height: 100%;
+  overflow-y: auto;
+  color: #fff;
+  font-size: 14px;
+}
+
+.hud-grupo-titulo {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.hud-grupo-vacio,
+.hud-grupo-error {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.hud-grupo-fila {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-grupo-nombre {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud-grupo-dif {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hud-grupo-dif.delante {
+  color: #facc15;
+}
+
+.hud-grupo-dif.detras {
+  color: #6ec1ff;
+}
+
+.hud-grupo-dif.contigo {
+  color: #4ade80;
+  font-weight: 700;
+}
+
+.recorrido .hud-grupo-boton {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
+  background: var(--acento);
+  border-color: var(--acento);
+}
+
+.hud-grupo .boton-secundario {
+  min-height: 38px;
+}

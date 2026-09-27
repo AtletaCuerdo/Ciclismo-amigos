@@ -46,6 +46,12 @@ interface Props {
     pausar: () => void;
   };
   enSalida: boolean;
+  entrandoSalida: boolean;
+  errorSalida: string | null;
+  /** Unirse a la salida en grupo sin salir del recorrido. */
+  onUnirseSalida: () => void;
+  /** Ponerse en el punto `s` del circuito (junto a un amigo). */
+  onJuntoA: (s: number) => void;
   rodilloControlado: boolean;
   /** Modo demostración: deslizador de vatios simulados (null si no está activo). */
   demo: { vatios: number; onCambiar: (w: number) => void } | null;
@@ -151,6 +157,10 @@ export default function VistaRecorrido({
   otros,
   grabacion,
   enSalida,
+  entrandoSalida,
+  errorSalida,
+  onUnirseSalida,
+  onJuntoA,
   rodilloControlado,
   demo,
   entreno,
@@ -379,7 +389,18 @@ export default function VistaRecorrido({
       </div>
 
       {/* Zona central libre; el entrenamiento guiado va arriba a la izquierda, pegado a la barra */}
-      <div className="hud-medio">{entreno && <PanelEntreno e={entreno} potencia={yo.potencia} />}</div>
+      <div className="hud-medio">
+        {entreno && <PanelEntreno e={entreno} potencia={yo.potencia} />}
+        <PanelGrupo
+          yo={yo.distancia}
+          otros={otros}
+          enSalida={enSalida}
+          entrando={entrandoSalida}
+          error={errorSalida}
+          onUnirse={onUnirseSalida}
+          onJuntoA={onJuntoA}
+        />
+      </div>
 
       {/* Al completar un entrenamiento: terminar, seguir libre o encadenar otro */}
       {acabado && !eligiendo && (
@@ -504,6 +525,73 @@ export default function VistaRecorrido({
         </div>
       </div>
       </div>
+    </div>
+  );
+}
+
+/** Diferencia con otro ciclista en el circuito, en texto («+120 m», «−1,3 km»). */
+function diferencia(m: number) {
+  const signo = m >= 0 ? '+' : '−';
+  const a = Math.abs(m);
+  return a < 1000 ? `${signo}${Math.round(a)} m` : `${signo}${km(a, 1)} km`;
+}
+
+/**
+ * Tu grupo: a qué distancia va cada amigo y un botón para ponerte a su lado.
+ * Si no estás en la salida, un botón para unirte sin salir del recorrido.
+ */
+function PanelGrupo({
+  yo,
+  otros,
+  enSalida,
+  entrando,
+  error,
+  onUnirse,
+  onJuntoA,
+}: {
+  yo: number;
+  otros: OtroCiclista[];
+  enSalida: boolean;
+  entrando: boolean;
+  error: string | null;
+  onUnirse: () => void;
+  onJuntoA: (s: number) => void;
+}) {
+  if (!enSalida)
+    return (
+      <div className="hud hud-grupo">
+        <button className="boton-secundario" onClick={onUnirse} disabled={entrando}>
+          {entrando ? 'Conectando…' : '👥 Rodar con mis amigos'}
+        </button>
+        {error && <span className="hud-grupo-error">{error}</span>}
+      </div>
+    );
+  const lista = [...otros].sort((a, b) => b.distancia - a.distancia);
+  return (
+    <div className="hud hud-grupo">
+      <strong className="hud-grupo-titulo">👥 Grupo</strong>
+      {lista.length === 0 && <span className="hud-grupo-vacio">Aún no rueda nadie más</span>}
+      {lista.map((o) => {
+        const d = o.distancia - yo;
+        const cerca = Math.abs(d) < 60;
+        return (
+          <div key={o.uid} className="hud-grupo-fila">
+            <span className="hud-grupo-nombre">{o.nombre}</span>
+            <span className={`hud-grupo-dif ${cerca ? 'contigo' : d > 0 ? 'delante' : 'detras'}`}>
+              {cerca ? 'contigo' : diferencia(d)}
+            </span>
+            {!cerca && (
+              <button
+                className="boton-secundario hud-grupo-boton"
+                onClick={() => onJuntoA(o.distancia)}
+                title={`Ponerte junto a ${o.nombre}`}
+              >
+                Ir junto a
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

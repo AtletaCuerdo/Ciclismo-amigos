@@ -28,7 +28,7 @@ import { useGrabacion, type ValoresActuales } from './entrenamiento/useGrabacion
 import { CATALOGO } from './entrenamientos/catalogo';
 import { cargarPropios, guardarPropios } from './entrenamientos/propios';
 import { desplegar, duracionTotal, potenciaEn, tramoEn, type Entrenamiento, type Tramo } from './entrenamientos/tipos';
-import { useSalida } from './multijugador/useSalida';
+import { cargarNombre, guardarNombre, useConectados, useSalida } from './multijugador/useSalida';
 import { cargarAjustes, guardarAjustes, potenciaEstimada } from './potenciaVirtual';
 import {
   avatarAleatorio,
@@ -346,9 +346,20 @@ export default function App() {
     enRecorridoRef.current ? { ...actualRef.current, velocidad: velVirtualRef.current } : actualRef.current;
   const grabacion = useGrabacion(leerActual, () => pendienteRef.current);
 
-  // ---- Salida en grupo (multijugador con Firebase) ----
+  // ---- Punto del circuito ----
+  // La grabación cuenta los metros rodados de verdad (TCX, Strava); el punto del circuito
+  // puede ir adelantado para aparecer junto a un amigo que empezó antes.
+  const [adelanto, setAdelanto] = useState(0);
   const distanciaRef = useRef(0);
-  distanciaRef.current = grabacion.distanciaM;
+  distanciaRef.current = Math.max(0, adelanto + grabacion.distanciaM);
+  /** Coloca mi ciclista en el punto `s` del circuito (sin tocar lo grabado). */
+  const ponerEnPunto = (s: number) => {
+    const destino = Math.max(0, s);
+    distanciaRef.current = destino;
+    setAdelanto(destino - grabacion.distanciaM);
+  };
+
+  // ---- Salida en grupo (multijugador con Firebase) ----
   const salida = useSalida(
     () => ({
       vatios: actualRef.current.potencia,
@@ -442,6 +453,46 @@ export default function App() {
       cadencia: c.cadencia ?? 0,
     }));
 
+  // ---- Rodar con los amigos ----
+  // Nombre con el que te ven (el guardado o, si no hay, el de la cuenta)
+  const [nombreSalida, setNombreSalida] = useState(cargarNombre);
+  const nombreVisible = nombreSalida.trim() || usuario?.nombre || '';
+  // En el inicio se ve quién está rodando ahora mismo (sin unirse)
+  const conectados = useConectados(pantalla === 'inicio' && !enRecorrido);
+
+  // Estar en el recorrido = estar en la salida: así los amigos te ven siempre.
+  // Al salir del recorrido se deja la salida y se vuelve al km 0 del circuito.
+  useEffect(() => {
+    if (enRecorrido && salida.estado === 'fuera' && nombreVisible) void salida.unirse(nombreVisible);
+    if (!enRecorrido) {
+      setAdelanto(0);
+      if (salida.estado !== 'fuera') void salida.salir();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enRecorrido]);
+
+  // Amigo junto al que aparecer al entrar (se elige en el inicio)
+  const juntoARef = useRef<string | null>(null);
+  useEffect(() => {
+    const uid = juntoARef.current;
+    if (!uid || !enRecorrido || salida.estado !== 'dentro' || !salida.miUid) return;
+    // Esperar a que llegue la lista de la sala (incluye mi propio nodo)
+    if (!salida.ciclistas.some((c) => c.uid === salida.miUid)) return;
+    juntoARef.current = null;
+    const amigo = salida.ciclistas.find((c) => c.uid === uid);
+    if (amigo) ponerEnPunto(amigo.distancia ?? 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enRecorrido, salida.estado, salida.ciclistas, salida.miUid]);
+
+  /** Unirse a la salida desde el recorrido (si al entrar no había nombre o falló la conexión). */
+  const unirseDesdeRecorrido = () => {
+    let nombre = nombreVisible;
+    if (!nombre) nombre = window.prompt('¿Con qué nombre te verán tus amigos?')?.trim().slice(0, 30) ?? '';
+    if (!nombre) return;
+    setNombreSalida(nombre);
+    void salida.unirse(nombre);
+  };
+
   // Avisar antes de cerrar la página si hay un entrenamiento sin guardar
   const hayDatosRef = useRef(false);
   hayDatosRef.current = grabacion.hayDatos;
@@ -470,6 +521,12 @@ export default function App() {
     setEntrenoActivo(null);
     setTerminado(null);
     setEnRecorrido(true);
+  };
+
+  /** Rodar libre apareciendo junto a un amigo que ya está en el recorrido. */
+  const rodarJuntoA = (uid: string) => {
+    juntoARef.current = uid;
+    rodarLibre();
   };
 
   const empezarEntreno = (e: Entrenamiento) => {
@@ -629,6 +686,17 @@ export default function App() {
             <ResumenAcumulado version={versionHistorial} onVerHistorial={() => setPantalla('historial')} />
           </section>
 
+          <PanelSalida
+            conectados={conectados.ciclistas}
+            error={conectados.error}
+            nombre={nombreVisible}
+            onCambiarNombre={(n) => {
+              guardarNombre(n);
+              setNombreSalida(n);
+            }}
+            onRodarJunto={rodarJuntoA}
+          />
+
           <section className="acciones-principales">
             <button className="accion accion-libre" onClick={rodarLibre}>
               <span className="accion-icono" aria-hidden>🏞️</span>
@@ -692,15 +760,6 @@ export default function App() {
             </div>
           </section>
 
-          <PanelSalida
-            estado={salida.estado}
-            error={salida.error}
-            ciclistas={salida.ciclistas}
-            miUid={salida.miUid}
-            grabando={grabacion.corriendo}
-            onUnirse={(nombre) => void salida.unirse(nombre)}
-            onSalir={() => void salida.salir()}
-          />
         </>
       )}
 
@@ -813,6 +872,10 @@ export default function App() {
             otros={otrosCiclistas}
             grabacion={grabacion}
             enSalida={salida.estado === 'dentro'}
+            entrandoSalida={salida.estado === 'entrando'}
+            errorSalida={salida.error}
+            onUnirseSalida={unirseDesdeRecorrido}
+            onJuntoA={ponerEnPunto}
             rodilloControlado={hayErg}
             demo={usarDemo ? { vatios: demoVatios!, onCambiar: setDemoVatios } : null}
             entreno={
