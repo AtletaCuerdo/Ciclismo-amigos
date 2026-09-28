@@ -57,6 +57,13 @@ export const PRESETS: PresetRodillo[] = [
 
 export const PRESET_PERSONALIZADO = 'personalizado';
 
+/** Posición de la palanca (1-8) si el rodillo elegido es el Elite Novo Force; si no, null. */
+export function palancaNovoForce(presetId: string): number | null {
+  const m = /^elite-novo-force-([1-8])$/.exec(presetId);
+  return m ? Number(m[1]) : null;
+}
+export const presetNovoForce = (posicion: number) => `elite-novo-force-${Math.min(8, Math.max(1, posicion))}`;
+
 export function potenciaEstimada(velocidadKmh: number, a: number, b: number): number {
   const p = a * velocidadKmh + b * velocidadKmh ** 3;
   return Math.max(0, p);

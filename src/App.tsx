@@ -30,7 +30,7 @@ import { cargarPropios, guardarPropios } from './entrenamientos/propios';
 import { useCompartidos } from './entrenamientos/compartidos';
 import { desplegar, duracionTotal, potenciaEn, tramoEn, type Entrenamiento, type Tramo } from './entrenamientos/tipos';
 import { cargarNombre, guardarNombre, useConectados, useSalida, type Ciclista } from './multijugador/useSalida';
-import { cargarAjustes, guardarAjustes, potenciaDeAjustes } from './potenciaVirtual';
+import { cargarAjustes, guardarAjustes, palancaNovoForce, potenciaDeAjustes, presetNovoForce } from './potenciaVirtual';
 import {
   avatarAleatorio,
   cargarCalidad,
@@ -992,6 +992,14 @@ export default function App() {
             }}
             rodilloControlado={hayErg}
             demo={usarDemo ? { vatios: demoVatios!, onCambiar: setDemoVatios } : null}
+            palanca={
+              palancaNovoForce(ajustes.presetId) !== null
+                ? {
+                    posicion: palancaNovoForce(ajustes.presetId)!,
+                    onCambiar: (n) => setAjustes((a) => ({ ...a, presetId: presetNovoForce(n) })),
+                  }
+                : null
+            }
             entreno={
               entrenoActivo
                 ? {

@@ -68,6 +68,8 @@ interface Props {
   rodilloControlado: boolean;
   /** Modo demostración: deslizador de vatios simulados (null si no está activo). */
   demo: { vatios: number; onCambiar: (w: number) => void } | null;
+  /** Elite Novo Force: posición de la palanca del manillar (1-8), para cambiarla en directo. */
+  palanca: { posicion: number; onCambiar: (n: number) => void } | null;
   /** Entrenamiento guiado en curso (null al rodar libre). */
   entreno: {
     entreno: { nombre: string };
@@ -177,6 +179,7 @@ export default function VistaRecorrido({
   chat,
   rodilloControlado,
   demo,
+  palanca,
   entreno,
   entrenamientos,
   onOtroEntreno,
@@ -308,6 +311,28 @@ export default function VistaRecorrido({
               <div className="hud-rebufo" title="Vas a rueda: el aire te frena menos y el rodillo se suaviza">
                 <span className="hud-rebufo-valor">🌬️ −{Math.round(yo.rebufo * 100)} %</span>
                 <span className="hud-etiqueta">a rueda</span>
+              </div>
+            )}
+            {palanca && (
+              <div className="hud-palanca" title="Pon aquí la misma posición que la palanca del rodillo">
+                <div className="hud-palanca-mandos">
+                  <button
+                    onClick={() => palanca.onCambiar(palanca.posicion - 1)}
+                    disabled={palanca.posicion <= 1}
+                    aria-label="Palanca más suave"
+                  >
+                    −
+                  </button>
+                  <span className="hud-palanca-valor">{palanca.posicion}</span>
+                  <button
+                    onClick={() => palanca.onCambiar(palanca.posicion + 1)}
+                    disabled={palanca.posicion >= 8}
+                    aria-label="Palanca más dura"
+                  >
+                    +
+                  </button>
+                </div>
+                <span className="hud-etiqueta">palanca rodillo</span>
               </div>
             )}
             {demo && (
