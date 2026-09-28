@@ -1,7 +1,7 @@
 /**
  * Ajustes → «Tu FTP y peso»: el FTP manda en la intensidad de todos los entrenamientos
  * (están en % del FTP) y aquí se ven tus zonas en vatios. El peso se usa para la velocidad
- * en el recorrido. Se guarda en este dispositivo (con las cuentas, irá en tu perfil).
+ * en el recorrido. Se guarda en el perfil (y en la cuenta, si el usuario ha entrado).
  */
 import { useState } from 'react';
 import type { Perfil } from '../recorrido/avatar';
@@ -66,21 +66,25 @@ export function PanelFtp({ perfil, onCambiar }: { perfil: Perfil; onCambiar: (p:
       </div>
       <table className="tabla-zonas">
         <tbody>
-          {ZONAS.map((z) => (
-            <tr key={z.nombre}>
-              <td>
-                <span className="muestra-zona" style={{ background: colorZona(z.hasta ?? z.desde + 1) }} />
-                {z.nombre}
-              </td>
-              <td>{z.hasta !== undefined ? `${z.desde}-${z.hasta} %` : `> ${z.desde - 1} %`}</td>
-              <td>
-                <strong>{z.hasta !== undefined ? `${w(z.desde)}-${w(z.hasta)} W` : `> ${w(z.desde - 1)} W`}</strong>
-              </td>
-            </tr>
-          ))}
+          {ZONAS.map((z, i) => {
+            // Cada zona empieza 1 W después de donde acaba la anterior: sin huecos al redondear
+            const desdeW = i === 0 ? 0 : w(ZONAS[i - 1].hasta ?? 0) + 1;
+            return (
+              <tr key={z.nombre}>
+                <td>
+                  <span className="muestra-zona" style={{ background: colorZona(z.hasta ?? z.desde + 1) }} />
+                  {z.nombre}
+                </td>
+                <td>{z.hasta !== undefined ? `${z.desde}-${z.hasta} %` : `> ${z.desde - 1} %`}</td>
+                <td>
+                  <strong>{z.hasta !== undefined ? `${desdeW}-${w(z.hasta)} W` : `> ${desdeW - 1} W`}</strong>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
-      <p className="detalle">Se guarda en este dispositivo. Cuando haya cuentas de usuario, irá en tu perfil.</p>
+      <p className="detalle">Si has entrado con tu cuenta, se guarda en tu perfil y lo verás en todos tus dispositivos.</p>
     </section>
   );
 }
