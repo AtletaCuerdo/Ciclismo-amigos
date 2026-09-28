@@ -1,5 +1,10 @@
-import { useEffect, useState } from 'react';
-import { AjustesCsc, PRESETS, PRESET_PERSONALIZADO } from '../potenciaVirtual';
+import { useEffect, useState } from "react";
+import {
+  AjustesCsc,
+  PRESETS,
+  PRESET_PERSONALIZADO,
+  potenciaDeAjustes,
+} from "../potenciaVirtual";
 
 interface Props {
   ajustes: AjustesCsc;
@@ -23,7 +28,9 @@ function CampoNumero({
 
   // Si el valor cambia desde fuera (p. ej. al elegir un preset), lo reflejamos.
   useEffect(() => {
-    setTexto((t) => (Number(t.replace(',', '.')) === valor ? t : String(valor)));
+    setTexto((t) =>
+      Number(t.replace(",", ".")) === valor ? t : String(valor),
+    );
   }, [valor]);
 
   return (
@@ -33,8 +40,12 @@ function CampoNumero({
       value={texto}
       onChange={(e) => {
         setTexto(e.target.value);
-        const v = Number(e.target.value.replace(',', '.'));
-        if (e.target.value.trim() !== '' && Number.isFinite(v) && (min === undefined || v >= min)) {
+        const v = Number(e.target.value.replace(",", "."));
+        if (
+          e.target.value.trim() !== "" &&
+          Number.isFinite(v) &&
+          (min === undefined || v >= min)
+        ) {
           onValido(v);
         }
       }}
@@ -45,9 +56,15 @@ function CampoNumero({
 
 /** Circunferencia de rueda y coeficientes de la potencia virtual. */
 export function AjustesSensorCsc({ ajustes, onCambiar }: Props) {
+  const conCurva =
+    PRESETS.find((p) => p.id === ajustes.presetId)?.poli !== undefined;
   const elegirPreset = (id: string) => {
     const p = PRESETS.find((x) => x.id === id);
-    onCambiar(p ? { ...ajustes, presetId: id, a: p.a, b: p.b } : { ...ajustes, presetId: id });
+    onCambiar(
+      p
+        ? { ...ajustes, presetId: id, a: p.a, b: p.b }
+        : { ...ajustes, presetId: id },
+    );
   };
 
   return (
@@ -64,7 +81,10 @@ export function AjustesSensorCsc({ ajustes, onCambiar }: Props) {
         </label>
         <label>
           Rodillo (preset)
-          <select value={ajustes.presetId} onChange={(e) => elegirPreset(e.target.value)}>
+          <select
+            value={ajustes.presetId}
+            onChange={(e) => elegirPreset(e.target.value)}
+          >
             {PRESETS.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nombre}
@@ -73,24 +93,55 @@ export function AjustesSensorCsc({ ajustes, onCambiar }: Props) {
             <option value={PRESET_PERSONALIZADO}>Personalizado</option>
           </select>
         </label>
-        <label>
-          a (lineal)
-          <CampoNumero
-            valor={ajustes.a}
-            onValido={(v) => onCambiar({ ...ajustes, a: v, presetId: PRESET_PERSONALIZADO })}
-          />
-        </label>
-        <label>
-          b (cúbico)
-          <CampoNumero
-            valor={ajustes.b}
-            onValido={(v) => onCambiar({ ...ajustes, b: v, presetId: PRESET_PERSONALIZADO })}
-          />
-        </label>
+        {!conCurva && (
+          <>
+            <label>
+              a (lineal)
+              <CampoNumero
+                valor={ajustes.a}
+                onValido={(v) =>
+                  onCambiar({
+                    ...ajustes,
+                    a: v,
+                    presetId: PRESET_PERSONALIZADO,
+                  })
+                }
+              />
+            </label>
+            <label>
+              b (cúbico)
+              <CampoNumero
+                valor={ajustes.b}
+                onValido={(v) =>
+                  onCambiar({
+                    ...ajustes,
+                    b: v,
+                    presetId: PRESET_PERSONALIZADO,
+                  })
+                }
+              />
+            </label>
+          </>
+        )}
       </div>
+      {conCurva ? (
+        <div className="detalle">
+          Curva de Elite para esta posición de la palanca: a 20 km/h ≈{" "}
+          {Math.round(potenciaDeAjustes(20, ajustes))} W, a 30 km/h ≈{" "}
+          {Math.round(potenciaDeAjustes(30, ajustes))} W y a 40 km/h ≈{" "}
+          {Math.round(potenciaDeAjustes(40, ajustes))} W. Si mueves la palanca
+          del manillar, cambia aquí también la posición.
+        </div>
+      ) : (
+        <div className="detalle">
+          Potencia estimada: P = a·v + b·v³ (v en km/h). A 30 km/h ≈{" "}
+          {Math.round(ajustes.a * 30 + ajustes.b * 30 ** 3)} W.
+        </div>
+      )}
       <div className="detalle">
-        Potencia estimada: P = a·v + b·v³ (v en km/h). A 30 km/h ≈{' '}
-        {Math.round(ajustes.a * 30 + ajustes.b * 30 ** 3)} W.
+        El sensor de velocidad tiene que ir en la rueda trasera (la que gira
+        sobre el rodillo). El plato y el piñón no cambian el cálculo: la
+        potencia sale de la velocidad de la rueda y de la dureza del rodillo.
       </div>
     </section>
   );

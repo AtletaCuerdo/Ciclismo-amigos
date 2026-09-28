@@ -30,7 +30,7 @@ import { cargarPropios, guardarPropios } from './entrenamientos/propios';
 import { useCompartidos } from './entrenamientos/compartidos';
 import { desplegar, duracionTotal, potenciaEn, tramoEn, type Entrenamiento, type Tramo } from './entrenamientos/tipos';
 import { cargarNombre, guardarNombre, useConectados, useSalida, type Ciclista } from './multijugador/useSalida';
-import { cargarAjustes, guardarAjustes, potenciaEstimada } from './potenciaVirtual';
+import { cargarAjustes, guardarAjustes, potenciaDeAjustes } from './potenciaVirtual';
 import {
   avatarAleatorio,
   cargarCalidad,
@@ -304,7 +304,7 @@ export default function App() {
 
   const velocidadCsc = fresco(datos.csc.velocidad);
   const potEstimada =
-    velocidadCsc !== undefined ? potenciaEstimada(velocidadCsc, ajustes.a, ajustes.b) : undefined;
+    velocidadCsc !== undefined ? potenciaDeAjustes(velocidadCsc, ajustes) : undefined;
   const potReal = primero([
     ['Potenciómetro', fresco(datos.pm.potencia)],
     ['Rodillo FTMS', fresco(datos.ftms.potencia)],
