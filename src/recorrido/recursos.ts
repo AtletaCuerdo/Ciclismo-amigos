@@ -8,7 +8,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 
-/** Ruta pública (respeta la base de GitHub Pages, /Ciclismo-amigos/). */
+/** Ruta pública (respeta la base de la web, BASE_URL). */
 export const rutaPublica = (ruta: string) => `${import.meta.env.BASE_URL}${ruta}`;
 
 export interface ParteModelo {

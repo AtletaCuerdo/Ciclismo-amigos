@@ -32,8 +32,8 @@ jobs:
       - name: Compilar
         run: npm run build
         env:
-          # La web se sirve en https://<usuario>.github.io/<repositorio>/
-          BASE_PATH: /${{ github.event.repository.name }}/
+          # La web se sirve en la raíz de su dominio propio: https://ridecrew.tricoach.es/
+          BASE_PATH: /
 
       - uses: actions/configure-pages@v5
 

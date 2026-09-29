@@ -6,8 +6,8 @@ import basicSsl from '@vitejs/plugin-basic-ssl';
 // `npm run dev:https` arranca con un certificado autofirmado para poder
 // probar desde el iPad (Bluefy) apuntando a la IP del ordenador.
 //
-// BASE_PATH: en GitHub Pages la web vive en /Ciclismo-amigos/, así que el
-// workflow de despliegue lo define. En local y en Replit se sirve desde "/".
+// BASE_PATH: la web publicada vive en la raíz de https://ridecrew.tricoach.es/ (GitHub Pages
+// con dominio propio). Si algún día vuelve a una subcarpeta, el workflow lo define.
 export default defineConfig(({ mode }) => ({
   base: process.env.BASE_PATH || '/',
   plugins: [react(), ...(mode === 'https' ? [basicSsl()] : [])],
