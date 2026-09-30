@@ -232,6 +232,16 @@ export default function VistaRecorrido({
   // Elegir entrenamiento sin salir: al acabar uno o mientras se rueda libre
   const [eligiendo, setEligiendo] = useState(false);
   const [menuBots, setMenuBots] = useState(false);
+  const anclaBotsRef = useRef<HTMLDivElement>(null);
+  // El menú de bots se cierra al tocar fuera de él (en la carretera, el marcador…)
+  useEffect(() => {
+    if (!menuBots) return;
+    const fuera = (e: PointerEvent) => {
+      if (!anclaBotsRef.current?.contains(e.target as Node)) setMenuBots(false);
+    };
+    document.addEventListener('pointerdown', fuera);
+    return () => document.removeEventListener('pointerdown', fuera);
+  }, [menuBots]);
   const acabado = entreno !== null && entreno.segundos >= entreno.total;
   const contenedor = useRef<HTMLDivElement>(null);
   const escena = useRef<EscenaRecorrido | null>(null);
@@ -503,7 +513,7 @@ export default function VistaRecorrido({
           >
             {grabacion.corriendo ? 'Pausa' : grabacion.hayDatos ? 'Seguir' : 'Empezar'}
           </button>
-          <div className="menu-bots-ancla">
+          <div className="menu-bots-ancla" ref={anclaBotsRef}>
             <button
               className={`boton-secundario ${bots.lista.length ? 'activo' : ''}`}
               onClick={() => setMenuBots((m) => !m)}
@@ -513,10 +523,22 @@ export default function VistaRecorrido({
             </button>
             {menuBots && (
               <div className="hud menu-bots">
-                <strong>🚴 Añadir una grupeta (5 ciclistas)</strong>
+                <div className="menu-bots-cabecera">
+                  <strong>🚴 Añadir una grupeta (5 ciclistas)</strong>
+                  <button className="chat-cerrar" onClick={() => setMenuBots(false)} aria-label="Cerrar el menú de bots">
+                    ✕
+                  </button>
+                </div>
                 <div className="menu-bots-vatios grupetas">
                   {bots.ritmosGrupeta.map((r) => (
-                    <button key={r.nombre} className="boton-secundario" onClick={() => bots.onAnadirGrupeta(r.vatios)}>
+                    <button
+                      key={r.nombre}
+                      className="boton-secundario"
+                      onClick={() => {
+                        bots.onAnadirGrupeta(r.vatios);
+                        setMenuBots(false);
+                      }}
+                    >
                       {r.nombre}
                       <small>{r.vatios} W</small>
                     </button>
@@ -525,7 +547,14 @@ export default function VistaRecorrido({
                 <strong>🤖 Añadir un bot suelto</strong>
                 <div className="menu-bots-vatios">
                   {VATIOS_BOTS.map((w) => (
-                    <button key={w} className="boton-secundario" onClick={() => bots.onAnadir(w)}>
+                    <button
+                      key={w}
+                      className="boton-secundario"
+                      onClick={() => {
+                        bots.onAnadir(w);
+                        setMenuBots(false);
+                      }}
+                    >
                       {w} W
                     </button>
                   ))}
