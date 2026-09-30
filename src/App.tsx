@@ -22,7 +22,7 @@ import { RegistroLog, type EntradaLog } from './components/RegistroLog';
 import { ResumenAcumulado } from './components/ResumenAcumulado';
 import { ResumenEntreno } from './components/ResumenEntreno';
 import { TarjetaConexion, type InfoConexion } from './components/TarjetaConexion';
-import { guardarEntreno } from './entrenamiento/almacen';
+import { guardarEntreno, listarEntrenos } from './entrenamiento/almacen';
 import { tituloRueda, type Entreno } from './entrenamiento/tipos';
 import { useGrabacion, type ValoresActuales } from './entrenamiento/useGrabacion';
 import { CATALOGO } from './entrenamientos/catalogo';
@@ -45,6 +45,9 @@ import type { OtroCiclista } from './recorrido/escena';
 import { FisicaVirtual, MARCHAS, MARCHA_INICIAL, ahorroRebufo, equipoAvatar, potenciaMarcha } from './recorrido/fisica';
 import { MandoZwift, type AccionMando } from './ble/mandoZwift';
 import { CronoSegmentos, posicionEn, textoTiempo, tiempoEn, type EventoCrono, type Segmento, type TramoActivo } from './recorrido/segmentos';
+import { avanzarBots, crearBot, huecosBots, type Bot } from './recorrido/bots';
+import { calcularTotales, publicarTotales } from './multijugador/rankings';
+import { PantallaRankings } from './components/PantallaRankings';
 import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
 import { mantenerPantallaEncendida, soltarPantalla } from './pantallaEncendida';
 import { LONGITUD_VUELTA_M, pendiente as pendienteRuta } from './recorrido/perfil';
@@ -59,7 +62,7 @@ const VistaPreviaAvatar = lazy(() => import('./components/VistaPreviaAvatar'));
 
 type Fuente = 'ftms' | 'pm' | 'csc' | 'hr';
 type NombreMetrica = 'potencia' | 'cadencia' | 'velocidad' | 'pulso';
-type Pantalla = 'inicio' | 'avatar' | 'entrenamientos' | 'crear' | 'historial' | 'ajustes' | 'cuenta';
+type Pantalla = 'inicio' | 'avatar' | 'entrenamientos' | 'crear' | 'historial' | 'ajustes' | 'cuenta' | 'rankings';
 
 /** Resultado de un segmento recién terminado (con la tabla del grupo cuando llega). */
 export interface ResultadoSegmento {
@@ -494,6 +497,20 @@ export default function App() {
   /** Ahorro de aire actual por ir a rueda (0 … 0,3) y segundos acumulados a rueda. */
   const rebufoRef = useRef(0);
   const segundosRuedaRef = useRef(0);
+  // Bots a vatios fijos (solo en esta pantalla): se mueven en el mismo bucle que tu física
+  const botsRef = useRef<Bot[]>([]);
+  const [, setVersionBots] = useState(0);
+  const anadirBot = (vatios: number) => {
+    botsRef.current = [
+      ...botsRef.current,
+      crearBot(vatios, posicionAhora(), actualRef.current.potencia ?? 0, velVirtualRef.current / 3.6),
+    ];
+    setVersionBots((v) => v + 1);
+  };
+  const quitarBot = (id?: string) => {
+    botsRef.current = id ? botsRef.current.filter((b) => b.id !== id) : [];
+    setVersionBots((v) => v + 1);
+  };
   useEffect(() => {
     if (!enRecorrido) return;
     rebufoRef.current = 0;
@@ -512,6 +529,7 @@ export default function App() {
       f.masaKg = pesoRef.current + equipoRef.current.pesoBiciKg;
       // ¿Voy a rueda de alguien? Se estima dónde está cada uno ahora mismo
       let objetivoRebufo = 0;
+      if (corriendoRef.current && botsRef.current.length) avanzarBots(botsRef.current, dt, [posicionAhora()]);
       if (corriendoRef.current && f.v > 2) {
         const yo = posicionAhora();
         const ahoraSrv = Date.now() + desfaseRef.current;
@@ -526,7 +544,13 @@ export default function App() {
             if (h < -LONGITUD_VUELTA_M / 2) h += LONGITUD_VUELTA_M;
             return h;
           });
-        objetivoRebufo = ahorroRebufo(huecos);
+        objetivoRebufo = ahorroRebufo([
+          ...huecos,
+          ...huecosBots(
+            botsRef.current.filter((b) => b.fisica.v > 2),
+            yo,
+          ),
+        ]);
       }
       // Suavizado: el rebufo entra y sale en ~1 s, sin parpadeos
       rebufoRef.current += (objetivoRebufo - rebufoRef.current) * Math.min(1, dt * 2);
@@ -593,6 +617,7 @@ export default function App() {
       fisicaRef.current.detener();
       cronoRef.current.cancelar();
       setTramosActivos([]);
+      botsRef.current = [];
     };
   }, [enRecorrido, sensores]);
 
@@ -717,6 +742,22 @@ export default function App() {
   const nombreVisible = nombreSalida.trim() || usuario?.nombre || '';
   // En el inicio se ve quién está rodando ahora mismo (sin unirse)
   const conectados = useConectados(pantalla === 'inicio' && !enRecorrido);
+
+  // ---- Rankings: publico mis totales de siempre ----
+  useEffect(() => {
+    if (!nombreVisible) return;
+    let cancelado = false;
+    listarEntrenos()
+      .then((lista) => {
+        const t = calcularTotales(lista);
+        if (!cancelado && t.sesiones > 0) return publicarTotales(nombreVisible, t);
+      })
+      .catch(() => undefined); // sin conexión o sin las reglas nuevas: se intenta la próxima vez
+    return () => {
+      cancelado = true;
+    };
+  }, [versionHistorial, nombreVisible, usuario?.uid]);
+
 
   // Estar en el recorrido = estar en la salida: así los amigos te ven siempre.
   // Al salir del recorrido se deja la salida y se vuelve al km 0 del circuito.
@@ -1015,6 +1056,11 @@ export default function App() {
               <strong>Crea tus entrenamientos</strong>
               <span>Diseña tus propias series</span>
             </button>
+            <button className="accion accion-rankings" onClick={() => setPantalla('rankings')}>
+              <span className="accion-icono" aria-hidden>🏆</span>
+              <strong>Rankings</strong>
+              <span>Quién suma más km, horas y desnivel, y los récords de cada subida</span>
+            </button>
             <button className="accion accion-historial" onClick={() => setPantalla('historial')}>
               <span className="accion-icono" aria-hidden>🗂️</span>
               <strong>Historial</strong>
@@ -1109,6 +1155,8 @@ export default function App() {
       {pantalla === 'avatar' && (
         <EditorAvatar perfil={perfil} onCambiar={cambiarPerfil} avatarRechazado={salida.avatarRechazado} onVolver={volver} />
       )}
+
+      {pantalla === 'rankings' && <PantallaRankings onVolver={volver} />}
 
       {pantalla === 'entrenamientos' && (
         <PantallaEntrenamientos
@@ -1219,7 +1267,23 @@ export default function App() {
               rebufo: rebufoRef.current,
               segundosRueda: segundosRuedaRef.current,
             })}
-            otros={fantasma ? [...otrosCiclistas, fantasma] : otrosCiclistas}
+            otros={[
+              ...otrosCiclistas,
+              ...botsRef.current.map((b) => ({
+                uid: b.id,
+                nombre: `🤖 ${b.vatios} W`,
+                avatar: b.avatar,
+                distancia: b.s,
+                velocidad: b.fisica.v * 3.6,
+                cadencia: 88,
+              })),
+              ...(fantasma ? [fantasma] : []),
+            ]}
+            bots={{
+              lista: botsRef.current.map((b) => ({ id: b.id, vatios: b.vatios })),
+              onAnadir: anadirBot,
+              onQuitar: quitarBot,
+            }}
             segmentos={{
               activos: tramosActivos,
               resultado,

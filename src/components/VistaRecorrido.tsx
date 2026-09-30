@@ -22,6 +22,7 @@ import { PanelSegmentos } from './PanelSegmentos';
 import type { ResultadoSegmento } from '../App';
 import { textoTiempo, type TramoActivo } from '../recorrido/segmentos';
 import { miRecord } from '../recorrido/records';
+import { VATIOS_BOTS } from '../recorrido/bots';
 import { ChatGrupo } from './ChatGrupo';
 import type { Mensaje } from '../multijugador/useSalida';
 import { GraficaEntrenamiento, colorZona } from './GraficaEntrenamiento';
@@ -66,6 +67,8 @@ interface Props {
     onCerrarResultado: () => void;
     enGrupo: boolean;
   };
+  /** Bots a vatios fijos: los que hay y cómo añadir o quitar. */
+  bots: { lista: { id: string; vatios: number }[]; onAnadir: (vatios: number) => void; onQuitar: (id?: string) => void };
   /** Fantasma de mi mejor vuelta (botón para activarlo). */
   fantasma: {
     disponible: boolean;
@@ -202,6 +205,7 @@ export default function VistaRecorrido({
   enSalida,
   segmentos,
   fantasma,
+  bots,
   ftp,
   entrandoSalida,
   errorSalida,
@@ -221,6 +225,7 @@ export default function VistaRecorrido({
 }: Props) {
   // Elegir entrenamiento sin salir: al acabar uno o mientras se rueda libre
   const [eligiendo, setEligiendo] = useState(false);
+  const [menuBots, setMenuBots] = useState(false);
   const acabado = entreno !== null && entreno.segundos >= entreno.total;
   const contenedor = useRef<HTMLDivElement>(null);
   const escena = useRef<EscenaRecorrido | null>(null);
@@ -490,6 +495,45 @@ export default function VistaRecorrido({
           >
             {grabacion.corriendo ? 'Pausa' : grabacion.hayDatos ? 'Seguir' : 'Empezar'}
           </button>
+          <div className="menu-bots-ancla">
+            <button
+              className={`boton-secundario ${bots.lista.length ? 'activo' : ''}`}
+              onClick={() => setMenuBots((m) => !m)}
+              title="Ciclistas virtuales a vatios fijos: si te adelantan, ponte a su rueda"
+            >
+              🤖 Bots{bots.lista.length ? ` (${bots.lista.length})` : ''}
+            </button>
+            {menuBots && (
+              <div className="hud menu-bots">
+                <strong>Añadir un bot</strong>
+                <div className="menu-bots-vatios">
+                  {VATIOS_BOTS.map((w) => (
+                    <button key={w} className="boton-secundario" onClick={() => bots.onAnadir(w)}>
+                      {w} W
+                    </button>
+                  ))}
+                </div>
+                <small>Si es más fuerte que tú sale detrás y te alcanza; si es más flojo, sale delante.</small>
+                {bots.lista.length > 0 && (
+                  <>
+                    <ul>
+                      {bots.lista.map((b) => (
+                        <li key={b.id}>
+                          🤖 {b.vatios} W
+                          <button className="chat-cerrar" onClick={() => bots.onQuitar(b.id)} aria-label="Quitar bot">
+                            ✕
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <button className="boton-secundario" onClick={() => bots.onQuitar()}>
+                      Quitar todos
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           <button
             className={`boton-secundario boton-fantasma ${fantasma.activo ? 'activo' : ''}`}
             onClick={fantasma.onAlternar}
@@ -538,7 +582,7 @@ export default function VistaRecorrido({
         />
         <PanelGrupo
           yo={yo.distancia}
-          otros={otros}
+          otros={otros.filter((o) => !o.fantasma)}
           enSalida={enSalida}
           entrando={entrandoSalida}
           error={errorSalida}

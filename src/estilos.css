@@ -2705,3 +2705,138 @@ p {
     display: none;
   }
 }
+
+/* ---------- Bots ---------- */
+
+.menu-bots-ancla {
+  position: relative;
+}
+
+.menu-bots {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10;
+  width: 250px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+  color: #fff;
+  font-size: 14px;
+}
+
+.menu-bots-vatios {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.recorrido .menu-bots-vatios .boton-secundario {
+  min-height: 38px;
+  padding: 0 4px;
+}
+
+.menu-bots small {
+  opacity: 0.8;
+}
+
+.menu-bots ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.menu-bots li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.recorrido .boton-secundario.activo {
+  background: rgba(125, 211, 252, 0.25);
+  border-color: #7dd3fc;
+}
+
+/* ---------- Rankings ---------- */
+
+.pestanas-ranking {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.pestanas-ranking button {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--borde);
+  background: var(--panel);
+  font-weight: 600;
+}
+
+.pestanas-ranking button.activa {
+  background: var(--acento);
+  border-color: var(--acento);
+  color: #fff;
+}
+
+.lista-ranking {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.lista-ranking li {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--panel-2);
+  font-size: 18px;
+}
+
+.lista-ranking li.yo {
+  outline: 2px solid var(--acento);
+  font-weight: 700;
+}
+
+.ranking-puesto {
+  font-size: 22px;
+  text-align: center;
+}
+
+.ranking-nombre {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ranking-valor {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.titulo-records {
+  margin: 24px 0 10px;
+}
+
+.rejilla-records {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.tarjeta-record {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--panel-2);
+}
