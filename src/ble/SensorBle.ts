@@ -68,6 +68,11 @@ export abstract class SensorBle {
   /** La subclase obtiene el servicio y se suscribe a sus características. */
   protected abstract configurar(server: BluetoothRemoteGATTServer): Promise<void>;
 
+  /** Qué dispositivos ofrece el navegador al buscar (por defecto, los que tienen el servicio). */
+  protected opcionesBusqueda(): RequestDeviceOptions {
+    return { filters: [{ services: [this.servicio] }] };
+  }
+
   /** Se llama en cada desconexión (manual o no) para limpiar estado interno. */
   protected alDesconectar(): void {}
 
@@ -86,7 +91,7 @@ export abstract class SensorBle {
     }
     let device: BluetoothDevice;
     try {
-      device = await navigator.bluetooth.requestDevice({ filters: [{ services: [this.servicio] }] });
+      device = await navigator.bluetooth.requestDevice(this.opcionesBusqueda());
     } catch (e) {
       if (esCancelacion(e)) {
         this.eventos.onLog(`${this.etiqueta}: selección cancelada`, 'info');

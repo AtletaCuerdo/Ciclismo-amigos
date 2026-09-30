@@ -11,7 +11,7 @@ interface Props {
 
 /** Una casilla del panel en directo. Muestra "--" si no hay dato. */
 export function Metrica({ etiqueta, valor, unidad, decimales = 0, fuente, estimada, destacada }: Props) {
-  const texto = valor === undefined || !Number.isFinite(valor) ? '--' : valor.toFixed(decimales);
+  const texto = valor === undefined || !Number.isFinite(valor) ? '--' : valor.toFixed(decimales).replace('.', ',');
   return (
     <div className={`metrica${destacada ? ' destacada' : ''}${estimada ? ' estimada' : ''}`}>
       <div className="metrica-etiqueta">

@@ -77,3 +77,33 @@ export function ahorroRebufo(huecos: number[]) {
   }
   return mejor;
 }
+
+// ---------------------------------------------------------------------------
+// Cambios virtuales (rodillos con un solo piñón, como el Zwift Cog)
+// ---------------------------------------------------------------------------
+
+/**
+ * Desarrollo de cada marcha virtual (vueltas de rueda por pedalada), de la 1 a la 24,
+ * con el mismo reparto que usa Zwift: de un 34×34 (0,75) a más que un 53×11 (5,49).
+ */
+export const MARCHAS = [
+  0.75, 0.87, 0.99, 1.11, 1.23, 1.38, 1.53, 1.68, 1.86, 2.04, 2.22, 2.4, 2.61, 2.82, 3.03, 3.24, 3.49, 3.74, 3.99,
+  4.24, 4.54, 4.84, 5.14, 5.49,
+];
+export const MARCHA_INICIAL = 12;
+/** Circunferencia de rueda de carretera (700×25) para las marchas virtuales (m). */
+const RUEDA_M = 2.105;
+
+/**
+ * Vatios que costaría mover esta marcha a esta cadencia en esta pendiente: la velocidad
+ * sale de la cadencia y el desarrollo, y la potencia de vencer gravedad, rodadura y aire.
+ * El rodillo se pone en modo ERG con ese valor: pedalear más rápido o subir de marcha
+ * cuesta más, como en la carretera.
+ */
+export function potenciaMarcha(cadenciaRpm: number, marcha: number, pendientePct: number, masaKg: number, cda: number) {
+  const desarrollo = MARCHAS[Math.min(MARCHAS.length, Math.max(1, marcha)) - 1];
+  const v = (Math.max(0, cadenciaRpm) / 60) * desarrollo * RUEDA_M; // m/s
+  const angulo = Math.atan(pendientePct / 100);
+  const fuerza = masaKg * G * Math.sin(angulo) + CRR * masaKg * G * Math.cos(angulo) + 0.5 * RHO * cda * v * v;
+  return Math.max(0, fuerza * v);
+}

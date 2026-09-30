@@ -42,7 +42,8 @@ import {
   type Perfil,
 } from './recorrido/avatar';
 import type { OtroCiclista } from './recorrido/escena';
-import { FisicaVirtual, ahorroRebufo, equipoAvatar } from './recorrido/fisica';
+import { FisicaVirtual, MARCHAS, MARCHA_INICIAL, ahorroRebufo, equipoAvatar, potenciaMarcha } from './recorrido/fisica';
+import { MandoZwift, type AccionMando } from './ble/mandoZwift';
 import { mantenerPantallaEncendida, soltarPantalla } from './pantallaEncendida';
 import { LONGITUD_VUELTA_M, pendiente as pendienteRuta } from './recorrido/perfil';
 
@@ -57,6 +58,23 @@ const VistaPreviaAvatar = lazy(() => import('./components/VistaPreviaAvatar'));
 type Fuente = 'ftms' | 'pm' | 'csc' | 'hr';
 type NombreMetrica = 'potencia' | 'cadencia' | 'velocidad' | 'pulso';
 type Pantalla = 'inicio' | 'avatar' | 'entrenamientos' | 'crear' | 'historial' | 'ajustes' | 'cuenta';
+
+const CLAVE_CAMBIOS = 'rodillos.cambiosVirtuales';
+const CLAVE_MARCHA = 'rodillos.marcha';
+const leerLocal = (clave: string) => {
+  try {
+    return localStorage.getItem(clave);
+  } catch {
+    return null;
+  }
+};
+const guardarLocal = (clave: string, valor: string) => {
+  try {
+    localStorage.setItem(clave, valor);
+  } catch {
+    // no es grave
+  }
+};
 
 /** Momento del último cambio del perfil en este dispositivo (para saber cuál es más reciente). */
 const CLAVE_PERFIL_T = 'rodillos.perfil.t';
@@ -145,6 +163,51 @@ export default function App() {
   const [ahora, setAhora] = useState(() => Date.now());
   // Vatios simulados para probar sin rodillo (null = desactivado)
   const [demoVatios, setDemoVatios] = useState<number | null>(null);
+
+  // ---- Cambios virtuales (rodillos con un solo piñón, como el Zwift Cog) ----
+  const [cambiosVirtuales, setCambiosVirtuales] = useState(() => leerLocal(CLAVE_CAMBIOS) === 'si');
+  const [marcha, setMarcha] = useState(() => {
+    const n = Number(leerLocal(CLAVE_MARCHA));
+    return n >= 1 && n <= MARCHAS.length ? n : MARCHA_INICIAL;
+  });
+  const cambiosRef = useRef(cambiosVirtuales);
+  cambiosRef.current = cambiosVirtuales;
+  const marchaRef = useRef(marcha);
+  marchaRef.current = marcha;
+  useEffect(() => guardarLocal(CLAVE_CAMBIOS, cambiosVirtuales ? 'si' : 'no'), [cambiosVirtuales]);
+  useEffect(() => guardarLocal(CLAVE_MARCHA, String(marcha)), [marcha]);
+  const cambiarMarcha = (delta: number) => setMarcha((m) => Math.min(MARCHAS.length, Math.max(1, m + delta)));
+
+  // Mandos Zwift Click: cada mando (derecho e izquierdo) es un dispositivo aparte
+  const [conexionMandos, setConexionMandos] = useState<[InfoConexion, InfoConexion]>([CONEXION_INICIAL, CONEXION_INICIAL]);
+  const [mandos] = useState(() =>
+    [0, 1].map(
+      (i) =>
+        new MandoZwift(
+          {
+            onEstado: (estado, nombre) => {
+              setConexionMandos((c) => {
+                const n: [InfoConexion, InfoConexion] = [...c];
+                n[i] = { ...n[i], estado, nombre };
+                return n;
+              });
+              // Con un mando conectado, los cambios virtuales se activan solos
+              if (estado === 'conectado') setCambiosVirtuales(true);
+            },
+            onError: (error) =>
+              setConexionMandos((c) => {
+                const n: [InfoConexion, InfoConexion] = [...c];
+                n[i] = { ...n[i], error };
+                return n;
+              }),
+            onLog: () => undefined,
+          },
+          (accion: AccionMando) => cambiarMarcha(accion === 'subir' ? 1 : -1),
+          i === 0 ? 'Mando Zwift derecho' : 'Mando Zwift izquierdo',
+        ),
+    ),
+  );
+  useEffect(() => () => mandos.forEach((m) => m.desconectar()), [mandos]);
   // Último entrenamiento finalizado (se muestra su resumen) y si falló al guardarse
   const [terminado, setTerminado] = useState<{
     entreno: Entreno;
@@ -422,6 +485,7 @@ export default function App() {
     segundosRuedaRef.current = 0;
     let anterior = performance.now();
     let rebufoEnviado = 0;
+    let marchaEnviada = 0;
     let pendienteEnviada: number | null = null;
     let potenciaEnviada: number | null = null;
     let ultimoEnvio = 0;
@@ -474,6 +538,22 @@ export default function App() {
           ultimoEnvio = t;
           void rodillo.fijarPotencia(w);
         }
+      } else if (cambiosRef.current && actualRef.current.cadencia !== undefined) {
+        // Cambios virtuales: el rodillo pide los vatios que costaría esa marcha a esa cadencia
+        // en esta pendiente (con el rebufo ya en el aire). Al cambiar de marcha se envía enseguida.
+        pendienteEnviada = null;
+        const cad = actualRef.current.cadencia;
+        const w = cad < 20 ? 0 : Math.round(Math.max(25, Math.min(1500, potenciaMarcha(cad, marchaRef.current, grado, f.masaKg, f.cda))));
+        const cambioMarcha = marchaRef.current !== marchaEnviada;
+        if (
+          (cambioMarcha && t - ultimoEnvio > 250) ||
+          (potenciaEnviada === null || Math.abs(w - potenciaEnviada) >= 3) && t - ultimoEnvio > 1000
+        ) {
+          potenciaEnviada = w;
+          marchaEnviada = marchaRef.current;
+          ultimoEnvio = t;
+          void rodillo.fijarPotencia(w);
+        }
       } else {
         // Rodar libre (o tramo «a tope» de un test): el rodillo se endurece con la pendiente
         // y se ablanda a rueda (cambios de 0,5 % o 5 % de aire, máx. cada 2 s)
@@ -508,6 +588,20 @@ export default function App() {
       velocidad: c.velocidad ?? 0,
       cadencia: c.cadencia ?? 0,
     }));
+
+  // Cambios con el teclado (flechas ↑/↓ o +/−) mientras se rueda, salvo al escribir en el chat
+  useEffect(() => {
+    if (!enRecorrido || !cambiosVirtuales) return;
+    const tecla = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'ArrowUp' || e.key === '+') cambiarMarcha(1);
+      else if (e.key === 'ArrowDown' || e.key === '-') cambiarMarcha(-1);
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener('keydown', tecla);
+    return () => window.removeEventListener('keydown', tecla);
+  }, [enRecorrido, cambiosVirtuales]);
 
   // ---- Rodar con los amigos ----
   // Nombre con el que te ven (el guardado o, si no hay, el de la cuenta)
@@ -846,6 +940,46 @@ export default function App() {
                 />
               ))}
             </div>
+            <div className="cambios-virtuales">
+              <label className="casilla">
+                <input
+                  type="checkbox"
+                  checked={cambiosVirtuales}
+                  onChange={(e) => setCambiosVirtuales(e.target.checked)}
+                />
+                <span>
+                  <strong>Cambios virtuales</strong> · para rodillos con un solo piñón (Zwift Cog): 24 marchas como en
+                  Zwift. Se cambia con los mandos Zwift Click, con las flechas ↑/↓ o en la pantalla.
+                </span>
+              </label>
+              {cambiosVirtuales && (
+                <div className="rejilla-conexion">
+                  <TarjetaConexion
+                    titulo="Mando Zwift derecho"
+                    detalle="Zwift Click: «+» sube marcha y «B» baja"
+                    info={conexionMandos[0]}
+                    deshabilitado={sinBluetooth}
+                    onConectar={() => void mandos[0].conectar()}
+                    onDesconectar={() => mandos[0].desconectar()}
+                  />
+                  <TarjetaConexion
+                    titulo="Mando Zwift izquierdo (opcional)"
+                    detalle="Zwift Click v2: «−» baja marcha. Necesita haberlo desbloqueado ese día abriendo Zwift."
+                    info={conexionMandos[1]}
+                    deshabilitado={sinBluetooth}
+                    onConectar={() => void mandos[1].conectar()}
+                    onDesconectar={() => mandos[1].desconectar()}
+                  />
+                </div>
+              )}
+              {cambiosVirtuales && (
+                <p className="detalle">
+                  Con el mando derecho basta: <strong>«+» sube</strong> y <strong>«B» baja</strong>. El izquierdo («−»)
+                  solo funciona si ese día has abierto Zwift un momento para desbloquearlo. Los cambios virtuales
+                  necesitan un rodillo inteligente que mida la cadencia; en los entrenamientos ERG no hacen nada.
+                </p>
+              )}
+            </div>
             <div className="rejilla-metricas compacta">
               <Metrica
                 etiqueta="Vatios"
@@ -980,6 +1114,7 @@ export default function App() {
             otros={otrosCiclistas}
             grabacion={grabacion}
             enSalida={salida.estado === 'dentro'}
+            ftp={perfil.ftp}
             entrandoSalida={salida.estado === 'entrando'}
             errorSalida={salida.error}
             onUnirseSalida={unirseDesdeRecorrido}
@@ -992,6 +1127,17 @@ export default function App() {
             }}
             rodilloControlado={hayErg}
             demo={usarDemo ? { vatios: demoVatios!, onCambiar: setDemoVatios } : null}
+            marcha={
+              cambiosVirtuales
+                ? {
+                    n: marcha,
+                    total: MARCHAS.length,
+                    onCambiar: cambiarMarcha,
+                    // En un entrenamiento ERG manda el entrenamiento: la marcha no hace nada
+                    activa: !(entrenoActivo && !tramoEn(entrenoActivo.tramos, grabacion.segundos - entrenoActivo.inicioS)?.libre),
+                  }
+                : null
+            }
             palanca={
               palancaNovoForce(ajustes.presetId) !== null
                 ? {

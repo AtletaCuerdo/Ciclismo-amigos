@@ -20,7 +20,7 @@ import type { Entrenamiento, Tramo } from '../entrenamientos/tipos';
 import { SelectorEntreno } from './SelectorEntreno';
 import { ChatGrupo } from './ChatGrupo';
 import type { Mensaje } from '../multijugador/useSalida';
-import { GraficaEntrenamiento } from './GraficaEntrenamiento';
+import { GraficaEntrenamiento, colorZona } from './GraficaEntrenamiento';
 import { formatearTiempo } from './Metrica';
 import { mantenerPantallaEncendida } from '../pantallaEncendida';
 
@@ -48,10 +48,15 @@ interface Props {
     desnivelM: number;
     potenciaMedia?: number;
     velocidadMedia?: number;
+    cadenciaMedia?: number;
+    pulsoMedio?: number;
+    kilojulios: number;
     iniciar: () => void;
     pausar: () => void;
   };
   enSalida: boolean;
+  /** FTP del ciclista: colorea los vatios según la zona. */
+  ftp: number;
   entrandoSalida: boolean;
   errorSalida: string | null;
   /** Unirse a la salida en grupo sin salir del recorrido. */
@@ -68,6 +73,8 @@ interface Props {
   rodilloControlado: boolean;
   /** Modo demostración: deslizador de vatios simulados (null si no está activo). */
   demo: { vatios: number; onCambiar: (w: number) => void } | null;
+  /** Cambios virtuales: marcha actual (1-24). `activa`: false si el ERG de un entrenamiento manda. */
+  marcha: { n: number; total: number; onCambiar: (delta: number) => void; activa: boolean } | null;
   /** Elite Novo Force: posición de la palanca del manillar (1-8), para cambiarla en directo. */
   palanca: { posicion: number; onCambiar: (n: number) => void } | null;
   /** Entrenamiento guiado en curso (null al rodar libre). */
@@ -172,6 +179,7 @@ export default function VistaRecorrido({
   otros,
   grabacion,
   enSalida,
+  ftp,
   entrandoSalida,
   errorSalida,
   onUnirseSalida,
@@ -179,6 +187,7 @@ export default function VistaRecorrido({
   chat,
   rodilloControlado,
   demo,
+  marcha,
   palanca,
   entreno,
   entrenamientos,
@@ -278,6 +287,17 @@ export default function VistaRecorrido({
   const yo = leerYo();
   const pend = pendiente(yo.distancia);
   const vuelta = Math.floor(yo.distancia / LONGITUD_VUELTA_M) + 1;
+  const vueltaAnterior = useRef(vuelta);
+  const [cartelVuelta, setCartelVuelta] = useState<number | null>(null);
+  useEffect(() => {
+    if (vuelta === vueltaAnterior.current) return;
+    const nueva = vuelta > vueltaAnterior.current;
+    vueltaAnterior.current = vuelta;
+    if (!nueva || !grabacion.corriendo) return;
+    setCartelVuelta(vuelta);
+    const id = setTimeout(() => setCartelVuelta(null), 3500);
+    return () => clearTimeout(id);
+  }, [vuelta, grabacion.corriendo]);
   const xYo = xPerfil(yo.distancia);
   const subidas = infoSubidas(yo.distancia);
   const colorPendiente = pend > 4 ? '#ff4d4f' : pend > 1.5 ? '#ffc233' : pend < -1.5 ? '#6ec1ff' : '#f2f4f8';
@@ -287,6 +307,12 @@ export default function VistaRecorrido({
       <div className="recorrido-lienzo" ref={contenedor} />
 
       {cargando && <div className="recorrido-cargando">Generando el recorrido…</div>}
+      {cartelVuelta !== null && (
+        <div className="cartel-vuelta" key={cartelVuelta}>
+          <span>Vuelta</span>
+          <strong>{cartelVuelta}</strong>
+        </div>
+      )}
       {aviso && !cargando && <div className="recorrido-aviso recorrido-aviso-abajo">{aviso}</div>}
       {error && (
         <div className="recorrido-cargando">No se pudo iniciar el 3D en este dispositivo: {error}</div>
@@ -299,7 +325,10 @@ export default function VistaRecorrido({
           {/* Fila principal: lo que se mira pedaleando */}
           <div className="hud-fila">
             <div className="hud-dato potencia">
-              <span className="hud-valor">
+              <span
+                className="hud-valor"
+                style={yo.potencia !== undefined && ftp > 0 ? { color: colorZona((yo.potencia / ftp) * 100) } : undefined}
+              >
                 {yo.potencia !== undefined ? Math.round(yo.potencia) : '--'}
                 <small> W</small>
               </span>
@@ -313,6 +342,7 @@ export default function VistaRecorrido({
                 <span className="hud-etiqueta">a rueda</span>
               </div>
             )}
+            {marcha && <MarchaHud marcha={marcha} />}
             {palanca && (
               <div className="hud-palanca" title="Pon aquí la misma posición que la palanca del rodillo">
                 <div className="hud-palanca-mandos">
@@ -400,6 +430,21 @@ export default function VistaRecorrido({
             <span className="hud-media">
               <b>{grabacion.potenciaMedia !== undefined ? Math.round(grabacion.potenciaMedia) : '--'} W</b> media
             </span>
+            {grabacion.cadenciaMedia !== undefined && (
+              <span className="hud-media">
+                <b>{Math.round(grabacion.cadenciaMedia)} rpm</b> media
+              </span>
+            )}
+            {grabacion.pulsoMedio !== undefined && (
+              <span className="hud-media">
+                <b>{Math.round(grabacion.pulsoMedio)} ppm</b> media
+              </span>
+            )}
+            {grabacion.kilojulios >= 1 && (
+              <span className="hud-media">
+                <b>{Math.round(grabacion.kilojulios)} kcal</b>
+              </span>
+            )}
             <span className="hud-media">
               <b>
                 {grabacion.velocidadMedia !== undefined ? grabacion.velocidadMedia.toFixed(1).replace('.', ',') : '--'}{' '}
@@ -648,6 +693,36 @@ function PanelGrupo({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** Marcha virtual en el marcador: destaca un momento al cambiar (con los mandos o el teclado). */
+function MarchaHud({ marcha }: { marcha: { n: number; total: number; onCambiar: (d: number) => void; activa: boolean } }) {
+  const [destello, setDestello] = useState(false);
+  const anterior = useRef(marcha.n);
+  useEffect(() => {
+    if (anterior.current === marcha.n) return;
+    anterior.current = marcha.n;
+    setDestello(true);
+    const id = setTimeout(() => setDestello(false), 400);
+    return () => clearTimeout(id);
+  }, [marcha.n]);
+  return (
+    <div
+      className={`hud-palanca hud-marcha ${destello ? 'destello' : ''} ${marcha.activa ? '' : 'inactiva'}`}
+      title="Marcha virtual: sube con «+» y baja con «B» en el mando Zwift, o con las flechas ↑/↓"
+    >
+      <div className="hud-palanca-mandos">
+        <button onClick={() => marcha.onCambiar(-1)} disabled={marcha.n <= 1} aria-label="Bajar marcha">
+          −
+        </button>
+        <span className="hud-palanca-valor">{marcha.n}</span>
+        <button onClick={() => marcha.onCambiar(1)} disabled={marcha.n >= marcha.total} aria-label="Subir marcha">
+          +
+        </button>
+      </div>
+      <span className="hud-etiqueta">{marcha.activa ? '⚙️ marcha' : '⚙️ marcha (ERG)'}</span>
     </div>
   );
 }

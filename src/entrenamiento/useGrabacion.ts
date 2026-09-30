@@ -33,6 +33,10 @@ interface Interno {
   sumaPotencia: number;
   muestrasPotencia: number;
   potenciaEstimada: boolean;
+  sumaCadencia: number; // sin los ratos a 0 rpm, como Strava
+  muestrasCadencia: number;
+  sumaPulso: number;
+  muestrasPulso: number;
 }
 
 const vacio = (): Interno => ({
@@ -48,6 +52,10 @@ const vacio = (): Interno => ({
   sumaPotencia: 0,
   muestrasPotencia: 0,
   potenciaEstimada: false,
+  sumaCadencia: 0,
+  muestrasCadencia: 0,
+  sumaPulso: 0,
+  muestrasPulso: 0,
 });
 
 /** Si pasa más tiempo entre dos ticks (pestaña en segundo plano…), no se inventa distancia. */
@@ -89,6 +97,14 @@ export function useGrabacion(leerActual: () => ValoresActuales, leerPendiente: (
       if (a.pulso !== undefined) m.hr = a.pulso;
       s.muestras.push(m);
 
+      if (m.c) {
+        s.sumaCadencia += m.c;
+        s.muestrasCadencia++;
+      }
+      if (m.hr) {
+        s.sumaPulso += m.hr;
+        s.muestrasPulso++;
+      }
       if (m.p !== undefined) {
         s.sumaPotencia += m.p;
         s.muestrasPotencia++;
@@ -149,6 +165,10 @@ export function useGrabacion(leerActual: () => ValoresActuales, leerPendiente: (
     desnivelM: s.desnivel,
     potenciaMedia: s.muestrasPotencia ? s.sumaPotencia / s.muestrasPotencia : undefined,
     velocidadMedia: segundos > 0 && s.distancia > 0 ? (s.distancia / segundos) * 3.6 : undefined,
+    cadenciaMedia: s.muestrasCadencia ? s.sumaCadencia / s.muestrasCadencia : undefined,
+    pulsoMedio: s.muestrasPulso ? s.sumaPulso / s.muestrasPulso : undefined,
+    /** Una muestra por segundo: julios = suma de vatios. En bici, kcal gastadas ≈ kJ de trabajo. */
+    kilojulios: s.sumaPotencia / 1000,
     iniciar,
     pausar,
     finalizar,
