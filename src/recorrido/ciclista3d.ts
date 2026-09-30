@@ -389,7 +389,8 @@ export class Ciclista3D {
     });
   }
 
-  colocar(posicion: THREE.Vector3, direccionX: number, direccionZ: number, pendientePct: number) {
+  /** @param inclinacionLateral radianes hacia la izquierda (positivo) o la derecha, en las curvas */
+  colocar(posicion: THREE.Vector3, direccionX: number, direccionZ: number, pendientePct: number, inclinacionLateral = 0) {
     if (this.fantasma) {
       const ahora = performance.now();
       if (ahora - this.ultimoRepaso > 1000) {
@@ -400,6 +401,7 @@ export class Ciclista3D {
     this.raiz.position.copy(posicion);
     this.raiz.rotation.y = Math.atan2(-direccionZ, direccionX);
     this.inclinacion.rotation.z = Math.atan(pendientePct / 100);
+    this.inclinacion.rotation.x = inclinacionLateral;
   }
 
   destruir() {

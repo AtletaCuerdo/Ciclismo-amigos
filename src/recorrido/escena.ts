@@ -11,7 +11,7 @@ import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { esDispositivoIos, type Avatar, type Calidad } from './avatar';
 import { Ciclista3D } from './ciclista3d';
-import { CIRCUITO, LONGITUD_VUELTA_M, altitud, enVuelta, pendiente } from './perfil';
+import { CIRCUITO, LONGITUD_VUELTA_M, SUBIDAS, altitud, enVuelta, pendiente } from './perfil';
 import {
   cargarCielo,
   cargarModelo,
@@ -327,6 +327,14 @@ export class EscenaRecorrido {
   private yo: Ciclista3D;
   private sYo = 0;
   private vYo = 0;
+  /** Puntos de apoyo (cámara y curvas) para no crear objetos en cada imagen. */
+  private puntoAtras: PuntoRuta = { pos: new THREE.Vector3(), dx: 0, dz: 0 };
+  private puntoAdelante: PuntoRuta = { pos: new THREE.Vector3(), dx: 0, dz: 0 };
+  private puntoCurva: PuntoRuta = { pos: new THREE.Vector3(), dx: 0, dz: 0 };
+  /** Inclinación lateral suavizada de mi ciclista (rad). */
+  private inclinacionYo = 0;
+  /** Campo de visión base de la cámara (grados). */
+  private readonly FOV_BASE = 55;
   /** Mi posición lateral: a rueda me pongo detrás del de delante. */
   private carrilYo = MI_CARRIL;
   private ultimaDist = 0;
@@ -445,6 +453,8 @@ export class EscenaRecorrido {
     this.crearMontanas();
     this.crearNubes();
     this.crearSalidaYMarcas();
+    this.crearTaludes();
+    this.crearCartelesPendiente();
 
     this.yo = new Ciclista3D(avatar);
     this.escena.add(this.yo.raiz);
@@ -1714,6 +1724,128 @@ export class EscenaRecorrido {
     }
   }
 
+  /**
+   * Taludes de roca y tierra junto a la carretera en las subidas y bajadas de más del 2,5 %:
+   * más altos cuanto más dura es la pendiente, para que se note a la vista. En las subidas van a
+   * la izquierda y en las bajadas a la derecha (como una carretera excavada en la ladera).
+   */
+  private crearTaludes() {
+    const perfil: [number, number][] = [
+      [7.6, 0.05],
+      [10.5, 1],
+      [16, 0.92],
+      [26, 0],
+    ];
+    const altura = (s: number) => {
+      const g = Math.abs(pendiente(s));
+      return Math.min(4.5, Math.max(0, (g - 2.5) * 1.3));
+    };
+    const rnd = aleatorio(71);
+    const matTalud = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true });
+    const roca = new THREE.Color(0x8a7d6c);
+    const tierra = new THREE.Color(0x7b6a4f);
+    const hierba = new THREE.Color(0x5f7f3a);
+    const paso = PASO_M * 2;
+    const tramos: { desde: number; lado: number }[] = [];
+    let actual: { desde: number; lado: number } | null = null;
+    for (let s = 0; s <= LONGITUD_VUELTA_M; s += paso) {
+      const hay = altura(s) > 0.05 && s < LONGITUD_VUELTA_M;
+      const lado = pendiente(s) > 0 ? 1 : -1;
+      if (hay && (!actual || actual.lado !== lado)) {
+        actual = { desde: s, lado };
+        tramos.push(actual);
+      } else if (!hay) actual = null;
+      if (actual) (actual as { hasta?: number }).hasta = s;
+    }
+    for (const t of tramos as { desde: number; hasta: number; lado: number }[]) {
+      const n = Math.max(1, Math.round((t.hasta - t.desde) / paso));
+      const pos = new Float32Array((n + 1) * perfil.length * 3);
+      const col = new Float32Array((n + 1) * perfil.length * 3);
+      const idx: number[] = [];
+      const c = new THREE.Color();
+      for (let k = 0; k <= n; k++) {
+        const s = t.desde + k * paso;
+        const i = Math.round(enVuelta(s) / PASO_M) % this.tr.n;
+        const y = altitud(s);
+        // Suavizado en los extremos para que el talud nazca y muera poco a poco
+        const h = altura(s) * Math.min(1, k / 6, (n - k) / 6);
+        for (let m = 0; m < perfil.length; m++) {
+          const [lat, f] = perfil[m];
+          const l = lat * t.lado;
+          const v = (k * perfil.length + m) * 3;
+          const ruido = m === 1 || m === 2 ? (rnd() - 0.5) * 0.6 : 0;
+          pos[v] = this.tr.x[i] - this.tr.dz[i] * l;
+          pos[v + 1] = y + h * f + ruido * Math.min(1, h);
+          pos[v + 2] = this.tr.z[i] + this.tr.dx[i] * l;
+          // Roca en la pared, tierra y hierba arriba
+          c.copy(m === 1 ? roca : m === 2 ? tierra : hierba).multiplyScalar(0.9 + rnd() * 0.2);
+          col.set([c.r, c.g, c.b], v);
+        }
+        if (k < n) {
+          for (let m = 0; m < perfil.length - 1; m++) {
+            const a = k * perfil.length + m;
+            const b = a + perfil.length;
+            idx.push(a, b, a + 1, a + 1, b, b + 1);
+          }
+        }
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      geo.setIndex(idx);
+      geo.computeVertexNormals();
+      // Las caras deben mirar hacia arriba (hacia la luz): si no, se dan la vuelta
+      const normales = geo.attributes.normal as THREE.BufferAttribute;
+      let arriba = 0;
+      for (let v = 0; v < normales.count; v++) arriba += normales.getY(v);
+      if (arriba < 0) {
+        for (let q = 0; q < idx.length; q += 3) [idx[q + 1], idx[q + 2]] = [idx[q + 2], idx[q + 1]];
+        geo.setIndex(idx);
+        geo.computeVertexNormals();
+      }
+      const malla = new THREE.Mesh(geo, matTalud);
+      malla.receiveShadow = true;
+      malla.castShadow = this.calidad === 'alta';
+      this.escena.add(malla);
+    }
+  }
+
+  /**
+   * Carteles de las subidas: al pie, el nombre con su longitud, pendiente media y desnivel, y
+   * dentro, cada 500 m, la pendiente del tramo que viene.
+   */
+  private crearCartelesPendiente() {
+    const matPoste = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.5, metalness: 0.5 });
+    const cartel = (s: number, texto: string, ancho: number, fondo: string) => {
+      const k = Math.round(enVuelta(s) / PASO_M) % this.tr.n;
+      const sx = this.tr.dz[k];
+      const sz = -this.tr.dx[k];
+      const base = new THREE.Vector3(this.tr.x[k] + sx * 6.8, altitud(s), this.tr.z[k] + sz * 6.8);
+      const poste = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3.4, 6), matPoste);
+      poste.position.copy(base).add(new THREE.Vector3(0, 1.7, 0));
+      const placa = new THREE.Mesh(
+        new THREE.BoxGeometry(ancho, 1.15, 0.08),
+        new THREE.MeshStandardMaterial({
+          map: texturaTexto(texto, fondo, '#ffffff', Math.round(ancho * 200), 230),
+          roughness: 0.5,
+        }),
+      );
+      placa.position.copy(base).add(new THREE.Vector3(0, 3.3, 0));
+      placa.rotation.y = Math.atan2(-this.tr.dz[k], this.tr.dx[k]) + Math.PI / 2;
+      this.escena.add(poste, placa);
+    };
+    const pct = (g: number) => `${g.toFixed(g < 10 ? 1 : 0).replace('.', ',')} %`;
+    for (const t of SUBIDAS) {
+      if (t.pendienteMedia < 2.5) continue;
+      const largo = ((t.fin - t.inicio) / 1000).toFixed(1).replace('.', ',');
+      cartel(t.inicio - 120, `${largo} km al ${pct(t.pendienteMedia)} · +${Math.round(t.desnivel)} m`, 5.2, '#1f5a2a');
+      for (let s = t.inicio + 500; s < t.fin - 150; s += 500) {
+        const g = (altitud(Math.min(t.fin, s + 500)) - altitud(s)) / (Math.min(t.fin, s + 500) - s) * 100;
+        cartel(s - 30, pct(g), 2.0, g >= 7 ? '#a3221b' : g >= 5 ? '#c26512' : '#1f5a2a');
+      }
+    }
+  }
+
   // =========================================================================
   // Posición en la carretera
   // =========================================================================
@@ -1733,6 +1865,20 @@ export class EscenaRecorrido {
     salida.dx = dx / l;
     salida.dz = dz / l;
     return salida;
+  }
+
+  /**
+   * Inclinación lateral en una curva a la velocidad v (m/s): la del ciclista real, atan(v²·k/g),
+   * con k la curvatura (cuánto gira la carretera por metro). Positiva hacia la izquierda.
+   */
+  private inclinacionEn(s: number, v: number) {
+    const a = this.puntoEn(s - 6, 0, this.puntoCurva);
+    const ax = a.dx;
+    const az = a.dz;
+    const b = this.puntoEn(s + 6, 0, this.puntoCurva);
+    // Giro hacia la izquierda (normal −dz, dx) por metro recorrido
+    const k = ((b.dx - ax) * -az + (b.dz - az) * ax) / 12;
+    return Math.max(-0.38, Math.min(0.38, Math.atan((v * v * k) / 9.81)));
   }
 
   // =========================================================================
@@ -1894,13 +2040,18 @@ export class EscenaRecorrido {
     if (huecoMin < 2.2) carrilObjetivo += carrilObjetivo > 0 ? -0.9 : 0.9;
     this.carrilYo += (carrilObjetivo - this.carrilYo) * Math.min(1, dt * 0.8);
     const p = this.puntoEn(this.sYo, this.carrilYo, this.punto);
-    this.yo.colocar(p.pos, p.dx, p.dz, pendiente(this.sYo));
+    const pxYo = p.pos.x;
+    const pyYo = p.pos.y;
+    const pzYo = p.pos.z;
+    const dxYo = p.dx;
+    const dzYo = p.dz;
+    this.inclinacionYo += (this.inclinacionEn(this.sYo, this.vYo) - this.inclinacionYo) * Math.min(1, dt * 4);
+    p.pos.set(pxYo, pyYo, pzYo);
+    this.yo.colocar(p.pos, dxYo, dzYo, pendiente(this.sYo), this.inclinacionYo);
     this.yo.pedalear(this.vYo, yo.cadencia, dt);
-    const miX = p.pos.x;
-    const miY = p.pos.y;
-    const miZ = p.pos.z;
-    const dirX = p.dx;
-    const dirZ = p.dz;
+    const miX = pxYo;
+    const miY = pyYo;
+    const miZ = pzYo;
 
     // Otros ciclistas
     for (const e of this.otros.values()) {
@@ -1908,7 +2059,14 @@ export class EscenaRecorrido {
       // Otros: sus datos llegan por internet con retrasos variables → algo más de margen
       e.sRender = this.avanzar(e.sRender, e.sBase, e.recibido, e.v, ahora, dt, 2.5, 0.6);
       const q = this.puntoEn(e.sRender, e.carril, this.punto);
-      e.c.colocar(q.pos, q.dx, q.dz, pendiente(e.sRender));
+      const qx = q.pos.x;
+      const qy = q.pos.y;
+      const qz = q.pos.z;
+      const qdx = q.dx;
+      const qdz = q.dz;
+      const lean = this.inclinacionEn(e.sRender, e.v);
+      q.pos.set(qx, qy, qz);
+      e.c.colocar(q.pos, qdx, qdz, pendiente(e.sRender), lean);
       e.c.pedalear(e.v, e.cadencia, dt);
     }
 
@@ -1924,11 +2082,24 @@ export class EscenaRecorrido {
     this.sol.target.position.set(miX, miY, miZ);
     this.cielo.position.set(this.camara.position.x, 0, this.camara.position.z);
 
-    // Cámara en tercera persona, detrás y un poco por encima
-    this.detras.set(miX - dirX * 6, miY + 2.3, miZ - dirZ * 6);
+    // Cámara en tercera persona: sobre la carretera 6 m por detrás y mirando a la carretera de
+    // delante: la cámara se inclina con la carretera, así en las subidas el horizonte baja y se
+    // ve la rampa por delante (y en las bajadas, la caída).
+    const atras = this.puntoEn(this.sYo - 6, this.carrilYo, this.puntoAtras);
+    this.detras.set(atras.pos.x, atras.pos.y + 2.3, atras.pos.z);
     this.detras.y = Math.max(this.detras.y, this.alturaTerreno(this.detras.x, this.detras.z) + 1.2);
-    this.mira.set(miX + dirX * 8, miY + 1.1, miZ + dirZ * 8);
-    if (!this.camaraLista) {
+    const delante = this.puntoEn(this.sYo + 16, this.carrilYo * 0.5, this.puntoAdelante);
+    const subida = delante.pos.y - miY;
+    this.mira.set(delante.pos.x, miY + 0.9 + subida, delante.pos.z);
+    // Sensación de velocidad: se abre un poco el campo de visión a partir de 38 km/h
+    const kmh = this.vYo * 3.6;
+    const fov = this.FOV_BASE + 9 * suavizado(38, 70, kmh);
+    if (Math.abs(fov - this.camara.fov) > 0.02) {
+      this.camara.fov += (fov - this.camara.fov) * Math.min(1, dt * 1.5);
+      this.camara.updateProjectionMatrix();
+    }
+    // Tras un salto (p. ej. «Ir junto a…») la cámara se coloca directamente
+    if (!this.camaraLista || this.camara.position.distanceToSquared(this.detras) > 40 * 40) {
       this.camara.position.copy(this.detras);
       this.camaraLista = true;
     } else {

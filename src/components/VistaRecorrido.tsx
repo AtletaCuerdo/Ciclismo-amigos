@@ -255,6 +255,8 @@ export default function VistaRecorrido({
           setReinicios((n) => n + 1);
         };
         escena.current = e;
+        // Solo en desarrollo: para inspeccionar la escena desde la consola
+        if (import.meta.env.DEV) Object.assign(window, { __escena: e });
       } catch (e) {
         // Suele pasar si el sistema aún no ha liberado el 3D anterior: se reintenta un poco después
         console.warn('No se pudo crear la escena', e);
