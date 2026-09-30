@@ -54,6 +54,13 @@ const MENSAJE_CADUCA_MS = 3 * 60 * 60 * 1000;
 const MENSAJE_BORRAR_MS = 24 * 60 * 60 * 1000;
 export const TEXTO_MAX = 200;
 
+/** Ficha de las grupetas compartidas de una salida: quién las creó, cuándo y dónde salió cada una. */
+export interface FichaGrupetas {
+  t0: number;
+  autor: string;
+  lista: { vatios: number; s0: number }[];
+}
+
 export type EstadoSalida = 'fuera' | 'entrando' | 'dentro' | 'sin-conexion';
 
 type ModuloFirebase = typeof import('./firebase');
@@ -96,6 +103,8 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
   const [avatares, setAvatares] = useState<Record<string, Avatar>>({});
   const [avatarRechazado, setAvatarRechazado] = useState(false);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
+  /** Ficha de grupetas de la sala (null si no hay) y si ya se ha leído. */
+  const [grupetas, setGrupetas] = useState<{ leida: boolean; ficha: FichaGrupetas | null }>({ leida: false, ficha: null });
   const [chatRechazado, setChatRechazado] = useState(false);
   const avatarRef = useRef(avatar);
   avatarRef.current = avatar;
@@ -207,6 +216,20 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
         ),
       );
 
+      // Grupetas compartidas de la salida
+      cancelar.push(
+        fb.onValue(
+          fb.ref(fb.db, `salas/${sala}/grupetas`),
+          (snap) => {
+            const v = snap.val();
+            const lista = v && v.lista ? (Object.values(v.lista) as { vatios: number; s0: number }[]) : [];
+            const valida = v && typeof v.t0 === 'number' && lista.every((g) => typeof g.vatios === 'number' && typeof g.s0 === 'number');
+            setGrupetas({ leida: true, ficha: valida ? { t0: v.t0, autor: String(v.autor ?? ''), lista } : null });
+          },
+          () => setGrupetas({ leida: true, ficha: null }),
+        ),
+      );
+
       // Chat del grupo: los últimos mensajes, en directo
       cancelar.push(
         fb.onValue(
@@ -261,7 +284,24 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
     setCiclistas([]);
     setAvatares({});
     setMensajes([]);
+    setGrupetas({ leida: false, ficha: null });
     setEstado('fuera');
+  };
+
+  /** Crea (o sustituye) las grupetas compartidas de la salida. */
+  const publicarGrupetas = async (lista: { vatios: number; s0: number }[]) => {
+    const s = sesion.current;
+    if (!s) return false;
+    try {
+      await s.fb.set(s.fb.ref(s.fb.db, `salas/${s.sala}/grupetas`), {
+        t0: s.fb.serverTimestamp(),
+        autor: s.nombre,
+        lista: lista.map((g) => ({ vatios: Math.round(g.vatios), s0: Math.round(Math.max(0, g.s0)) })),
+      });
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   /** Envía un mensaje al chat del grupo. */
@@ -320,6 +360,8 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
     desfaseServidor,
     mensajes: mensajesVisibles,
     chatRechazado,
+    grupetas,
+    publicarGrupetas,
     enviarMensaje,
     unirse,
     salir,

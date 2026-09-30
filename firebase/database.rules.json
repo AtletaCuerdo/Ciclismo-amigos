@@ -103,6 +103,33 @@
               ".validate": false
             }
           }
+        },
+        "grupetas": {
+          ".write": "auth != null",
+          ".validate": "newData.hasChildren(['t0', 'autor', 'lista'])",
+          "t0": {
+            ".validate": "newData.isNumber() && newData.val() <= now"
+          },
+          "autor": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+          },
+          "lista": {
+            "$i": {
+              ".validate": "newData.hasChildren(['vatios', 's0'])",
+              "vatios": {
+                ".validate": "newData.isNumber() && newData.val() >= 50 && newData.val() <= 1000"
+              },
+              "s0": {
+                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000"
+              },
+              "$otro": {
+                ".validate": false
+              }
+            }
+          },
+          "$otro": {
+            ".validate": false
+          }
         }
       }
     },

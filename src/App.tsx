@@ -45,7 +45,16 @@ import type { OtroCiclista } from './recorrido/escena';
 import { FisicaVirtual, MARCHAS, MARCHA_INICIAL, ahorroRebufo, equipoAvatar, potenciaMarcha } from './recorrido/fisica';
 import { MandoZwift, type AccionMando } from './ble/mandoZwift';
 import { CronoSegmentos, posicionEn, textoTiempo, tiempoEn, type EventoCrono, type Segmento, type TramoActivo } from './recorrido/segmentos';
-import { RITMOS_GRUPETA, avanzarBots, crearBot, crearGrupeta, huecosBots, vatiosGrupeta, type Bot } from './recorrido/bots';
+import {
+  RITMOS_GRUPETA,
+  avanzarBots,
+  crearBot,
+  crearGrupeta,
+  grupetasCompartidas,
+  huecosBots,
+  vatiosGrupeta,
+  type Bot,
+} from './recorrido/bots';
 import { calcularTotales, publicarTotales } from './multijugador/rankings';
 import { PantallaRankings } from './components/PantallaRankings';
 import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
@@ -541,7 +550,8 @@ export default function App() {
   const [grupetasAlEmpezar, setGrupetasAlEmpezar] = useState(() => leerLocal(CLAVE_GRUPETAS) === 'si');
   useEffect(() => guardarLocal(CLAVE_GRUPETAS, grupetasAlEmpezar ? 'si' : 'no'), [grupetasAlEmpezar]);
   useEffect(() => {
-    if (!enRecorrido || !grupetasAlEmpezar) return;
+    // Con nombre se entra en la salida en grupo: allí las grupetas son compartidas (ver más abajo)
+    if (!enRecorrido || !grupetasAlEmpezar || nombreVisible) return;
     const inicio = distanciaRef.current;
     botsRef.current = RITMOS_GRUPETA.flatMap(({ pct }, i) =>
       // Repartidas por la vuelta: a un 20 %, 50 % y 80 % de distancia por delante
@@ -568,7 +578,14 @@ export default function App() {
       f.masaKg = pesoRef.current + equipoRef.current.pesoBiciKg;
       // ¿Voy a rueda de alguien? Se estima dónde está cada uno ahora mismo
       let objetivoRebufo = 0;
-      if (corriendoRef.current && botsRef.current.length) avanzarBots(botsRef.current, dt, [posicionAhora()]);
+      if (botsRef.current.length) {
+        // Las grupetas compartidas avanzan siempre (van a su ritmo aunque tú pares); las tuyas, solo si ruedas
+        const compartidas = botsRef.current.filter((b) => b.sim || b.lider?.sim);
+        const mias = botsRef.current.filter((b) => !b.sim && !b.lider?.sim);
+        const ahoraSrv = Date.now() + desfaseRef.current;
+        if (compartidas.length) avanzarBots(compartidas, dt, [], ahoraSrv);
+        if (corriendoRef.current && mias.length) avanzarBots(mias, dt, [posicionAhora()], ahoraSrv);
+      }
       if (corriendoRef.current && f.v > 2) {
         const yo = posicionAhora();
         const ahoraSrv = Date.now() + desfaseRef.current;
@@ -823,6 +840,50 @@ export default function App() {
     if (amigo) ponerEnPunto(amigo.distancia ?? 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enRecorrido, salida.estado, salida.ciclistas, salida.miUid]);
+
+  // ---- Grupetas compartidas en la salida en grupo ----
+  // El primero que entra con la casilla marcada las crea con su FTP; los demás ven las mismas.
+  const decididoGrupetasRef = useRef(false);
+  useEffect(() => {
+    if (!enRecorrido) decididoGrupetasRef.current = false;
+  }, [enRecorrido]);
+  useEffect(() => {
+    if (!enRecorrido || salida.estado !== 'dentro' || !salida.grupetas.leida || !salida.miUid) return;
+    if (!salida.ciclistas.some((c) => c.uid === salida.miUid)) return; // aún no ha llegado la lista
+    if (decididoGrupetasRef.current) return;
+    decididoGrupetasRef.current = true;
+    const hayMasGente = otrosCiclistas.length > 0;
+    // Solo en la salida, o sin grupetas creadas: las creo yo si tengo la casilla marcada
+    if ((!hayMasGente || !salida.grupetas.ficha) && grupetasAlEmpezar) {
+      const inicio = posicionAhora();
+      const lista = RITMOS_GRUPETA.map(({ pct }, i) => ({
+        vatios: vatiosGrupeta(perfil.ftp, pct),
+        s0: inicio + LONGITUD_VUELTA_M * (0.2 + 0.3 * i),
+      }));
+      void salida.publicarGrupetas(lista).then((ok) => {
+        // Sin las reglas nuevas no se puede compartir: grupetas solo para mí
+        if (!ok) {
+          botsRef.current = [
+            ...botsRef.current.filter((b) => !b.grupo),
+            ...lista.flatMap((g) => crearGrupeta(g.vatios, g.s0, 0)),
+          ];
+          setVersionBots((v) => v + 1);
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enRecorrido, salida.estado, salida.grupetas.leida, salida.ciclistas, salida.miUid]);
+  // Cada vez que cambia la ficha de la salida, todos ponen las mismas grupetas
+  const ficha = salida.grupetas.ficha;
+  useEffect(() => {
+    if (!enRecorrido || salida.estado !== 'dentro') return;
+    const sinCompartidas = botsRef.current.filter((b) => !b.sim && !b.lider?.sim);
+    // Solo si hay más gente rodando o si yo las quiero (si voy solo y sin la casilla, nada de grupetas viejas)
+    const mostrar = ficha && (otrosCiclistas.length > 0 || grupetasAlEmpezar);
+    botsRef.current = mostrar ? [...sinCompartidas, ...grupetasCompartidas(ficha.lista, ficha.t0)] : sinCompartidas;
+    setVersionBots((v) => v + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ficha?.t0, ficha?.autor, enRecorrido, salida.estado, otrosCiclistas.length > 0]);
 
   /** Unirse a la salida desde el recorrido (si al entrar no había nombre o falló la conexión). */
   const unirseDesdeRecorrido = () => {

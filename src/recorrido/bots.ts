@@ -22,6 +22,55 @@ export interface Bot {
   retraso?: number;
   /** Posición lateral en la carretera (m), para que la grupeta ruede en formación. */
   carril?: number;
+  /** Grupeta compartida de la salida en grupo: su posición la da esta simulación, igual en todas las pantallas. */
+  sim?: SimGrupeta;
+}
+
+/** Paso fijo de la simulación compartida (s): con el mismo paso, todas las pantallas calculan lo mismo. */
+const PASO_SIM_S = 0.25;
+/** Velocidad con la que sale una grupeta compartida (m/s). */
+const V_SALIDA = 8;
+
+/**
+ * Grupeta compartida: sale del punto `s0` a la hora `t0` (del servidor) y avanza con la física a
+ * `vatios`, con el ahorro de ir en grupo y sin depender de nadie más. Como todas las pantallas
+ * parten de los mismos datos y usan el mismo paso, todas la ven en el mismo sitio.
+ */
+export class SimGrupeta {
+  s: number;
+  private t: number;
+  readonly fisica = new FisicaVirtual(83);
+
+  constructor(
+    readonly vatios: number,
+    readonly s0: number,
+    readonly t0: number,
+  ) {
+    this.s = s0;
+    this.t = t0;
+    this.fisica.cda = 0.29 * (1 - 0.12);
+    this.fisica.v = V_SALIDA;
+  }
+
+  /** Avanza hasta la hora `ahora` (ms del servidor) en pasos fijos. */
+  hasta(ahora: number) {
+    const paso = PASO_SIM_S * 1000;
+    // Si hace mucho que salió (p. ej. alguien entra una hora después), se calcula todo de golpe
+    while (this.t + paso <= ahora) {
+      this.fisica.actualizar(this.vatios, pendiente(this.s), PASO_SIM_S);
+      this.s += this.fisica.v * PASO_SIM_S;
+      this.t += paso;
+    }
+  }
+}
+
+/** Grupetas compartidas (una por cada entrada de la ficha de la salida). */
+export function grupetasCompartidas(lista: { vatios: number; s0: number }[], t0: number): Bot[] {
+  return lista.flatMap(({ vatios, s0 }) => {
+    const grupeta = crearGrupeta(vatios, s0, V_SALIDA);
+    grupeta[0].sim = new SimGrupeta(vatios, s0, t0);
+    return grupeta;
+  });
 }
 
 /** Formación de una grupeta de 5: dos parejas y uno cerrando. [metros detrás del líder, carril] */
@@ -102,10 +151,17 @@ function hueco(a: number, b: number) {
  * Avanza los bots dt segundos. `ciclistas`: posiciones de los demás (tú y tus amigos), para
  * que los bots también vayan a rueda.
  */
-export function avanzarBots(bots: Bot[], dt: number, ciclistas: number[]) {
+export function avanzarBots(bots: Bot[], dt: number, ciclistas: number[], ahoraServidor = Date.now()) {
   for (const bot of bots) {
     // Los de la grupeta van en formación detrás de su líder
     if (bot.lider) continue;
+    // Grupeta compartida: su posición sale de la simulación común
+    if (bot.sim) {
+      bot.sim.hasta(ahoraServidor);
+      bot.s = bot.sim.s;
+      bot.fisica.v = bot.sim.fisica.v;
+      continue;
+    }
     const delante = [...ciclistas, ...bots.filter((b) => b !== bot && (!bot.grupo || b.grupo !== bot.grupo)).map((b) => b.s)].map(
       (s) => hueco(bot.s, s),
     );
