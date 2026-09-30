@@ -128,6 +128,29 @@
         }
       }
     },
+    "records": {
+      ".read": "auth != null",
+      "$circuito": {
+        "$segmento": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.hasChildren(['nombre', 'ms', 't'])",
+            "nombre": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+            },
+            "ms": {
+              ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() < 36000000"
+            },
+            "t": {
+              ".validate": "newData.isNumber() && newData.val() <= now"
+            },
+            "$otro": {
+              ".validate": false
+            }
+          }
+        }
+      }
+    },
     "usuarios": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",

@@ -262,6 +262,8 @@ function texturaNube(semilla: number) {
 
 export interface OtroCiclista {
   uid: string;
+  /** El fantasma de tu mejor vuelta: transparente, en tu carril y sin rebufo. */
+  fantasma?: boolean;
   nombre: string;
   avatar: Avatar;
   distancia: number; // m
@@ -285,6 +287,7 @@ interface EstadoOtro {
   cadencia: number;
   sRender: number;
   carril: number;
+  fantasma: boolean;
 }
 
 const CARRILES = [-2.6, -1.2, 0.2, 2.8, -3.2];
@@ -1623,15 +1626,17 @@ export class EscenaRecorrido {
           v: o.velocidad / 3.6,
           cadencia: o.cadencia,
           sRender: o.distancia,
-          carril: CARRILES[hash(o.uid) % CARRILES.length],
+          carril: o.fantasma ? MI_CARRIL : CARRILES[hash(o.uid) % CARRILES.length],
+          fantasma: !!o.fantasma,
         };
+        if (o.fantasma) c.volverFantasma();
         this.otros.set(o.uid, e);
       }
       if (o.nombre !== e.nombre) {
         e.c.ponerNombre(o.nombre);
         e.nombre = o.nombre;
       }
-      e.c.cambiarAvatar(o.avatar);
+      if (!e.fantasma) e.c.cambiarAvatar(o.avatar);
       if (o.distancia !== e.sBase) {
         e.sBase = o.distancia;
         e.recibido = ahora;
@@ -1745,6 +1750,7 @@ export class EscenaRecorrido {
     let carrilObjetivo = MI_CARRIL;
     let huecoMin = Infinity;
     for (const e of this.otros.values()) {
+      if (e.fantasma) continue;
       let h = (e.sRender - this.sYo) % LONGITUD_VUELTA_M;
       if (h > LONGITUD_VUELTA_M / 2) h -= LONGITUD_VUELTA_M;
       if (h < -LONGITUD_VUELTA_M / 2) h += LONGITUD_VUELTA_M;

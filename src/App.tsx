@@ -44,6 +44,8 @@ import {
 import type { OtroCiclista } from './recorrido/escena';
 import { FisicaVirtual, MARCHAS, MARCHA_INICIAL, ahorroRebufo, equipoAvatar, potenciaMarcha } from './recorrido/fisica';
 import { MandoZwift, type AccionMando } from './ble/mandoZwift';
+import { CronoSegmentos, posicionEn, textoTiempo, tiempoEn, type EventoCrono, type Segmento, type TramoActivo } from './recorrido/segmentos';
+import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
 import { mantenerPantallaEncendida, soltarPantalla } from './pantallaEncendida';
 import { LONGITUD_VUELTA_M, pendiente as pendienteRuta } from './recorrido/perfil';
 
@@ -58,6 +60,19 @@ const VistaPreviaAvatar = lazy(() => import('./components/VistaPreviaAvatar'));
 type Fuente = 'ftms' | 'pm' | 'csc' | 'hr';
 type NombreMetrica = 'potencia' | 'cadencia' | 'velocidad' | 'pulso';
 type Pantalla = 'inicio' | 'avatar' | 'entrenamientos' | 'crear' | 'historial' | 'ajustes' | 'cuenta';
+
+/** Resultado de un segmento recién terminado (con la tabla del grupo cuando llega). */
+export interface ResultadoSegmento {
+  id: number;
+  segmento: Segmento;
+  ms: number;
+  anterior?: number;
+  esRecord: boolean;
+  tabla: MarcaGrupo[] | null;
+  miUid: string | null;
+  /** Firebase no deja guardar ni leer la tabla (faltan las reglas nuevas). */
+  sinReglas: boolean;
+}
 
 const CLAVE_CAMBIOS = 'rodillos.cambiosVirtuales';
 const CLAVE_MARCHA = 'rodillos.marcha';
@@ -524,6 +539,8 @@ export default function App() {
       if (corriendoRef.current) f.actualizar(actualRef.current.potencia ?? 0, grado, dt);
       else f.detener();
       velVirtualRef.current = f.v * 3.6;
+      const eventosCrono = cronoRef.current.actualizar(posicionAhora(), t, corriendoRef.current);
+      if (eventosCrono.length) alEventosCronoRef.current(eventosCrono);
 
       const rodillo = sensores.ftms;
       if (!rodillo.tieneControl) return;
@@ -574,6 +591,8 @@ export default function App() {
       velVirtualRef.current = 0;
       rebufoRef.current = 0;
       fisicaRef.current.detener();
+      cronoRef.current.cancelar();
+      setTramosActivos([]);
     };
   }, [enRecorrido, sensores]);
 
@@ -602,6 +621,95 @@ export default function App() {
     window.addEventListener('keydown', tecla);
     return () => window.removeEventListener('keydown', tecla);
   }, [enRecorrido, cambiosVirtuales]);
+
+  // ---- Segmentos, metas volantes, récords y fantasma ----
+  const cronoRef = useRef(new CronoSegmentos());
+  const [tramosActivos, setTramosActivos] = useState<TramoActivo[]>([]);
+  const [resultado, setResultado] = useState<ResultadoSegmento | null>(null);
+  const [fantasmaDatos, setFantasmaDatos] = useState(() => leerFantasma());
+  const [fantasmaActivo, setFantasmaActivo] = useState(false);
+  // Las metas volantes solo cuentan en la salida en grupo con algún amigo rodando
+  const enGrupoRef = useRef(false);
+  enGrupoRef.current = salida.estado === 'dentro' && otrosCiclistas.length > 0;
+  const alEventosCronoRef = useRef<(e: EventoCrono[]) => void>(() => undefined);
+  alEventosCronoRef.current = (eventos) => {
+    for (const e of eventos) {
+      const seg = e.tramo.segmento;
+      if (seg.tipo === 'meta' && e.tipo !== 'cancelado' && !enGrupoRef.current) continue;
+      if (e.tipo === 'inicio') {
+        setTramosActivos((l) => [...l.filter((x) => x.segmento.id !== seg.id), e.tramo]);
+        continue;
+      }
+      setTramosActivos((l) => l.filter((x) => x.segmento.id !== seg.id));
+      if (e.tipo === 'cancelado') continue;
+      terminarSegmento(seg, e.ms, e.muestras);
+    }
+  };
+
+  /** Al cruzar el final de un segmento: récord personal, fantasma, tabla del grupo y chat. */
+  const terminarSegmento = (seg: Segmento, ms: number, muestras?: [number, number][]) => {
+    const anterior = apuntarMarca(seg.id, ms);
+    const esRecord = anterior === undefined || ms < anterior;
+    if (seg.tipo === 'vuelta' && esRecord && muestras) {
+      guardarFantasma(muestras);
+      setFantasmaDatos(muestras);
+    }
+    const id = Date.now();
+    setResultado({ id, segmento: seg, ms, anterior, esRecord, tabla: null, miUid: null, sinReglas: false });
+    const conDecimas = seg.tipo === 'meta';
+    if (salida.estado === 'dentro') {
+      if (seg.tipo === 'meta') void salida.enviarMensaje(`🏁 ${seg.nombre}: ${textoTiempo(ms, true)}`);
+      else if (esRecord && anterior !== undefined)
+        void salida.enviarMensaje(`🏆 Nuevo récord en «${seg.nombre}»: ${textoTiempo(ms, conDecimas)}`);
+    }
+    // Tabla del grupo (se sube mi marca si es mi mejor)
+    void (async () => {
+      let sinReglas = false;
+      try {
+        await subirMarca(seg.id, ms, nombreVisible || 'Ciclista');
+      } catch {
+        sinReglas = true;
+      }
+      try {
+        const { tabla, miUid } = await tablaGrupo(seg.id);
+        setResultado((r) => (r && r.id === id ? { ...r, tabla, miUid, sinReglas } : r));
+      } catch {
+        setResultado((r) => (r && r.id === id ? { ...r, sinReglas: true } : r));
+      }
+    })();
+  };
+  // Solo en desarrollo (npm run dev): atajos para probar segmentos sin pedalear 17 km
+  if (import.meta.env.DEV) Object.assign(window, { __ponerEnPunto: ponerEnPunto, __terminarSegmento: terminarSegmento });
+
+  // El resultado se ve un rato y se va solo
+  useEffect(() => {
+    if (!resultado) return;
+    const id = setTimeout(() => setResultado((r) => (r?.id === resultado.id ? null : r)), 14000);
+    return () => clearTimeout(id);
+  }, [resultado?.id]);
+
+  // Fantasma: repite mi mejor vuelta desde que empiezo la vuelta actual
+  const vueltaEnMarcha = tramosActivos.find((t) => t.segmento.tipo === 'vuelta');
+  let fantasma: OtroCiclista | null = null;
+  let diferenciaFantasma: number | null = null;
+  if (fantasmaActivo && fantasmaDatos && vueltaEnMarcha && enRecorrido) {
+    const transcurrido = performance.now() - vueltaEnMarcha.desdeT;
+    const pos = posicionEn(fantasmaDatos, transcurrido);
+    if (pos !== null) {
+      const dentroDeUnSegundo = posicionEn(fantasmaDatos, transcurrido + 1000) ?? pos;
+      fantasma = {
+        uid: 'fantasma',
+        fantasma: true,
+        nombre: '👻 Tu mejor vuelta',
+        avatar: perfil.avatar,
+        distancia: vueltaEnMarcha.desdeS + pos,
+        velocidad: Math.max(0, dentroDeUnSegundo - pos) * 3.6,
+        cadencia: 85,
+      };
+    }
+    const tFantasma = tiempoEn(fantasmaDatos, posicionAhora() - vueltaEnMarcha.desdeS);
+    if (tFantasma !== null) diferenciaFantasma = transcurrido - tFantasma;
+  }
 
   // ---- Rodar con los amigos ----
   // Nombre con el que te ven (el guardado o, si no hay, el de la cuenta)
@@ -1111,7 +1219,20 @@ export default function App() {
               rebufo: rebufoRef.current,
               segundosRueda: segundosRuedaRef.current,
             })}
-            otros={otrosCiclistas}
+            otros={fantasma ? [...otrosCiclistas, fantasma] : otrosCiclistas}
+            segmentos={{
+              activos: tramosActivos,
+              resultado,
+              onCerrarResultado: () => setResultado(null),
+              enGrupo: salida.estado === 'dentro' && otrosCiclistas.length > 0,
+            }}
+            fantasma={{
+              disponible: fantasmaDatos !== null,
+              activo: fantasmaActivo,
+              onAlternar: () => setFantasmaActivo((a) => !a),
+              diferencia: diferenciaFantasma,
+              esperando: fantasmaActivo && !vueltaEnMarcha,
+            }}
             grabacion={grabacion}
             enSalida={salida.estado === 'dentro'}
             ftp={perfil.ftp}

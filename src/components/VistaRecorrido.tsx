@@ -18,6 +18,10 @@ import {
 } from '../recorrido/perfil';
 import type { Entrenamiento, Tramo } from '../entrenamientos/tipos';
 import { SelectorEntreno } from './SelectorEntreno';
+import { PanelSegmentos } from './PanelSegmentos';
+import type { ResultadoSegmento } from '../App';
+import { textoTiempo, type TramoActivo } from '../recorrido/segmentos';
+import { miRecord } from '../recorrido/records';
 import { ChatGrupo } from './ChatGrupo';
 import type { Mensaje } from '../multijugador/useSalida';
 import { GraficaEntrenamiento, colorZona } from './GraficaEntrenamiento';
@@ -55,6 +59,23 @@ interface Props {
     pausar: () => void;
   };
   enSalida: boolean;
+  /** Segmentos cronometrados: tramos en marcha y resultado del último. */
+  segmentos: {
+    activos: TramoActivo[];
+    resultado: ResultadoSegmento | null;
+    onCerrarResultado: () => void;
+    enGrupo: boolean;
+  };
+  /** Fantasma de mi mejor vuelta (botón para activarlo). */
+  fantasma: {
+    disponible: boolean;
+    activo: boolean;
+    onAlternar: () => void;
+    /** ms respecto al fantasma (positivo: voy por detrás). */
+    diferencia: number | null;
+    /** Activado pero esperando a que empiece una vuelta nueva. */
+    esperando: boolean;
+  };
   /** FTP del ciclista: colorea los vatios según la zona. */
   ftp: number;
   entrandoSalida: boolean;
@@ -179,6 +200,8 @@ export default function VistaRecorrido({
   otros,
   grabacion,
   enSalida,
+  segmentos,
+  fantasma,
   ftp,
   entrandoSalida,
   errorSalida,
@@ -467,6 +490,25 @@ export default function VistaRecorrido({
           >
             {grabacion.corriendo ? 'Pausa' : grabacion.hayDatos ? 'Seguir' : 'Empezar'}
           </button>
+          <button
+            className={`boton-secundario boton-fantasma ${fantasma.activo ? 'activo' : ''}`}
+            onClick={fantasma.onAlternar}
+            disabled={!fantasma.disponible}
+            title={
+              fantasma.disponible
+                ? 'Rueda contra tu mejor vuelta (un ciclista transparente)'
+                : 'Completa una vuelta entera para tener fantasma'
+            }
+          >
+            👻{' '}
+            {!fantasma.activo
+              ? 'Fantasma'
+              : fantasma.esperando
+                ? 'en la próxima vuelta'
+                : fantasma.diferencia === null
+                  ? 'Fantasma'
+                  : `${fantasma.diferencia > 0 ? '+' : '−'}${textoTiempo(Math.abs(fantasma.diferencia))}`}
+          </button>
           {!entreno && (
             <button className="boton-secundario" onClick={() => setEligiendo(true)} title="Hacer un entrenamiento guiado sin salir">
               📋 Entreno
@@ -486,6 +528,14 @@ export default function VistaRecorrido({
       {/* Zona central libre; el entrenamiento guiado va arriba a la izquierda, pegado a la barra */}
       <div className="hud-medio">
         {entreno && <PanelEntreno e={entreno} potencia={yo.potencia} />}
+        <PanelSegmentos
+          distancia={yo.distancia}
+          activos={segmentos.activos}
+          resultado={segmentos.resultado}
+          onCerrarResultado={segmentos.onCerrarResultado}
+          enGrupo={segmentos.enGrupo}
+          miRecord={(id) => miRecord(id)}
+        />
         <PanelGrupo
           yo={yo.distancia}
           otros={otros}

@@ -358,7 +358,45 @@ export class Ciclista3D {
   }
 
   /** Coloca el ciclista: posición, rumbo (vector de dirección en XZ) y pendiente en %. */
+  /** Ciclista transparente (el fantasma de tu mejor vuelta). */
+  private fantasma = false;
+  private ultimoRepaso = 0;
+
+  volverFantasma() {
+    this.fantasma = true;
+    this.repasarFantasma();
+  }
+
+  /**
+   * Pasa a semitransparente todo lo que tenga el ciclista (el cuerpo se carga después, por eso
+   * se repasa de vez en cuando). Cada malla recibe su propia copia del material para no volver
+   * transparentes a los demás ciclistas que lo compartan.
+   */
+  private repasarFantasma() {
+    this.raiz.traverse((o) => {
+      const malla = o as THREE.Mesh;
+      if (!malla.isMesh || malla.userData.fantasma) return;
+      const convertir = (m: THREE.Material) => {
+        const c = m.clone();
+        c.transparent = true;
+        c.opacity = 0.35;
+        c.depthWrite = false;
+        return c;
+      };
+      malla.material = Array.isArray(malla.material) ? malla.material.map(convertir) : convertir(malla.material);
+      malla.castShadow = false;
+      malla.userData.fantasma = true;
+    });
+  }
+
   colocar(posicion: THREE.Vector3, direccionX: number, direccionZ: number, pendientePct: number) {
+    if (this.fantasma) {
+      const ahora = performance.now();
+      if (ahora - this.ultimoRepaso > 1000) {
+        this.ultimoRepaso = ahora;
+        this.repasarFantasma();
+      }
+    }
     this.raiz.position.copy(posicion);
     this.raiz.rotation.y = Math.atan2(-direccionZ, direccionX);
     this.inclinacion.rotation.z = Math.atan(pendientePct / 100);
