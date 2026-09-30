@@ -321,6 +321,9 @@ export class EscenaRecorrido {
   private tr = crearTrazado();
   private indice: IndiceCarretera;
   private lago: { x: number; z: number; r: number; nivel: number };
+  /** Río del circuito: lado (+1/−1 respecto a la carretera), distancia, ancho, nivel del agua y tramo (m). */
+  private rio: { lado: number; distancia: number; ancho: number; nivel: number; desde: number; hasta: number } | null =
+    null;
   private yo: Ciclista3D;
   private sYo = 0;
   private vYo = 0;
@@ -430,6 +433,7 @@ export class EscenaRecorrido {
 
     this.indice = new IndiceCarretera(this.tr);
     this.lago = this.situarLago();
+    this.rio = this.situarRio();
 
     this.crearTerreno();
     this.crearCarretera();
@@ -553,6 +557,39 @@ export class EscenaRecorrido {
     return { x: px + (hx / l) * lago.distancia, z: pz + (hz / l) * lago.distancia, r: lago.r, nivel: altitud(lago.s) - 2 };
   }
 
+  /** Río: por fuera de la vuelta y con el agua un poco por debajo del punto más bajo de su tramo. */
+  private situarRio() {
+    const rio = CIRCUITO.rio;
+    if (!rio) return null;
+    const desde = rio.desde * 1000;
+    const hasta = rio.hasta * 1000;
+    const largo = hasta > desde ? hasta - desde : hasta + LONGITUD_VUELTA_M - desde;
+    // Lado de fuera: el contrario al centro de la vuelta, mirando a mitad del tramo
+    const i = Math.round(enVuelta(desde + largo / 2) / PASO_M) % this.tr.n;
+    const haciaCentro = (this.tr.centroX - this.tr.x[i]) * -this.tr.dz[i] + (this.tr.centroZ - this.tr.z[i]) * this.tr.dx[i];
+    let minimo = Infinity;
+    for (let s = 0; s <= largo; s += 50) minimo = Math.min(minimo, altitud(desde + s));
+    return { lado: haciaCentro > 0 ? -1 : 1, distancia: rio.distancia, ancho: rio.ancho, nivel: minimo - 1.5, desde, hasta };
+  }
+
+  /** ¿Está el metro s de la vuelta en el tramo con río? */
+  private tramoConRio(s: number) {
+    const r = this.rio;
+    if (!r) return false;
+    const x = enVuelta(s);
+    return r.hasta > r.desde ? x >= r.desde && x <= r.hasta : x >= r.desde || x <= r.hasta;
+  }
+
+  /** Distancia (m) de un punto al eje del río (Infinity si no hay río ahí). */
+  private distanciaRio(x: number, z: number, cercano = this.indice.cercano(x, z)) {
+    const r = this.rio;
+    if (!r || cercano.indice < 0 || cercano.distancia > r.distancia + r.ancho + 80) return Infinity;
+    const i = cercano.indice;
+    if (!this.tramoConRio(i * PASO_M)) return Infinity;
+    const lateral = (x - this.tr.x[i]) * -this.tr.dz[i] + (z - this.tr.z[i]) * this.tr.dx[i];
+    return Math.abs(lateral - r.lado * r.distancia);
+  }
+
   /** Altura del terreno: igual a la carretera cerca de ella, colinas lejos y el hueco del lago. */
   private alturaTerreno(x: number, z: number, cercano = this.indice.cercano(x, z)) {
     const w = suavizado(ZONA_LLANA_M, 300, cercano.distancia);
@@ -562,17 +599,27 @@ export class EscenaRecorrido {
       const fondo = this.lago.nivel - 3 - 4 * (1 - dl / (this.lago.r + 90));
       h = THREE.MathUtils.lerp(fondo, h, suavizado(this.lago.r - 20, this.lago.r + 90, dl));
     }
+    if (this.rio) {
+      const dr = this.distanciaRio(x, z, cercano);
+      const mitad = this.rio.ancho / 2;
+      if (dr < mitad + 34) h = THREE.MathUtils.lerp(this.rio.nivel - 2.5, h, suavizado(mitad - 4, mitad + 34, dr));
+    }
     return h;
   }
 
   private enLago(x: number, z: number, margen = 15) {
-    return Math.hypot(x - this.lago.x, z - this.lago.z) < this.lago.r + margen;
+    if (Math.hypot(x - this.lago.x, z - this.lago.z) < this.lago.r + margen) return true;
+    return !!this.rio && this.distanciaRio(x, z) < this.rio.ancho / 2 + margen;
   }
 
   /** Color base del terreno: cunetas, praderas junto a la carretera y campos de cultivo lejos. */
   private colorTerreno(x: number, z: number, distancia: number, h: number, c: THREE.Color) {
-    const praderas = [0x5d8a3c, 0x557f37, 0x68904a];
-    const campos = [0xc9b35d, 0x86a24a, 0x8e6f48, 0x6f9e4a, 0x4f7a36, 0xd2c23d, 0xa7b35a];
+    const ribera = CIRCUITO.paisaje === 'ribera';
+    const praderas = ribera ? [0x6b8f3e, 0x7a9444, 0x668a3a] : [0x5d8a3c, 0x557f37, 0x68904a];
+    // En la ribera, casi todo cereal (dorado y paja) con alguna parcela verde o de tierra
+    const campos = ribera
+      ? [0xd8c25a, 0xcdb44e, 0xe0cc6a, 0xc2a843, 0xd2c23d, 0x9fae52, 0x9c7f55, 0xe3d27a]
+      : [0xc9b35d, 0x86a24a, 0x8e6f48, 0x6f9e4a, 0x4f7a36, 0xd2c23d, 0xa7b35a];
     // Parcelas giradas para que no parezcan una cuadrícula
     const rx = x * 0.8 + z * 0.6;
     const rz = -x * 0.6 + z * 0.8;
@@ -581,7 +628,13 @@ export class EscenaRecorrido {
     // Surcos
     campo.multiplyScalar(0.94 + 0.06 * Math.sin(rx * 0.9));
     const pradera = new THREE.Color(praderas[Math.floor(hashEntero(Math.floor(x / 90), Math.floor(z / 90)) * 3)]);
-    c.copy(pradera).lerp(campo, suavizado(110, 260, distancia));
+    c.copy(pradera).lerp(campo, ribera ? suavizado(40, 140, distancia) : suavizado(110, 260, distancia));
+    // Orilla del río: arena y grava
+    if (this.rio) {
+      const dr = this.distanciaRio(x, z);
+      const mitad = this.rio.ancho / 2;
+      if (dr < mitad + 14) c.lerp(new THREE.Color(0xa89572), 1 - suavizado(mitad - 2, mitad + 14, dr));
+    }
     // Zonas altas más secas
     if (h > 95) c.lerp(new THREE.Color(0x9a9a58), suavizado(95, 140, h) * 0.5);
     // Cuneta de tierra y grava junto al asfalto
@@ -949,6 +1002,17 @@ export class EscenaRecorrido {
       [[chopo, matCopa], [tronco, matTronco, true]],
       Math.round(320 * f),
       () => {
+        if (this.rio && rnd() < 0.65) {
+          const r = this.rio;
+          const largo = r.hasta > r.desde ? r.hasta - r.desde : r.hasta + LONGITUD_VUELTA_M - r.desde;
+          const k = Math.round(enVuelta(r.desde + rnd() * largo) / PASO_M) % this.tr.n;
+          const lat = r.lado * (r.distancia + (rnd() < 0.5 ? -1 : 1) * (r.ancho / 2 + 6 + rnd() * 16));
+          const x = this.tr.x[k] - this.tr.dz[k] * lat;
+          const z = this.tr.z[k] + this.tr.dx[k] * lat;
+          const cerca = this.indice.cercano(x, z);
+          if (cerca.distancia < 14) return null;
+          return { x, z, y: this.alturaTerreno(x, z, cerca) };
+        }
         if (this.lago.r > 0 && rnd() < 0.6) {
           const a = rnd() * Math.PI * 2;
           const d = this.lago.r + 15 + rnd() * 40;
@@ -1433,6 +1497,7 @@ export class EscenaRecorrido {
   }
 
   private crearAgua() {
+    if (this.rio) this.crearRio();
     if (this.lago.r <= 0) return;
     const agua = new THREE.Mesh(
       new THREE.CircleGeometry(this.lago.r + 35, 64),
@@ -1447,6 +1512,48 @@ export class EscenaRecorrido {
     );
     agua.rotation.x = -Math.PI / 2;
     agua.position.set(this.lago.x, this.lago.nivel, this.lago.z);
+    this.escena.add(agua);
+  }
+
+  /** Cinta de agua a lo largo del tramo con río (un poco más ancha que el cauce, que la tapa). */
+  private crearRio() {
+    const r = this.rio!;
+    const largo = r.hasta > r.desde ? r.hasta - r.desde : r.hasta + LONGITUD_VUELTA_M - r.desde;
+    const paso = 8;
+    const n = Math.floor(largo / paso) + 1;
+    const pos = new Float32Array(n * 2 * 3);
+    const indices: number[] = [];
+    const mitad = r.ancho / 2 + 5;
+    for (let j = 0; j < n; j++) {
+      const k = Math.round(enVuelta(r.desde + j * paso) / PASO_M) % this.tr.n;
+      for (let lado = 0; lado < 2; lado++) {
+        const lat = r.lado * r.distancia + (lado ? mitad : -mitad);
+        const v = (j * 2 + lado) * 3;
+        pos[v] = this.tr.x[k] - this.tr.dz[k] * lat;
+        pos[v + 1] = r.nivel;
+        pos[v + 2] = this.tr.z[k] + this.tr.dx[k] * lat;
+      }
+      if (j > 0) {
+        const a = (j - 1) * 2;
+        indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    const agua = new THREE.Mesh(
+      geo,
+      new THREE.MeshStandardMaterial({
+        color: 0x3b6f7c,
+        roughness: 0.08,
+        metalness: 0.25,
+        transparent: true,
+        opacity: 0.9,
+        envMapIntensity: 1.2,
+        side: THREE.DoubleSide,
+      }),
+    );
     this.escena.add(agua);
   }
 
@@ -1466,11 +1573,28 @@ export class EscenaRecorrido {
     const cx = this.tr.centroX;
     const cz = this.tr.centroZ;
     // El terreno llega 2600 m más allá del trazado: la cordillera empieza algo antes de su borde
-    const r0 = Math.min(maxX - minX, maxZ - minZ) / 2 + 1200;
+    const r0Base = Math.min(maxX - minX, maxZ - minZ) / 2 + 1200;
     const r1 = 8400;
     const nA = this.calidad === 'alta' ? 720 : 400;
     const nR = this.calidad === 'alta' ? 110 : 64;
-    const altura = (x: number, z: number, r: number) => {
+    // Dónde empieza la cordillera en cada dirección: nunca encima de la carretera (en circuitos
+    // alargados, como la Ribera, la carretera llega mucho más lejos en una dirección que en otra)
+    const lejania = new Float32Array(nA + 1);
+    for (let k = 0; k < this.tr.n; k += 4) {
+      const dx = this.tr.x[k] - cx;
+      const dz = this.tr.z[k] - cz;
+      const a = (Math.atan2(dz, dx) + Math.PI * 2) % (Math.PI * 2);
+      const i = Math.round((a / (Math.PI * 2)) * nA);
+      lejania[i] = Math.max(lejania[i], Math.hypot(dx, dz));
+    }
+    const ventana = Math.round(nA / 24); // ±15°
+    const inicioEn = new Float32Array(nA + 1);
+    for (let i = 0; i <= nA; i++) {
+      let m = 0;
+      for (let d = -ventana; d <= ventana; d++) m = Math.max(m, lejania[(((i + d) % nA) + nA) % nA]);
+      inicioEn[i] = Math.min(r1 - 2000, Math.max(r0Base, m + 300));
+    }
+    const altura = (x: number, z: number, r: number, r0: number) => {
       const e = suavizado(r0, r0 + 1700, r);
       const macizo = 0.45 + 0.9 * fbm(x / 7000 + 3, z / 7000 - 2, 3, 5);
       const h = 120 + 1150 * crestas(x / 2300, z / 2300, 7, 11) ** 1.25 * macizo;
@@ -1479,15 +1603,16 @@ export class EscenaRecorrido {
     const pos = new Float32Array((nA + 1) * (nR + 1) * 3);
     const col = new Float32Array((nA + 1) * (nR + 1) * 3);
     for (let j = 0; j <= nR; j++) {
-      // Más anillos cerca (donde se ve el detalle)
-      const r = r0 + (r1 - r0) * (j / nR) ** 1.4;
       for (let i = 0; i <= nA; i++) {
+        const r0 = inicioEn[i];
+        // Más anillos cerca (donde se ve el detalle)
+        const r = r0 + (r1 - r0) * (j / nR) ** 1.4;
         const a = (i / nA) * Math.PI * 2;
         const x = cx + Math.cos(a) * r;
         const z = cz + Math.sin(a) * r;
         const k = (j * (nA + 1) + i) * 3;
         pos[k] = x;
-        pos[k + 1] = altura(x, z, r);
+        pos[k + 1] = altura(x, z, r, r0);
         pos[k + 2] = z;
       }
     }
@@ -1524,7 +1649,7 @@ export class EscenaRecorrido {
       const lineaNieve = 950 + 180 * (fbm(x / 600, z / 600, 3, 33) - 0.5) + 400 * pend;
       c.lerp(nieve, suavizado(lineaNieve, lineaNieve + 90, y));
       const d = Math.hypot(x - cx, z - cz);
-      c.lerp(lejos, 0.15 + 0.55 * suavizado(r0, r1, d));
+      c.lerp(lejos, 0.15 + 0.55 * suavizado(inicioEn[v % (nA + 1)], r1, d));
       col.set([c.r, c.g, c.b], v * 3);
     }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));

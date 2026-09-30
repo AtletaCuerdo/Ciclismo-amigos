@@ -20,6 +20,13 @@ export interface DefCircuito {
   forma: { n: number; rx: number; rz: number; ondas: [number, number, number][] };
   /** Lago junto a la carretera: en el metro `s`, a `distancia` hacia dentro, de radio `r`. */
   lago: { s: number; distancia: number; r: number } | null;
+  /**
+   * Río junto a la carretera, por fuera de la vuelta: del km `desde` al km `hasta` (si `hasta` es
+   * menor, da la vuelta por la salida), a `distancia` m del eje y con `ancho` m de agua.
+   */
+  rio: { desde: number; hasta: number; distancia: number; ancho: number } | null;
+  /** Paisaje: colinas verdes con cultivos variados, o ribera con campos de cereal dorado. */
+  paisaje: 'colinas' | 'ribera';
   /** Colinas lejos de la carretera: altura media y cuánto se ondulan (1 = como el original). */
   relieve: { base: number; escala: number };
   /** Subidas con al menos este desnivel se cronometran como segmento. */
@@ -59,6 +66,8 @@ export const CIRCUITOS: DefCircuito[] = [
       ],
     },
     lago: { s: 8200, distancia: 270, r: 175 },
+    rio: null,
+    paisaje: 'colinas',
     relieve: { base: 60, escala: 1 },
     desnivelSegmento: 10,
     extra: [],
@@ -94,6 +103,9 @@ export const CIRCUITOS: DefCircuito[] = [
       ],
     },
     lago: null,
+    // El río acompaña la carretera en la parte más baja: del km 16 a la salida y hasta el km 3
+    rio: { desde: 16, hasta: 3, distancia: 75, ancho: 28 },
+    paisaje: 'ribera',
     relieve: { base: 34, escala: 0.45 },
     desnivelSegmento: 7,
     extra: [['Contrarreloj de la Ribera', 16.5, 19.5]],
