@@ -11,7 +11,7 @@ import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { esDispositivoIos, type Avatar, type Calidad } from './avatar';
 import { Ciclista3D } from './ciclista3d';
-import { LONGITUD_VUELTA_M, altitud, enVuelta, pendiente } from './perfil';
+import { CIRCUITO, LONGITUD_VUELTA_M, altitud, enVuelta, pendiente } from './perfil';
 import {
   cargarCielo,
   cargarModelo,
@@ -67,14 +67,16 @@ function hashEntero(a: number, b: number) {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
-/** Colinas suaves para el paisaje lejos de la carretera. */
+/** Colinas suaves para el paisaje lejos de la carretera (altura y ondulación según el circuito). */
 function colinas(x: number, z: number) {
+  const { base, escala } = CIRCUITO.relieve;
   return (
-    60 +
-    38 * Math.sin(x / 700 + 1) * Math.cos(z / 560) +
-    18 * Math.sin((x + z) / 260) +
-    8 * Math.cos((x - 2 * z) / 130) +
-    3 * Math.sin(x / 41) * Math.cos(z / 37)
+    base +
+    escala *
+      (38 * Math.sin(x / 700 + 1) * Math.cos(z / 560) +
+        18 * Math.sin((x + z) / 260) +
+        8 * Math.cos((x - 2 * z) / 130) +
+        3 * Math.sin(x / 41) * Math.cos(z / 37))
   );
 }
 
@@ -92,14 +94,15 @@ interface Trazado {
   centroZ: number;
 }
 
-/** Curva cerrada irregular escalada para medir exactamente 17 km. */
+/** Curva cerrada irregular (forma del circuito) escalada para medir exactamente una vuelta. */
 function crearTrazado(): Trazado {
   const puntos: THREE.Vector3[] = [];
-  const n = 14;
+  const { n, rx, rz, ondas } = CIRCUITO.forma;
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2;
-    const r = 1 + 0.16 * Math.sin(3 * a + 0.6) + 0.09 * Math.cos(5 * a + 1.3);
-    puntos.push(new THREE.Vector3(Math.cos(a) * 3100 * r, 0, Math.sin(a) * 2100 * r));
+    // La primera onda con seno y las demás con coseno, como la forma original del lago
+    const r = 1 + ondas.reduce((t, [amp, frec, fase], k) => t + amp * (k === 0 ? Math.sin : Math.cos)(frec * a + fase), 0);
+    puntos.push(new THREE.Vector3(Math.cos(a) * rx * r, 0, Math.sin(a) * rz * r));
   }
   let curva = new THREE.CatmullRomCurve3(puntos, true, 'centripetal');
   curva.arcLengthDivisions = 6000;
@@ -537,15 +540,17 @@ export class EscenaRecorrido {
     pmrem.dispose();
   }
 
-  /** Lago junto al llano del km 8, hacia el interior de la vuelta. */
+  /** Lago del circuito (junto a la carretera, hacia el interior de la vuelta). Sin lago: radio 0 y muy lejos. */
   private situarLago() {
-    const i = Math.round(8200 / PASO_M);
+    const lago = CIRCUITO.lago;
+    if (!lago) return { x: 1e7, z: 1e7, r: 0, nivel: 0 };
+    const i = Math.round(lago.s / PASO_M) % this.tr.n;
     const px = this.tr.x[i];
     const pz = this.tr.z[i];
     const hx = this.tr.centroX - px;
     const hz = this.tr.centroZ - pz;
     const l = Math.hypot(hx, hz) || 1;
-    return { x: px + (hx / l) * 270, z: pz + (hz / l) * 270, r: 175, nivel: altitud(8200) - 2 };
+    return { x: px + (hx / l) * lago.distancia, z: pz + (hz / l) * lago.distancia, r: lago.r, nivel: altitud(lago.s) - 2 };
   }
 
   /** Altura del terreno: igual a la carretera cerca de ella, colinas lejos y el hueco del lago. */
@@ -944,7 +949,7 @@ export class EscenaRecorrido {
       [[chopo, matCopa], [tronco, matTronco, true]],
       Math.round(320 * f),
       () => {
-        if (rnd() < 0.6) {
+        if (this.lago.r > 0 && rnd() < 0.6) {
           const a = rnd() * Math.PI * 2;
           const d = this.lago.r + 15 + rnd() * 40;
           const x = this.lago.x + Math.cos(a) * d;
@@ -1428,6 +1433,7 @@ export class EscenaRecorrido {
   }
 
   private crearAgua() {
+    if (this.lago.r <= 0) return;
     const agua = new THREE.Mesh(
       new THREE.CircleGeometry(this.lago.r + 35, 64),
       new THREE.MeshStandardMaterial({

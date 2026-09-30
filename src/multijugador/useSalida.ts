@@ -22,6 +22,8 @@ const CADUCIDAD_MS = 15000;
 
 export interface Ciclista {
   uid: string;
+  /** Sala (circuito) en la que rueda: la rellena useConectados. */
+  sala?: string;
   nombre: string;
   vatios?: number;
   velocidad?: number; // km/h
@@ -328,8 +330,9 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
  * Quién está rodando ahora en la sala, sin unirse (solo lectura): para la pantalla
  * de inicio, donde se elige al amigo junto al que aparecer.
  */
-export function useConectados(activo: boolean, sala = SALA_POR_DEFECTO) {
-  const [ciclistas, setCiclistas] = useState<Ciclista[]>([]);
+export function useConectados(activo: boolean, salas: string[] = [SALA_POR_DEFECTO]) {
+  const [porSala, setPorSala] = useState<Record<string, Ciclista[]>>({});
+  const clave = salas.join(',');
   const [desfaseServidor, setDesfaseServidor] = useState(0);
   const [error, setError] = useState<string | null>(null);
   // Se vuelve a pintar cada pocos segundos para ocultar a quien deja de enviar datos
@@ -337,7 +340,7 @@ export function useConectados(activo: boolean, sala = SALA_POR_DEFECTO) {
 
   useEffect(() => {
     if (!activo) {
-      setCiclistas([]);
+      setPorSala({});
       return;
     }
     let cerrado = false;
@@ -350,21 +353,24 @@ export function useConectados(activo: boolean, sala = SALA_POR_DEFECTO) {
         cancelar.push(
           fb.onValue(fb.ref(fb.db, '.info/serverTimeOffset'), (snap) => setDesfaseServidor(Number(snap.val()) || 0)),
         );
-        cancelar.push(
-          fb.onValue(
-            fb.ref(fb.db, `salas/${sala}/ciclistas`),
-            (snap) => {
-              const lista: Ciclista[] = [];
-              snap.forEach((hijo) => {
-                const v = hijo.val();
-                if (v && typeof v.nombre === 'string') lista.push({ uid: hijo.key as string, ...v });
-              });
-              setCiclistas(lista);
-              setError(null);
-            },
-            (e) => setError(mensaje(e)),
-          ),
-        );
+        // Una escucha por circuito: así se ve a todos, vayan por donde vayan
+        for (const sala of clave.split(',')) {
+          cancelar.push(
+            fb.onValue(
+              fb.ref(fb.db, `salas/${sala}/ciclistas`),
+              (snap) => {
+                const lista: Ciclista[] = [];
+                snap.forEach((hijo) => {
+                  const v = hijo.val();
+                  if (v && typeof v.nombre === 'string') lista.push({ uid: hijo.key as string, ...v, sala });
+                });
+                setPorSala((p) => ({ ...p, [sala]: lista }));
+                setError(null);
+              },
+              (e) => setError(mensaje(e)),
+            ),
+          );
+        }
       } catch (e) {
         if (!cerrado) setError(mensaje(e));
       }
@@ -375,10 +381,11 @@ export function useConectados(activo: boolean, sala = SALA_POR_DEFECTO) {
       clearInterval(id);
       cancelar.forEach((c) => c());
     };
-  }, [activo, sala]);
+  }, [activo, clave]);
 
   const ahoraServidor = Date.now() + desfaseServidor;
-  const visibles = ciclistas
+  const visibles = Object.values(porSala)
+    .flat()
     .filter((c) => ahoraServidor - c.t < CADUCIDAD_MS)
     .sort((a, b) => (b.distancia ?? 0) - (a.distancia ?? 0));
   return { ciclistas: visibles, error };

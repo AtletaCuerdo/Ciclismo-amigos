@@ -2,12 +2,13 @@
  * Segmentos cronometrados del circuito (subidas, metas volantes y la vuelta completa) y el
  * cronómetro que detecta cuándo se cruza su inicio y su final.
  *
- * Todo va por circuito (`CIRCUITO_ID`) para que, cuando haya más recorridos, cada uno tenga
- * sus segmentos, sus récords y su fantasma.
+ * Todo va por circuito (`CIRCUITO_ID`): cada recorrido tiene sus segmentos, sus récords y su
+ * fantasma.
  */
-import { LONGITUD_VUELTA_M, SUBIDAS } from './perfil';
+import { longitudDe, type DefCircuito } from './circuitos';
+import { CIRCUITO, CIRCUITO_ID, LONGITUD_VUELTA_M, subidasDe } from './perfil';
 
-export const CIRCUITO_ID = 'vuelta17';
+export { CIRCUITO_ID };
 
 export type TipoSegmento = 'subida' | 'meta' | 'vuelta';
 
@@ -21,22 +22,54 @@ export interface Segmento {
 }
 
 const km = (m: number) => (m / 1000).toLocaleString('es-ES', { maximumFractionDigits: 1 });
+/** Largo de cada meta volante (m). */
+const LARGO_META_M = 300;
 
-export const SEGMENTOS: Segmento[] = [
-  ...SUBIDAS.map((s, i) => ({
-    id: `subida-${i + 1}`,
-    nombre: i === 0 ? 'Puerto' : `Repecho del km ${km(s.inicio)}`,
-    tipo: 'subida' as const,
-    inicio: s.inicio,
-    fin: s.fin,
-  })),
-  // Metas volantes en las dos zonas llanas (solo cuentan en la salida en grupo)
-  { id: 'meta-1', nombre: 'Meta volante del km 0,8', tipo: 'meta', inicio: 800, fin: 1100 },
-  { id: 'meta-2', nombre: 'Meta volante del km 8', tipo: 'meta', inicio: 8000, fin: 8300 },
-  { id: 'vuelta', nombre: 'Vuelta completa', tipo: 'vuelta', inicio: 0, fin: LONGITUD_VUELTA_M },
-];
+const cache = new Map<string, Segmento[]>();
 
-export const segmentoPorId = (id: string) => SEGMENTOS.find((s) => s.id === id);
+/**
+ * Segmentos del circuito elegido: sus subidas (las de desnivel suficiente), los tramos extra,
+ * las metas volantes y la vuelta completa. Los identificadores no cambian nunca (los récords
+ * se guardan con ellos).
+ */
+export function segmentos(): Segmento[] {
+  return segmentosDe(CIRCUITO);
+}
+
+/** Segmentos de un circuito cualquiera (p. ej. para ver sus récords en los rankings). */
+export function segmentosDe(c: DefCircuito): Segmento[] {
+  const guardados = cache.get(c.id);
+  if (guardados) return guardados;
+  const lista: Segmento[] = [
+    ...subidasDe(c.puntos).filter((s) => s.desnivel >= c.desnivelSegmento).map((s, i) => ({
+      id: `subida-${i + 1}`,
+      nombre: s.desnivel >= 60 ? 'Puerto' : `Repecho del km ${km(s.inicio)}`,
+      tipo: 'subida' as const,
+      inicio: s.inicio,
+      fin: s.fin,
+    })),
+    ...c.extra.map(([nombre, desde, hasta], i) => ({
+      id: `extra-${i + 1}`,
+      nombre,
+      tipo: 'subida' as const,
+      inicio: desde * 1000,
+      fin: hasta * 1000,
+    })),
+    // Metas volantes (solo cuentan en la salida en grupo)
+    ...c.metas.map((desde, i) => ({
+      id: `meta-${i + 1}`,
+      nombre: `Meta volante del km ${km(desde * 1000)}`,
+      tipo: 'meta' as const,
+      inicio: desde * 1000,
+      fin: desde * 1000 + LARGO_META_M,
+    })),
+    { id: 'vuelta', nombre: 'Vuelta completa', tipo: 'vuelta', inicio: 0, fin: longitudDe(c) },
+  ];
+  cache.set(c.id, lista);
+  return lista;
+}
+
+export const segmentoPorId = (id: string) => segmentos().find((s) => s.id === id);
 
 /** Un tramo en marcha. */
 export interface TramoActivo {
@@ -69,7 +102,6 @@ export class CronoSegmentos {
   private muestrasVuelta: [number, number][] = [];
   private ultimaMuestra = 0;
 
-  constructor(private readonly segmentos: Segmento[] = SEGMENTOS) {}
 
   /** Anula todos los tramos (pausa, salto de posición, salir del recorrido). */
   cancelar(): EventoCrono[] {
@@ -99,7 +131,7 @@ export class CronoSegmentos {
     const horaEn = (p: number) => ta + ((p - a) / (s - a)) * (t - ta);
     const eventos: EventoCrono[] = [];
 
-    for (const seg of this.segmentos) {
+    for (const seg of segmentos()) {
       // Final: el tramo en marcha llega a su meta
       const activo = this.activos.get(seg.id);
       if (activo) {

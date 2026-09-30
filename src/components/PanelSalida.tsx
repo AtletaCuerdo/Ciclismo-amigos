@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Ciclista } from '../multijugador/useSalida';
-import { LONGITUD_VUELTA_M, enVuelta } from '../recorrido/perfil';
+import { CIRCUITOS, longitudDe } from '../recorrido/circuitos';
 
 interface Props {
   /** Quién está rodando ahora en el recorrido. */
@@ -10,7 +10,7 @@ interface Props {
   nombre: string;
   onCambiarNombre: (nombre: string) => void;
   /** Entrar en el recorrido junto a ese amigo. */
-  onRodarJunto: (uid: string) => void;
+  onRodarJunto: (uid: string, sala: string | undefined) => void;
 }
 
 const km = (m: number) => (m / 1000).toFixed(1).replace('.', ',');
@@ -49,12 +49,17 @@ export function PanelSalida({ conectados, error, nombre, onCambiarNombre, onRoda
         <ul className="lista-amigos">
           {conectados.map((c) => (
             <li key={c.uid}>
-              <button className="amigo" onClick={() => onRodarJunto(c.uid)} title={`Aparecer junto a ${c.nombre}`}>
+              <button className="amigo" onClick={() => onRodarJunto(c.uid, c.sala)} title={`Aparecer junto a ${c.nombre}`}>
                 <span className="amigo-punto" aria-hidden />
                 <span className="amigo-datos">
                   <strong>{c.nombre}</strong>
                   <span className="detalle">
-                    km {km(enVuelta(c.distancia ?? 0))} de {LONGITUD_VUELTA_M / 1000}
+                    {(() => {
+                      const circ = CIRCUITOS.find((x) => x.sala === c.sala) ?? CIRCUITOS[0];
+                      const largo = longitudDe(circ);
+                      const enVuelta = (((c.distancia ?? 0) % largo) + largo) % largo;
+                      return `${circ.nombre} · km ${km(enVuelta)} de ${largo / 1000}`;
+                    })()}
                     {c.vatios !== undefined && ` · ${c.vatios} W`}
                     {c.velocidad !== undefined && ` · ${c.velocidad.toFixed(1).replace('.', ',')} km/h`}
                   </span>

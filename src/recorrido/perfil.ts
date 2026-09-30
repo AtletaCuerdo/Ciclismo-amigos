@@ -2,31 +2,24 @@
  * Perfil de altitud del recorrido (sin dependencias de Three.js, para poder
  * usarlo en la app principal sin cargar el motor 3D).
  *
- * Una vuelta de 17 km con 150 m de desnivel positivo:
- *  - km 1,5 → 4,0: el puerto, +100 m (4 % de media, hasta ~6,3 %)
- *  - km 9,0 → 10,5: repecho de +25 m
- *  - km 12,0 → 13,0: repecho de +25 m
+ * Perfil del circuito elegido (ver circuitos.ts).
  * Entre puntos clave se interpola con coseno, así las pendientes cambian suave.
  */
 
-export const LONGITUD_VUELTA_M = 17000;
+import { CIRCUITO_POR_DEFECTO, circuitoPorId, desnivelDe, longitudDe, type DefCircuito } from './circuitos';
+
+/**
+ * Circuito elegido. Estos valores se exportan con `let`: quien los importa ve siempre los del
+ * circuito actual (los módulos de JavaScript exportan enlaces vivos, no copias).
+ */
+export let CIRCUITO: DefCircuito = circuitoPorId(CIRCUITO_POR_DEFECTO);
+export let CIRCUITO_ID = CIRCUITO.id;
+export let LONGITUD_VUELTA_M = longitudDe(CIRCUITO);
 
 /** Puntos clave: [km, altitud en metros]. El último cierra la vuelta a la misma altitud. */
-const PUNTOS: [number, number][] = [
-  [0, 20],
-  [1.5, 20],
-  [4.0, 120],
-  [5.0, 115],
-  [7.5, 45],
-  [9.0, 45],
-  [10.5, 70],
-  [12.0, 55],
-  [13.0, 80],
-  [15.0, 30],
-  [17.0, 20],
-];
+let PUNTOS: [number, number][] = CIRCUITO.puntos;
 
-/** Posición dentro de la vuelta (0 … 17000), aunque se lleven varias vueltas. */
+/** Posición dentro de la vuelta (0 … longitud), aunque se lleven varias vueltas. */
 export function enVuelta(s: number) {
   return ((s % LONGITUD_VUELTA_M) + LONGITUD_VUELTA_M) % LONGITUD_VUELTA_M;
 }
@@ -55,21 +48,22 @@ export function pendiente(s: number) {
   return (((h1 - h0) * Math.PI) / 2) * Math.sin(Math.PI * t) / (s1 - s0) * 100;
 }
 
-/** Desnivel positivo de una vuelta (150 m). */
-export const DESNIVEL_VUELTA_M = PUNTOS.slice(1).reduce(
-  (total, [, h], i) => total + Math.max(0, h - PUNTOS[i][1]),
-  0,
-);
+/** Desnivel positivo de una vuelta. */
+export let DESNIVEL_VUELTA_M = desnivelDe(CIRCUITO);
 
 /** Subidas de la vuelta (tramos en los que la altitud sube entre dos puntos clave). */
-export const SUBIDAS = PUNTOS.slice(1)
-  .map(([km, h], i) => ({
-    inicio: PUNTOS[i][0] * 1000,
-    fin: km * 1000,
-    desnivel: h - PUNTOS[i][1],
-  }))
-  .filter((t) => t.desnivel > 0)
-  .map((t) => ({ ...t, pendienteMedia: (t.desnivel / (t.fin - t.inicio)) * 100 }));
+export const subidasDe = (puntos: [number, number][]) =>
+  puntos
+    .slice(1)
+    .map(([km, h], i) => ({
+      inicio: puntos[i][0] * 1000,
+      fin: km * 1000,
+      desnivel: h - puntos[i][1],
+    }))
+    .filter((t) => t.desnivel > 0)
+    .map((t) => ({ ...t, pendienteMedia: (t.desnivel / (t.fin - t.inicio)) * 100 }));
+const calcularSubidas = () => subidasDe(PUNTOS);
+export let SUBIDAS = calcularSubidas();
 
 export interface InfoSubidas {
   /** Metros de desnivel positivo que quedan hasta el final de la vuelta. */
@@ -106,5 +100,17 @@ export function infoSubidas(s: number): InfoSubidas {
   };
 }
 
-export const ALTITUD_MIN = Math.min(...PUNTOS.map((p) => p[1]));
-export const ALTITUD_MAX = Math.max(...PUNTOS.map((p) => p[1]));
+export let ALTITUD_MIN = Math.min(...PUNTOS.map((p) => p[1]));
+export let ALTITUD_MAX = Math.max(...PUNTOS.map((p) => p[1]));
+
+/** Cambia de circuito (antes de entrar en el recorrido). */
+export function usarCircuito(id: string) {
+  CIRCUITO = circuitoPorId(id);
+  CIRCUITO_ID = CIRCUITO.id;
+  LONGITUD_VUELTA_M = longitudDe(CIRCUITO);
+  PUNTOS = CIRCUITO.puntos;
+  DESNIVEL_VUELTA_M = desnivelDe(CIRCUITO);
+  SUBIDAS = calcularSubidas();
+  ALTITUD_MIN = Math.min(...PUNTOS.map((p) => p[1]));
+  ALTITUD_MAX = Math.max(...PUNTOS.map((p) => p[1]));
+}

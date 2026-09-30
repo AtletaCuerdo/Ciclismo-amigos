@@ -5,7 +5,9 @@
 import { useEffect, useState } from 'react';
 import { leerRankings, type FilaRanking } from '../multijugador/rankings';
 import { tablaGrupo, type MarcaGrupo } from '../recorrido/records';
-import { SEGMENTOS, textoTiempo } from '../recorrido/segmentos';
+import { segmentosDe, textoTiempo } from '../recorrido/segmentos';
+import { CIRCUITOS, circuitoPorId } from '../recorrido/circuitos';
+import { CIRCUITO_ID } from '../recorrido/perfil';
 
 type Clave = 'metros' | 'segundos' | 'desnivel' | 'sesiones' | 'rueda';
 
@@ -24,19 +26,26 @@ export function PantallaRankings({ onVolver }: { onVolver: () => void }) {
   const [datos, setDatos] = useState<{ filas: FilaRanking[]; miUid: string } | null>(null);
   const [records, setRecords] = useState<{ id: string; nombre: string; tabla: MarcaGrupo[]; miUid: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [circuito, setCircuito] = useState(CIRCUITO_ID);
+  const segmentosCircuito = segmentosDe(circuitoPorId(circuito));
 
   useEffect(() => {
     leerRankings()
       .then(setDatos)
       .catch(() => setError('No se pudieron leer los rankings. Comprueba la conexión (o que las reglas de Firebase estén al día).'));
+  }, []);
+
+  useEffect(() => {
+    setRecords([]);
     Promise.all(
-      SEGMENTOS.map((s) =>
-        tablaGrupo(s.id)
+      segmentosCircuito.map((s) =>
+        tablaGrupo(s.id, circuito)
           .then(({ tabla, miUid }) => ({ id: s.id, nombre: s.nombre, tabla, miUid }))
           .catch(() => ({ id: s.id, nombre: s.nombre, tabla: [] as MarcaGrupo[], miUid: '' })),
       ),
     ).then(setRecords);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [circuito]);
 
   const actual = PESTANAS.find((p) => p.clave === pestana)!;
   const filas = [...(datos?.filas ?? [])].filter((f) => f[pestana] > 0).sort((a, b) => b[pestana] - a[pestana]);
@@ -82,9 +91,23 @@ export function PantallaRankings({ onVolver }: { onVolver: () => void }) {
       </ol>
 
       <h3 className="titulo-records">⛰️ Récords de los segmentos</h3>
+      <div className="pestanas-ranking" role="tablist">
+        {CIRCUITOS.map((c) => (
+          <button
+            key={c.id}
+            role="tab"
+            aria-selected={c.id === circuito}
+            className={c.id === circuito ? 'activa' : undefined}
+            onClick={() => setCircuito(c.id)}
+          >
+            {c.nombre}
+          </button>
+        ))}
+      </div>
       <div className="rejilla-records">
         {records.map((r) => {
-          const segmento = SEGMENTOS.find((s) => s.id === r.id)!;
+          const segmento = segmentosCircuito.find((s) => s.id === r.id);
+          if (!segmento) return null;
           const decimas = segmento.tipo === 'meta';
           const lider = r.tabla[0];
           const mio = r.tabla.find((m) => m.uid === r.miUid);

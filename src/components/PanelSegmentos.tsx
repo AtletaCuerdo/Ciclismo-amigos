@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import type { ResultadoSegmento } from '../App';
 import { LONGITUD_VUELTA_M, enVuelta } from '../recorrido/perfil';
-import { SEGMENTOS, textoTiempo, type TramoActivo } from '../recorrido/segmentos';
+import { segmentos, textoTiempo, type TramoActivo } from '../recorrido/segmentos';
 
 /** Desde cuántos metros antes se avisa de la meta volante. */
 const AVISO_META_M = 1000;
@@ -37,7 +37,7 @@ export function PanelSegmentos({ distancia, activos, resultado, onCerrarResultad
   const x = enVuelta(distancia);
   let aviso: { nombre: string; faltan: number } | null = null;
   if (enGrupo) {
-    for (const s of SEGMENTOS) {
+    for (const s of segmentos()) {
       if (s.tipo !== 'meta' || activos.some((t) => t.segmento.id === s.id)) continue;
       const faltan = s.inicio >= x ? s.inicio - x : s.inicio + LONGITUD_VUELTA_M - x;
       if (faltan <= AVISO_META_M && (!aviso || faltan < aviso.faltan)) aviso = { nombre: s.nombre, faltan };

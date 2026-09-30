@@ -50,7 +50,9 @@ import { calcularTotales, publicarTotales } from './multijugador/rankings';
 import { PantallaRankings } from './components/PantallaRankings';
 import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
 import { mantenerPantallaEncendida, soltarPantalla } from './pantallaEncendida';
-import { LONGITUD_VUELTA_M, pendiente as pendienteRuta } from './recorrido/perfil';
+import { CIRCUITO, LONGITUD_VUELTA_M, pendiente as pendienteRuta, usarCircuito } from './recorrido/perfil';
+import { CIRCUITOS, circuitoPorId } from './recorrido/circuitos';
+import { SelectorCircuito } from './components/SelectorCircuito';
 
 // El recorrido 3D y la vista previa del ciclista (Three.js) se descargan solo al usarlos
 const VistaRecorrido = lazy(() => import('./components/VistaRecorrido'));
@@ -78,6 +80,9 @@ export interface ResultadoSegmento {
 }
 
 const CLAVE_CAMBIOS = 'rodillos.cambiosVirtuales';
+const CLAVE_CIRCUITO = 'rodillos.circuito';
+/** Todas las salas (una por circuito), para ver a los amigos estén donde estén. */
+const SALAS = CIRCUITOS.map((c) => c.sala);
 const CLAVE_MARCHA = 'rodillos.marcha';
 const leerLocal = (clave: string) => {
   try {
@@ -181,6 +186,18 @@ export default function App() {
   const [ahora, setAhora] = useState(() => Date.now());
   // Vatios simulados para probar sin rodillo (null = desactivado)
   const [demoVatios, setDemoVatios] = useState<number | null>(null);
+
+  // ---- Circuito elegido (se recuerda en el navegador) ----
+  const [circuitoId, setCircuitoId] = useState(() => {
+    const id = circuitoPorId(leerLocal(CLAVE_CIRCUITO) ?? '').id;
+    usarCircuito(id);
+    return id;
+  });
+  const elegirCircuito = (id: string) => {
+    usarCircuito(id);
+    setCircuitoId(id);
+    guardarLocal(CLAVE_CIRCUITO, id);
+  };
 
   // ---- Cambios virtuales (rodillos con un solo piñón, como el Zwift Cog) ----
   const [cambiosVirtuales, setCambiosVirtuales] = useState(() => leerLocal(CLAVE_CAMBIOS) === 'si');
@@ -653,6 +670,8 @@ export default function App() {
   const [resultado, setResultado] = useState<ResultadoSegmento | null>(null);
   const [fantasmaDatos, setFantasmaDatos] = useState(() => leerFantasma());
   const [fantasmaActivo, setFantasmaActivo] = useState(false);
+  // Cada circuito tiene su fantasma
+  useEffect(() => setFantasmaDatos(leerFantasma()), [circuitoId]);
   // Las metas volantes solo cuentan en la salida en grupo con algún amigo rodando
   const enGrupoRef = useRef(false);
   enGrupoRef.current = salida.estado === 'dentro' && otrosCiclistas.length > 0;
@@ -741,7 +760,7 @@ export default function App() {
   const [nombreSalida, setNombreSalida] = useState(cargarNombre);
   const nombreVisible = nombreSalida.trim() || usuario?.nombre || '';
   // En el inicio se ve quién está rodando ahora mismo (sin unirse)
-  const conectados = useConectados(pantalla === 'inicio' && !enRecorrido);
+  const conectados = useConectados(pantalla === 'inicio' && !enRecorrido, SALAS);
 
   // ---- Rankings: publico mis totales de siempre ----
   useEffect(() => {
@@ -762,7 +781,7 @@ export default function App() {
   // Estar en el recorrido = estar en la salida: así los amigos te ven siempre.
   // Al salir del recorrido se deja la salida y se vuelve al km 0 del circuito.
   useEffect(() => {
-    if (enRecorrido && salida.estado === 'fuera' && nombreVisible) void salida.unirse(nombreVisible);
+    if (enRecorrido && salida.estado === 'fuera' && nombreVisible) void salida.unirse(nombreVisible, CIRCUITO.sala);
     if (!enRecorrido) {
       setAdelanto(0);
       if (salida.estado !== 'fuera') void salida.salir();
@@ -789,7 +808,7 @@ export default function App() {
     if (!nombre) nombre = window.prompt('¿Con qué nombre te verán tus amigos?')?.trim().slice(0, 30) ?? '';
     if (!nombre) return;
     setNombreSalida(nombre);
-    void salida.unirse(nombre);
+    void salida.unirse(nombre, CIRCUITO.sala);
   };
 
   // Avisar antes de cerrar la página si hay un entrenamiento sin guardar
@@ -856,7 +875,10 @@ export default function App() {
   };
 
   /** Rodar libre apareciendo junto a un amigo que ya está en el recorrido. */
-  const rodarJuntoA = (uid: string) => {
+  const rodarJuntoA = (uid: string, sala: string | undefined) => {
+    // Al circuito del amigo y a su lado
+    const circ = CIRCUITOS.find((c) => c.sala === sala);
+    if (circ) elegirCircuito(circ.id);
     juntoARef.current = uid;
     rodarLibre();
   };
@@ -1039,6 +1061,8 @@ export default function App() {
             }}
             onRodarJunto={rodarJuntoA}
           />
+
+          <SelectorCircuito elegido={circuitoId} onElegir={elegirCircuito} />
 
           <section className="acciones-principales">
             <button className="accion accion-libre" onClick={rodarLibre}>
