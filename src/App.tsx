@@ -45,7 +45,7 @@ import type { OtroCiclista } from './recorrido/escena';
 import { FisicaVirtual, MARCHAS, MARCHA_INICIAL, ahorroRebufo, equipoAvatar, potenciaMarcha } from './recorrido/fisica';
 import { MandoZwift, type AccionMando } from './ble/mandoZwift';
 import { CronoSegmentos, posicionEn, textoTiempo, tiempoEn, type EventoCrono, type Segmento, type TramoActivo } from './recorrido/segmentos';
-import { avanzarBots, crearBot, huecosBots, type Bot } from './recorrido/bots';
+import { RITMOS_GRUPETA, avanzarBots, crearBot, crearGrupeta, huecosBots, vatiosGrupeta, type Bot } from './recorrido/bots';
 import { calcularTotales, publicarTotales } from './multijugador/rankings';
 import { PantallaRankings } from './components/PantallaRankings';
 import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
@@ -81,6 +81,7 @@ export interface ResultadoSegmento {
 
 const CLAVE_CAMBIOS = 'rodillos.cambiosVirtuales';
 const CLAVE_CIRCUITO = 'rodillos.circuito';
+const CLAVE_GRUPETAS = 'rodillos.grupetas';
 /** Todas las salas (una por circuito), para ver a los amigos estén donde estén. */
 const SALAS = CIRCUITOS.map((c) => c.sala);
 const CLAVE_MARCHA = 'rodillos.marcha';
@@ -524,10 +525,31 @@ export default function App() {
     ];
     setVersionBots((v) => v + 1);
   };
-  const quitarBot = (id?: string) => {
-    botsRef.current = id ? botsRef.current.filter((b) => b.id !== id) : [];
+  /** Añade una grupeta de 5 cerca de ti: si es más rápida que tú, por detrás; si no, por delante. */
+  const anadirGrupeta = (vatios: number) => {
+    const detras = vatios >= (actualRef.current.potencia ?? 0);
+    const s = posicionAhora() + (detras ? -60 : 80);
+    botsRef.current = [...botsRef.current, ...crearGrupeta(vatios, s, velVirtualRef.current / 3.6)];
     setVersionBots((v) => v + 1);
   };
+  /** Quita un bot suelto o una grupeta entera (por su id), o todos. */
+  const quitarBot = (id?: string) => {
+    botsRef.current = id ? botsRef.current.filter((b) => b.id !== id && b.grupo !== id) : [];
+    setVersionBots((v) => v + 1);
+  };
+  // Grupetas por el circuito (casilla del inicio): al entrar, 3 grupos a tu ritmo repartidos por la vuelta
+  const [grupetasAlEmpezar, setGrupetasAlEmpezar] = useState(() => leerLocal(CLAVE_GRUPETAS) === 'si');
+  useEffect(() => guardarLocal(CLAVE_GRUPETAS, grupetasAlEmpezar ? 'si' : 'no'), [grupetasAlEmpezar]);
+  useEffect(() => {
+    if (!enRecorrido || !grupetasAlEmpezar) return;
+    const inicio = distanciaRef.current;
+    botsRef.current = RITMOS_GRUPETA.flatMap(({ pct }, i) =>
+      // Repartidas por la vuelta: a un 20 %, 50 % y 80 % de distancia por delante
+      crearGrupeta(vatiosGrupeta(perfil.ftp, pct), inicio + LONGITUD_VUELTA_M * (0.2 + 0.3 * i), 0),
+    );
+    setVersionBots((v) => v + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enRecorrido]);
   useEffect(() => {
     if (!enRecorrido) return;
     rebufoRef.current = 0;
@@ -1062,7 +1084,13 @@ export default function App() {
             onRodarJunto={rodarJuntoA}
           />
 
-          <SelectorCircuito elegido={circuitoId} onElegir={elegirCircuito} />
+          <SelectorCircuito
+            elegido={circuitoId}
+            onElegir={elegirCircuito}
+            grupetas={grupetasAlEmpezar}
+            onGrupetas={setGrupetasAlEmpezar}
+            ftp={perfil.ftp}
+          />
 
           <section className="acciones-principales">
             <button className="accion accion-libre" onClick={rodarLibre}>
@@ -1295,7 +1323,8 @@ export default function App() {
               ...otrosCiclistas,
               ...botsRef.current.map((b) => ({
                 uid: b.id,
-                nombre: `🤖 ${b.vatios} W`,
+                nombre: b.lider ? '' : b.grupo ? `🚴 Grupeta ${b.vatios} W` : `🤖 ${b.vatios} W`,
+                carril: b.carril,
                 avatar: b.avatar,
                 distancia: b.s,
                 velocidad: b.fisica.v * 3.6,
@@ -1304,8 +1333,13 @@ export default function App() {
               ...(fantasma ? [fantasma] : []),
             ]}
             bots={{
-              lista: botsRef.current.map((b) => ({ id: b.id, vatios: b.vatios })),
+              // Cada grupeta aparece una vez (por su líder), con su id de grupo
+              lista: botsRef.current
+                .filter((b) => !b.lider)
+                .map((b) => ({ id: b.grupo ?? b.id, vatios: b.vatios, grupeta: !!b.grupo })),
               onAnadir: anadirBot,
+              onAnadirGrupeta: anadirGrupeta,
+              ritmosGrupeta: RITMOS_GRUPETA.map((r) => ({ nombre: r.nombre, vatios: vatiosGrupeta(perfil.ftp, r.pct) })),
               onQuitar: quitarBot,
             }}
             segmentos={{

@@ -267,6 +267,8 @@ export interface OtroCiclista {
   uid: string;
   /** El fantasma de tu mejor vuelta: transparente, en tu carril y sin rebufo. */
   fantasma?: boolean;
+  /** Posición lateral fija (m), p. ej. para que una grupeta ruede en formación. */
+  carril?: number;
   nombre: string;
   avatar: Avatar;
   distancia: number; // m
@@ -1903,7 +1905,7 @@ export class EscenaRecorrido {
           v: o.velocidad / 3.6,
           cadencia: o.cadencia,
           sRender: o.distancia,
-          carril: o.fantasma ? MI_CARRIL : CARRILES[hash(o.uid) % CARRILES.length],
+          carril: o.fantasma ? MI_CARRIL : (o.carril ?? CARRILES[hash(o.uid) % CARRILES.length]),
           fantasma: !!o.fantasma,
         };
         if (o.fantasma) c.volverFantasma();

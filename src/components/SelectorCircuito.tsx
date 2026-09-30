@@ -3,6 +3,7 @@
  * desnivel. El elegido es el que se usa al pulsar «Rodar libre» o empezar un entrenamiento.
  */
 import { CIRCUITOS, desnivelDe, longitudDe, type DefCircuito } from '../recorrido/circuitos';
+import { RITMOS_GRUPETA, vatiosGrupeta } from '../recorrido/bots';
 
 const ANCHO = 200;
 const ALTO = 44;
@@ -40,9 +41,13 @@ function MiniPerfil({ c }: { c: DefCircuito }) {
 interface Props {
   elegido: string;
   onElegir: (id: string) => void;
+  /** Grupetas de bots por el circuito al empezar. */
+  grupetas: boolean;
+  onGrupetas: (si: boolean) => void;
+  ftp: number;
 }
 
-export function SelectorCircuito({ elegido, onElegir }: Props) {
+export function SelectorCircuito({ elegido, onElegir, grupetas, onGrupetas, ftp }: Props) {
   return (
     <section className="panel selector-circuito">
       <div className="cabecera-panel">
@@ -67,6 +72,14 @@ export function SelectorCircuito({ elegido, onElegir }: Props) {
           </button>
         ))}
       </div>
+      <label className="casilla casilla-grupetas">
+        <input type="checkbox" checked={grupetas} onChange={(e) => onGrupetas(e.target.checked)} />
+        <span>
+          <strong>🚴 Grupetas por el circuito</strong> · 3 grupos de 5 ciclistas repartidos por la vuelta, a tu ritmo (
+          {RITMOS_GRUPETA.map((r) => `${r.nombre} ${vatiosGrupeta(ftp, r.pct)} W`).join(', ')}). Ponte a su rueda o
+          simplemente disfruta de la compañía.
+        </span>
+      </label>
     </section>
   );
 }

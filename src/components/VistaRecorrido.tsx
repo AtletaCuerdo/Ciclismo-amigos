@@ -68,7 +68,13 @@ interface Props {
     enGrupo: boolean;
   };
   /** Bots a vatios fijos: los que hay y cómo añadir o quitar. */
-  bots: { lista: { id: string; vatios: number }[]; onAnadir: (vatios: number) => void; onQuitar: (id?: string) => void };
+  bots: {
+    lista: { id: string; vatios: number; grupeta: boolean }[];
+    onAnadir: (vatios: number) => void;
+    onAnadirGrupeta: (vatios: number) => void;
+    ritmosGrupeta: { nombre: string; vatios: number }[];
+    onQuitar: (id?: string) => void;
+  };
   /** Fantasma de mi mejor vuelta (botón para activarlo). */
   fantasma: {
     disponible: boolean;
@@ -507,7 +513,16 @@ export default function VistaRecorrido({
             </button>
             {menuBots && (
               <div className="hud menu-bots">
-                <strong>Añadir un bot</strong>
+                <strong>🚴 Añadir una grupeta (5 ciclistas)</strong>
+                <div className="menu-bots-vatios grupetas">
+                  {bots.ritmosGrupeta.map((r) => (
+                    <button key={r.nombre} className="boton-secundario" onClick={() => bots.onAnadirGrupeta(r.vatios)}>
+                      {r.nombre}
+                      <small>{r.vatios} W</small>
+                    </button>
+                  ))}
+                </div>
+                <strong>🤖 Añadir un bot suelto</strong>
                 <div className="menu-bots-vatios">
                   {VATIOS_BOTS.map((w) => (
                     <button key={w} className="boton-secundario" onClick={() => bots.onAnadir(w)}>
@@ -521,7 +536,7 @@ export default function VistaRecorrido({
                     <ul>
                       {bots.lista.map((b) => (
                         <li key={b.id}>
-                          🤖 {b.vatios} W
+                          {b.grupeta ? '🚴 Grupeta' : '🤖'} {b.vatios} W
                           <button className="chat-cerrar" onClick={() => bots.onQuitar(b.id)} aria-label="Quitar bot">
                             ✕
                           </button>
@@ -584,7 +599,7 @@ export default function VistaRecorrido({
         />
         <PanelGrupo
           yo={yo.distancia}
-          otros={otros.filter((o) => !o.fantasma)}
+          otros={otros.filter((o) => !o.fantasma && o.nombre !== '')}
           enSalida={enSalida}
           entrando={entrandoSalida}
           error={errorSalida}

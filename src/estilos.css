@@ -2897,3 +2897,27 @@ p {
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
 }
+
+.menu-bots-vatios.grupetas {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.recorrido .menu-bots-vatios.grupetas .boton-secundario {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  line-height: 1.1;
+}
+
+.menu-bots-vatios.grupetas small {
+  opacity: 0.8;
+  font-weight: 600;
+}
+
+.casilla-grupetas {
+  margin-top: 12px;
+  align-items: flex-start;
+  gap: 10px;
+}
