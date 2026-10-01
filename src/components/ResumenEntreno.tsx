@@ -4,6 +4,8 @@ import { tituloRueda, type Entreno } from '../entrenamiento/tipos';
 import { Metrica, formatearTiempo } from './Metrica';
 import { BotonStrava, textosStrava } from './Strava';
 import { leerConexion, stravaDisponible } from '../strava/strava';
+import { listarEntrenos } from '../entrenamiento/almacen';
+import { logrosNuevos, type Logro } from '../entrenamiento/logros';
 
 interface Props {
   entreno: Entreno;
@@ -53,6 +55,23 @@ export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual,
   const r = entreno.resumen;
   const ref = useRef<HTMLElement>(null);
   const [ftpAceptado, setFtpAceptado] = useState(false);
+  const [nuevos, setNuevos] = useState<Logro[]>([]);
+
+  // Logros conseguidos con esta sesión
+  useEffect(() => {
+    let vivo = true;
+    listarEntrenos()
+      .catch(() => [])
+      .then((lista) => {
+        const conEsta = lista.some((g) => g.id === entreno.id) ? lista : [entreno, ...lista];
+        // Solo si sigue montado: logrosNuevos los marca como vistos
+        if (vivo) setNuevos(logrosNuevos(conEsta));
+      });
+    return () => {
+      vivo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entreno.id]);
 
   useEffect(() => {
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -66,6 +85,23 @@ export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual,
           Cerrar
         </button>
       </div>
+
+      {nuevos.length > 0 && (
+        <div className="logros-nuevos" role="status">
+          {nuevos.map((l) => (
+            <div key={l.id} className="logro-nuevo">
+              <span className="logro-icono" aria-hidden>
+                {l.icono}
+              </span>
+              <span>
+                <strong>¡Logro nuevo! {l.nombre}</strong>
+                <br />
+                <span className="detalle">{l.descripcion}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {ftpSugerido !== undefined && ftpSugerido.w > 0 && (
         <div className="aviso-ftp">

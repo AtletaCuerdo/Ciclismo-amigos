@@ -274,6 +274,8 @@ export interface OtroCiclista {
   distancia: number; // m
   velocidad: number; // km/h
   cadencia: number;
+  /** Emoji que acaba de lanzar (se ve sobre su cabeza). */
+  emoji?: string;
 }
 
 export interface DatosYo {
@@ -1977,6 +1979,7 @@ export class EscenaRecorrido {
       }
       e.vObjetivo = o.velocidad / 3.6;
       e.cadencia = o.cadencia;
+      e.c.ponerEmoji(o.emoji ?? null);
     }
     for (const [uid, e] of this.otros) {
       if (!vistos.has(uid)) {
@@ -1984,6 +1987,11 @@ export class EscenaRecorrido {
         this.otros.delete(uid);
       }
     }
+  }
+
+  /** Mi emoji (o null para quitarlo). */
+  ponerMiEmoji(emoji: string | null) {
+    this.yo.ponerEmoji(emoji);
   }
 
   cambiarMiAvatar(avatar: Avatar) {

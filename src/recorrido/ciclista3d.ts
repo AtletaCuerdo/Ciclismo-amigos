@@ -84,6 +84,27 @@ function etiquetaNombre(texto: string) {
   return sprite;
 }
 
+/** Emoji grande sobre el ciclista (por encima del nombre). */
+function globoEmoji(emoji: string) {
+  const lienzo = document.createElement('canvas');
+  lienzo.width = 128;
+  lienzo.height = 128;
+  const ctx = lienzo.getContext('2d')!;
+  ctx.font = '96px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, 64, 70);
+  const tex = new THREE.CanvasTexture(lienzo);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true, sizeAttenuation: false }),
+  );
+  sprite.scale.set(0.07, 0.07, 1);
+  sprite.position.set(0.1, 2.45, 0);
+  sprite.renderOrder = 11;
+  return sprite;
+}
+
 /** Articulación intermedia (rodilla o codo) de una cadena de dos huesos en el plano XY. */
 function articulacion(
   origen: THREE.Vector3,
@@ -126,6 +147,8 @@ export class Ciclista3D {
   private anguloBiela = Math.random() * Math.PI * 2;
   private avanceCadena = 0;
   private etiqueta: THREE.Sprite | null = null;
+  private globo: THREE.Sprite | null = null;
+  private emojiActual: string | null = null;
   private humano: JineteHumano | null = null;
   private destruido = false;
   private pedalIzq = new THREE.Vector3();
@@ -267,6 +290,22 @@ export class Ciclista3D {
       pie.castShadow = true;
       c.add(pie);
       this.piernas.push({ muslo, tibia, pie, lado });
+    }
+  }
+
+  /** Muestra (o quita, con null) un emoji sobre el ciclista. */
+  ponerEmoji(emoji: string | null) {
+    if (emoji === this.emojiActual) return;
+    this.emojiActual = emoji;
+    if (this.globo) {
+      this.globo.material.map?.dispose();
+      this.globo.material.dispose();
+      this.raiz.remove(this.globo);
+      this.globo = null;
+    }
+    if (emoji) {
+      this.globo = globoEmoji(emoji);
+      this.raiz.add(this.globo);
     }
   }
 

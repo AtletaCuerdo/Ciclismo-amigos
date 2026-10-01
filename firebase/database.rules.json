@@ -130,6 +130,52 @@
           "$otro": {
             ".validate": false
           }
+        },
+        "emojis": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.hasChildren(['e', 't'])",
+            "e": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 8"
+            },
+            "t": {
+              ".validate": "newData.isNumber() && newData.val() <= now"
+            },
+            "$otro": {
+              ".validate": false
+            }
+          }
+        }
+      }
+    },
+    "programadas": {
+      ".read": "auth != null",
+      "$id": {
+        ".write": "auth != null && ((!data.exists() && newData.child('autorUid').val() === auth.uid) || (data.exists() && data.child('autorUid').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('hora').val() < now - 86400000))",
+        ".validate": "newData.hasChildren(['autorUid', 'autor', 'titulo', 'circuito', 'hora'])",
+        "autorUid": {
+          ".validate": "newData.isString()"
+        },
+        "autor": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+        },
+        "titulo": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60"
+        },
+        "circuito": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+        },
+        "hora": {
+          ".validate": "newData.isNumber() && newData.val() < now + 5184000000"
+        },
+        "apuntados": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+          }
+        },
+        "$otro": {
+          ".validate": false
         }
       }
     },

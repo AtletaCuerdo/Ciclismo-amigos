@@ -24,6 +24,7 @@ import { textoTiempo, type TramoActivo } from '../recorrido/segmentos';
 import { miRecord } from '../recorrido/records';
 import { VATIOS_BOTS } from '../recorrido/bots';
 import { ChatGrupo } from './ChatGrupo';
+import { EMOJIS } from '../multijugador/useSalida';
 import type { Mensaje } from '../multijugador/useSalida';
 import { GraficaEntrenamiento, colorZona } from './GraficaEntrenamiento';
 import { formatearTiempo } from './Metrica';
@@ -93,6 +94,8 @@ interface Props {
   onUnirseSalida: () => void;
   /** Ponerse en el punto `s` del circuito (junto a un amigo). */
   onJuntoA: (s: number) => void;
+  /** Emojis rápidos (solo en la salida): el mío, si lo acabo de lanzar, y cómo lanzar uno. */
+  emojis: { mio: string | null; onEnviar: (e: string) => void } | null;
   /** Chat del grupo (solo en la salida). */
   chat: {
     mensajes: Mensaje[];
@@ -218,6 +221,7 @@ export default function VistaRecorrido({
   onUnirseSalida,
   onJuntoA,
   chat,
+  emojis,
   rodilloControlado,
   demo,
   marcha,
@@ -301,6 +305,8 @@ export default function VistaRecorrido({
 
   useEffect(() => escena.current?.cambiarMiAvatar(avatar), [avatar]);
   useEffect(() => escena.current?.actualizarOtros(otros), [otros, cargando]);
+  useEffect(() => escena.current?.ponerMiEmoji(emojis?.mio ?? null), [emojis?.mio, cargando]);
+  const [menuEmojis, setMenuEmojis] = useState(false);
 
   // Perfil de altitud de la vuelta (se calcula una vez)
   const trazoPerfil = useMemo(() => {
@@ -678,6 +684,32 @@ export default function VistaRecorrido({
       <div className="hud-abajo">
       {enSalida && chat && (
         <ChatGrupo mensajes={chat.mensajes} miUid={chat.miUid} rechazado={chat.rechazado} onEnviar={chat.onEnviar} />
+      )}
+      {enSalida && emojis && (
+        <div className="emojis-rapidos">
+          {menuEmojis &&
+            EMOJIS.map((e) => (
+              <button
+                key={e}
+                className="hud boton-emoji"
+                onClick={() => {
+                  emojis.onEnviar(e);
+                  setMenuEmojis(false);
+                }}
+                aria-label={`Lanzar ${e}`}
+              >
+                {e}
+              </button>
+            ))}
+          <button
+            className={`hud boton-emoji ${menuEmojis ? 'activo' : ''}`}
+            onClick={() => setMenuEmojis((m) => !m)}
+            title="Lanza un emoji: tus amigos lo verán sobre tu ciclista"
+            aria-label={menuEmojis ? 'Cerrar emojis' : 'Emojis rápidos'}
+          >
+            {menuEmojis ? '✕' : '😀'}
+          </button>
+        </div>
       )}
       {/* Perfil de la vuelta (pequeño, en la esquina; al tocarlo se amplía a lo ancho):
           recorrido hecho sombreado, tu posición y la de los demás */}

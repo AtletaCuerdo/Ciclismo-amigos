@@ -17,6 +17,8 @@ import { EditorEntrenamientos } from './components/EditorEntrenamientos';
 import { Historial } from './components/Historial';
 import { Metrica, formatearTiempo } from './components/Metrica';
 import { PanelSalida } from './components/PanelSalida';
+import { PanelProgramadas } from './components/PanelProgramadas';
+import { useProgramadas } from './multijugador/programadas';
 import { PantallaEntrenamientos } from './components/PantallaEntrenamientos';
 import { RegistroLog, type EntradaLog } from './components/RegistroLog';
 import { ResumenAcumulado } from './components/ResumenAcumulado';
@@ -29,7 +31,7 @@ import { CATALOGO } from './entrenamientos/catalogo';
 import { cargarPropios, guardarPropios } from './entrenamientos/propios';
 import { useCompartidos } from './entrenamientos/compartidos';
 import { desplegar, duracionTotal, potenciaEn, tramoEn, type Entrenamiento, type Tramo } from './entrenamientos/tipos';
-import { cargarNombre, guardarNombre, useConectados, useSalida, type Ciclista } from './multijugador/useSalida';
+import { EMOJI_MS, cargarNombre, guardarNombre, useConectados, useSalida, type Ciclista } from './multijugador/useSalida';
 import { cargarAjustes, guardarAjustes, palancaNovoForce, potenciaDeAjustes, presetNovoForce } from './potenciaVirtual';
 import {
   avatarAleatorio,
@@ -60,7 +62,7 @@ import { PantallaRankings } from './components/PantallaRankings';
 import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
 import { mantenerPantallaEncendida, soltarPantalla } from './pantallaEncendida';
 import { CIRCUITO, LONGITUD_VUELTA_M, pendiente as pendienteRuta, usarCircuito } from './recorrido/perfil';
-import { CIRCUITOS, circuitoPorId } from './recorrido/circuitos';
+import { CIRCUITOS, circuitoPorId, longitudDe } from './recorrido/circuitos';
 import { SelectorCircuito } from './components/SelectorCircuito';
 
 // El recorrido 3D y la vista previa del ciclista (Three.js) se descargan solo al usarlos
@@ -687,7 +689,17 @@ export default function App() {
       distancia: c.distancia ?? 0,
       velocidad: c.velocidad ?? 0,
       cadencia: c.cadencia ?? 0,
+      emoji: salida.emojis[c.uid]?.e,
     }));
+  // Mi emoji: se ve sobre mi ciclista unos segundos (al momento, sin esperar a Firebase)
+  const [miEmoji, setMiEmoji] = useState<string | null>(null);
+  const quitarEmojiRef = useRef<ReturnType<typeof setTimeout>>();
+  const lanzarEmoji = (e: string) => {
+    void salida.enviarEmoji(e);
+    setMiEmoji(e);
+    clearTimeout(quitarEmojiRef.current);
+    quitarEmojiRef.current = setTimeout(() => setMiEmoji(null), EMOJI_MS);
+  };
 
   // Cambios con el teclado (flechas ↑/↓ o +/−) mientras se rueda, salvo al escribir en el chat
   useEffect(() => {
@@ -800,6 +812,7 @@ export default function App() {
   const nombreVisible = nombreSalida.trim() || usuario?.nombre || '';
   // En el inicio se ve quién está rodando ahora mismo (sin unirse)
   const conectados = useConectados(pantalla === 'inicio' && !enRecorrido, SALAS);
+  const programadas = useProgramadas(pantalla === 'inicio' && !enRecorrido);
 
   // ---- Rankings: publico mis totales de siempre ----
   useEffect(() => {
@@ -964,6 +977,17 @@ export default function App() {
     if (circ) elegirCircuito(circ.id);
     juntoARef.current = uid;
     rodarLibre();
+  };
+
+  /** Entrar a una salida programada: a su circuito y, si ya hay alguien rodando, a su lado. */
+  const entrarProgramada = (circuito: string) => {
+    const circ = circuitoPorId(circuito);
+    const alguien = conectados.ciclistas.find((c) => c.sala === circ.sala);
+    if (alguien) rodarJuntoA(alguien.uid, circ.sala);
+    else {
+      elegirCircuito(circ.id);
+      rodarLibre();
+    }
   };
 
   const empezarEntreno = (e: Entrenamiento) => {
@@ -1145,6 +1169,19 @@ export default function App() {
             onRodarJunto={rodarJuntoA}
           />
 
+          <PanelProgramadas
+            lista={programadas.lista}
+            miUid={programadas.miUid}
+            error={programadas.error}
+            nombre={nombreVisible}
+            circuitoPorDefecto={circuitoId}
+            rodandoEnSala={(sala) => conectados.ciclistas.filter((c) => c.sala === sala).length}
+            onCrear={(d) => programadas.crear({ ...d, nombre: nombreVisible })}
+            onApuntarme={(id, si) => programadas.apuntarme(id, nombreVisible, si)}
+            onBorrar={programadas.borrar}
+            onEntrar={entrarProgramada}
+          />
+
           <SelectorCircuito
             elegido={circuitoId}
             onElegir={elegirCircuito}
@@ -1157,7 +1194,10 @@ export default function App() {
             <button className="accion accion-libre" onClick={rodarLibre}>
               <span className="accion-icono" aria-hidden>🏞️</span>
               <strong>Rodar libre</strong>
-              <span>Vuelta de 17 km: el rodillo se endurece con las subidas</span>
+              <span>
+                {circuitoPorId(circuitoId).nombre}, {longitudDe(circuitoPorId(circuitoId)) / 1000} km: el rodillo se endurece
+                con las subidas
+              </span>
             </button>
             <button className="accion accion-entrenos" onClick={() => setPantalla('entrenamientos')}>
               <span className="accion-icono" aria-hidden>📈</span>
@@ -1423,6 +1463,7 @@ export default function App() {
             errorSalida={salida.error}
             onUnirseSalida={unirseDesdeRecorrido}
             onJuntoA={ponerEnPunto}
+            emojis={{ mio: miEmoji, onEnviar: lanzarEmoji }}
             chat={{
               mensajes: salida.mensajes,
               miUid: salida.miUid,

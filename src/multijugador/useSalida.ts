@@ -5,6 +5,7 @@
  *   salas/{sala}/ciclistas/{uid} = { nombre, vatios, velocidad, cadencia, distancia, t }
  *   salas/{sala}/avatares/{uid}  = { maillot, franja, culotte, casco, bici, piel }
  *   salas/{sala}/chat/{id}       = { uid, nombre, texto, t }  (mensajes del grupo)
+ *   salas/{sala}/emojis/{uid}    = { e, t }  (emoji rápido que se ve unos segundos sobre el ciclista)
  * El avatar va aparte: si las reglas de Firebase aún no lo permiten, falla solo
  * esa escritura y la salida en grupo sigue funcionando (con avatar por defecto).
  *
@@ -19,6 +20,11 @@ export const SALA_POR_DEFECTO = 'general';
 const CLAVE_NOMBRE = 'rodillos.nombreCiclista';
 /** Un ciclista sin actualizar en este tiempo se oculta (p. ej. pestaña congelada). */
 const CADUCIDAD_MS = 15000;
+
+/** Emojis rápidos que se pueden lanzar mientras se rueda. */
+export const EMOJIS = ['👍', '🔥', '💪', '😅', '🚀', '👋'];
+/** Cuánto se ve un emoji sobre el ciclista (ms). */
+export const EMOJI_MS = 5000;
 
 export interface Ciclista {
   uid: string;
@@ -106,6 +112,7 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
   /** Ficha de grupetas de la sala (null si no hay) y si ya se ha leído. */
   const [grupetas, setGrupetas] = useState<{ leida: boolean; ficha: FichaGrupetas | null }>({ leida: false, ficha: null });
   const [chatRechazado, setChatRechazado] = useState(false);
+  const [emojis, setEmojis] = useState<Record<string, { e: string; t: number }>>({});
   const avatarRef = useRef(avatar);
   avatarRef.current = avatar;
 
@@ -230,6 +237,22 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
         ),
       );
 
+      // Emojis rápidos de los demás
+      cancelar.push(
+        fb.onValue(
+          fb.ref(fb.db, `salas/${sala}/emojis`),
+          (snap) => {
+            const todos: Record<string, { e: string; t: number }> = {};
+            snap.forEach((hijo) => {
+              const v = hijo.val();
+              if (v && typeof v.e === 'string' && typeof v.t === 'number') todos[hijo.key as string] = { e: v.e, t: v.t };
+            });
+            setEmojis(todos);
+          },
+          () => setEmojis({}),
+        ),
+      );
+
       // Chat del grupo: los últimos mensajes, en directo
       cancelar.push(
         fb.onValue(
@@ -284,6 +307,7 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
     setCiclistas([]);
     setAvatares({});
     setMensajes([]);
+    setEmojis({});
     setGrupetas({ leida: false, ficha: null });
     setEstado('fuera');
   };
@@ -298,6 +322,18 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
         autor: s.nombre,
         lista: lista.map((g) => ({ vatios: Math.round(g.vatios), s0: Math.round(Math.max(0, g.s0)) })),
       });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  /** Lanza un emoji: los demás lo ven unos segundos sobre mi ciclista. */
+  const enviarEmoji = async (e: string) => {
+    const s = sesion.current;
+    if (!s || !EMOJIS.includes(e)) return false;
+    try {
+      await s.fb.set(s.fb.ref(s.fb.db, `salas/${s.sala}/emojis/${s.uid}`), { e, t: s.fb.serverTimestamp() });
       return true;
     } catch {
       return false;
@@ -363,6 +399,9 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
     grupetas,
     publicarGrupetas,
     enviarMensaje,
+    /** Emoji de cada ciclista (solo los recientes, con su hora del servidor). */
+    emojis: Object.fromEntries(Object.entries(emojis).filter(([, v]) => ahoraServidor - v.t < EMOJI_MS)),
+    enviarEmoji,
     unirse,
     salir,
   };
