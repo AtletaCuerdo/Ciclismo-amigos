@@ -59,11 +59,12 @@ import {
 } from './recorrido/bots';
 import { calcularTotales, publicarTotales } from './multijugador/rankings';
 import { PantallaRankings } from './components/PantallaRankings';
+import { PantallaResumenes } from './components/PantallaResumenes';
+import { CircuitoElegido, PantallaCircuitos } from './components/PantallaCircuitos';
 import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
 import { mantenerPantallaEncendida, soltarPantalla } from './pantallaEncendida';
 import { CIRCUITO, LONGITUD_VUELTA_M, pendiente as pendienteRuta, usarCircuito } from './recorrido/perfil';
 import { CIRCUITOS, circuitoPorId, longitudDe } from './recorrido/circuitos';
-import { SelectorCircuito } from './components/SelectorCircuito';
 
 // El recorrido 3D y la vista previa del ciclista (Three.js) se descargan solo al usarlos
 const VistaRecorrido = lazy(() => import('./components/VistaRecorrido'));
@@ -75,7 +76,17 @@ const VistaPreviaAvatar = lazy(() => import('./components/VistaPreviaAvatar'));
 
 type Fuente = 'ftms' | 'pm' | 'csc' | 'hr';
 type NombreMetrica = 'potencia' | 'cadencia' | 'velocidad' | 'pulso';
-type Pantalla = 'inicio' | 'avatar' | 'entrenamientos' | 'crear' | 'historial' | 'ajustes' | 'cuenta' | 'rankings';
+type Pantalla =
+  | 'inicio'
+  | 'avatar'
+  | 'entrenamientos'
+  | 'crear'
+  | 'historial'
+  | 'ajustes'
+  | 'cuenta'
+  | 'rankings'
+  | 'circuitos'
+  | 'resumenes';
 
 /** Resultado de un segmento recién terminado (con la tabla del grupo cuando llega). */
 export interface ResultadoSegmento {
@@ -691,6 +702,13 @@ export default function App() {
       cadencia: c.cadencia ?? 0,
       emoji: salida.emojis[c.uid]?.e,
     }));
+  // Con quién coincido en la sesión (para los resúmenes)
+  const companerosRef = useRef(new Set<string>());
+  const nombresOtros = otrosCiclistas.map((o) => o.nombre).join('|');
+  useEffect(() => {
+    if (enRecorrido) for (const o of otrosCiclistas) if (o.nombre) companerosRef.current.add(o.nombre);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nombresOtros, enRecorrido]);
   // Mi emoji: se ve sobre mi ciclista unos segundos (al momento, sin esperar a Firebase)
   const [miEmoji, setMiEmoji] = useState<string | null>(null);
   const quitarEmojiRef = useRef<ReturnType<typeof setTimeout>>();
@@ -965,6 +983,7 @@ export default function App() {
   const rodarLibre = () => {
     mantenerPantallaEncendida(); // dentro del clic: el navegador lo exige
     sesionRef.current = { nombres: [] };
+    companerosRef.current = new Set();
     setEntrenoActivo(null);
     setTerminado(null);
     setEnRecorrido(true);
@@ -994,6 +1013,7 @@ export default function App() {
     const tramos = desplegar(e.bloques);
     mantenerPantallaEncendida();
     sesionRef.current = { nombres: [] };
+    companerosRef.current = new Set();
     apuntarEnSesion(e);
     setEntrenoActivo({ entreno: e, tramos, total: duracionTotal(tramos), inicioS: 0 });
     setTerminado(null);
@@ -1016,6 +1036,10 @@ export default function App() {
     const sesion = sesionRef.current;
     sesionRef.current = { nombres: [] };
     const entreno = grabacion.finalizar();
+    if (entreno) {
+      entreno.resumen.circuito = circuitoId;
+      if (companerosRef.current.size) entreno.resumen.companeros = [...companerosRef.current].slice(0, 20);
+    }
     // Tiempo a rueda (rebufo): al resumen y, si voy en grupo, al chat para que lo vean todos
     const rueda = Math.round(segundosRuedaRef.current);
     if (entreno && rueda >= 1) {
@@ -1182,13 +1206,7 @@ export default function App() {
             onEntrar={entrarProgramada}
           />
 
-          <SelectorCircuito
-            elegido={circuitoId}
-            onElegir={elegirCircuito}
-            grupetas={grupetasAlEmpezar}
-            onGrupetas={setGrupetasAlEmpezar}
-            ftp={perfil.ftp}
-          />
+          <CircuitoElegido elegido={circuitoId} grupetas={grupetasAlEmpezar} onCambiar={() => setPantalla('circuitos')} />
 
           <section className="acciones-principales">
             <button className="accion accion-libre" onClick={rodarLibre}>
@@ -1213,6 +1231,11 @@ export default function App() {
               <span className="accion-icono" aria-hidden>🏆</span>
               <strong>Rankings</strong>
               <span>Quién suma más km, horas y desnivel, y los récords de cada subida</span>
+            </button>
+            <button className="accion accion-resumenes" onClick={() => setPantalla('resumenes')}>
+              <span className="accion-icono" aria-hidden>📊</span>
+              <strong>Resúmenes</strong>
+              <span>Tu mes y tu año: totales, lo más destacado y para compartir</span>
             </button>
             <button className="accion accion-historial" onClick={() => setPantalla('historial')}>
               <span className="accion-icono" aria-hidden>🗂️</span>
@@ -1310,6 +1333,21 @@ export default function App() {
       )}
 
       {pantalla === 'rankings' && <PantallaRankings onVolver={volver} />}
+      {pantalla === 'resumenes' && <PantallaResumenes onVolver={volver} />}
+      {pantalla === 'circuitos' && (
+        <PantallaCircuitos
+          elegido={circuitoId}
+          onElegir={elegirCircuito}
+          grupetas={grupetasAlEmpezar}
+          onGrupetas={setGrupetasAlEmpezar}
+          ftp={perfil.ftp}
+          onRodar={() => {
+            setPantalla('inicio');
+            rodarLibre();
+          }}
+          onVolver={volver}
+        />
+      )}
 
       {pantalla === 'entrenamientos' && (
         <PantallaEntrenamientos

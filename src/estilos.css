@@ -3117,3 +3117,122 @@ p {
   border: 1px solid var(--borde);
   border-radius: 16px;
 }
+
+/* ---------- Circuito elegido (inicio) ---------- */
+
+.circuito-elegido {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+/* ---------- Resúmenes ---------- */
+
+.accion-resumenes {
+  background: linear-gradient(135deg, #d9467a, #a3285a);
+}
+
+.resumen-periodo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 14px 0;
+}
+
+.resumen-periodo h3 {
+  margin: 0;
+  min-width: 190px;
+  text-align: center;
+}
+
+.resumen-grandes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.resumen-grandes > div {
+  display: grid;
+  gap: 2px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid var(--borde);
+}
+
+.resumen-valor {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.resumen-etiqueta {
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.resumen-cambio {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.resumen-cambio.sube {
+  color: #16a34a;
+  opacity: 1;
+}
+
+.resumen-cambio.baja {
+  color: #dc2626;
+  opacity: 1;
+}
+
+.resumen-barras {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 120px;
+  margin: 18px 0 8px;
+}
+
+.resumen-barra {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 2px;
+}
+
+.resumen-barra span {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: rgba(127, 127, 127, 0.2);
+}
+
+.resumen-barra span.con {
+  background: linear-gradient(180deg, #fb923c, #ea580c);
+}
+
+.resumen-barra small {
+  font-size: 10px;
+  height: 12px;
+  opacity: 0.7;
+}
+
+.resumen-destacados {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+  display: grid;
+  gap: 6px;
+}
+
+/* En la pantalla de Circuitos el título ya está arriba */
+.pantalla .selector-circuito .cabecera-panel {
+  display: none;
+}
