@@ -25,8 +25,15 @@ export interface DefCircuito {
    * menor, da la vuelta por la salida), a `distancia` m del eje y con `ancho` m de agua.
    */
   rio: { desde: number; hasta: number; distancia: number; ancho: number } | null;
-  /** Paisaje: colinas verdes con cultivos variados, o ribera con campos de cereal dorado. */
-  paisaje: 'colinas' | 'ribera';
+  /** Paisaje: colinas verdes con cultivos, ribera con cereal dorado o sierra con pinares y roca. */
+  paisaje: 'colinas' | 'ribera' | 'sierra';
+  /**
+   * Cómo se une el perfil entre puntos clave: con coseno (cada punto clave es un rellano) o
+   * `suave` (un puerto largo sube seguido, sin rellanos). Sin indicar: coseno.
+   */
+  perfil?: 'suave';
+  /** Nombre de la subida principal (la de más de 60 m). Sin indicar: «Puerto». */
+  nombrePuerto?: string;
   /** Colinas lejos de la carretera: altura media y cuánto se ondulan (1 = como el original). */
   relieve: { base: number; escala: number };
   /** Subidas con al menos este desnivel se cronometran como segmento. */
@@ -110,6 +117,58 @@ export const CIRCUITOS: DefCircuito[] = [
     desnivelSegmento: 7,
     extra: [['Contrarreloj de la Ribera', 16.5, 19.5]],
     metas: [1, 9.2, 14.8],
+  },
+  {
+    id: 'sierra',
+    nombre: 'Puerto de la Sierra',
+    descripcion: 'Montaña: 6 km de puerto al 5,8 % con rampas al 9 %, entre pinares y roca, y bajada con curvas amplias.',
+    sala: 'sierra',
+    puntos: [
+      [0, 300],
+      [0.9, 318],
+      [1.5, 322],
+      [2.1, 316],
+      // Subida al Puerto: 6 km
+      [3.0, 360],
+      [4.0, 412],
+      [4.6, 466],
+      [5.6, 506],
+      [6.6, 560],
+      [7.4, 612],
+      [8.0, 664],
+      [8.3, 676],
+      // Bajada
+      [8.8, 670],
+      [9.6, 610],
+      [10.6, 545],
+      [11.4, 495],
+      [12.0, 515],
+      [13.0, 445],
+      [14.0, 370],
+      [15.0, 300],
+    ],
+    // Curvas amplias: un óvalo con ondulaciones largas, sin horquillas
+    forma: {
+      n: 14,
+      rx: 2500,
+      rz: 1700,
+      ondas: [
+        [0.12, 3, 1.1],
+        [0.05, 6, 0.4],
+      ],
+    },
+    lago: null,
+    rio: null,
+    paisaje: 'sierra',
+    perfil: 'suave',
+    nombrePuerto: 'Subida al Puerto',
+    relieve: { base: 45, escala: 1.7 },
+    desnivelSegmento: 25,
+    extra: [
+      ['Rampa final', 7.4, 8.3],
+      ['Bajada del Puerto', 8.3, 11.4],
+    ],
+    metas: [0.9],
   },
 ];
 

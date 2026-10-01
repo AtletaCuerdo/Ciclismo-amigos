@@ -24,13 +24,34 @@ export function enVuelta(s: number) {
   return ((s % LONGITUD_VUELTA_M) + LONGITUD_VUELTA_M) % LONGITUD_VUELTA_M;
 }
 
+/**
+ * Pendiente (tanto por uno) en cada punto clave para el perfil suave: 0 en cimas y valles y,
+ * dentro de una subida o bajada, una media de los tramos de los lados (como un spline monótono).
+ * Así un puerto largo sube seguido, sin rellanos en cada punto clave.
+ */
+export function pendientesClave(puntos: [number, number][]) {
+  const n = puntos.length - 1; // el último punto es el primero (vuelta cerrada)
+  const m = puntos.slice(1).map(([km, h], i) => (h - puntos[i][1]) / ((km - puntos[i][0]) * 1000));
+  const l = puntos.slice(1).map(([km], i) => (km - puntos[i][0]) * 1000);
+  const d = puntos.map((_, i) => {
+    const a = (i - 1 + n) % n; // tramo anterior
+    const b = i % n; // tramo siguiente
+    if (m[a] * m[b] <= 0) return 0;
+    return (3 * (l[a] + l[b])) / ((2 * l[b] + l[a]) / m[a] + (l[b] + 2 * l[a]) / m[b]);
+  });
+  return d;
+}
+
+let SUAVE = CIRCUITO.perfil === 'suave';
+let PENDIENTES_CLAVE = pendientesClave(PUNTOS);
+
 function tramo(s: number) {
   const x = enVuelta(s);
   for (let i = 0; i < PUNTOS.length - 1; i++) {
     const s0 = PUNTOS[i][0] * 1000;
     const s1 = PUNTOS[i + 1][0] * 1000;
     if (x < s1 || i === PUNTOS.length - 2) {
-      return { s0, s1, h0: PUNTOS[i][1], h1: PUNTOS[i + 1][1], t: (x - s0) / (s1 - s0) };
+      return { s0, s1, h0: PUNTOS[i][1], h1: PUNTOS[i + 1][1], t: (x - s0) / (s1 - s0), i };
     }
   }
   throw new Error('Perfil mal definido');
@@ -38,21 +59,45 @@ function tramo(s: number) {
 
 /** Altitud (m) en la distancia s. */
 export function altitud(s: number) {
-  const { h0, h1, t } = tramo(s);
+  const { s0, s1, h0, h1, t, i } = tramo(s);
+  if (SUAVE) {
+    // Hermite cúbico con las pendientes de los puntos clave
+    const L = s1 - s0;
+    const t2 = t * t;
+    const t3 = t2 * t;
+    return (
+      (2 * t3 - 3 * t2 + 1) * h0 +
+      (t3 - 2 * t2 + t) * L * PENDIENTES_CLAVE[i] +
+      (-2 * t3 + 3 * t2) * h1 +
+      (t3 - t2) * L * PENDIENTES_CLAVE[i + 1]
+    );
+  }
   return h0 + (h1 - h0) * (1 - Math.cos(Math.PI * t)) / 2;
 }
 
-/** Pendiente (%) en la distancia s: derivada exacta de la interpolación coseno. */
+/** Pendiente (%) en la distancia s: derivada exacta de la interpolación. */
 export function pendiente(s: number) {
-  const { s0, s1, h0, h1, t } = tramo(s);
+  const { s0, s1, h0, h1, t, i } = tramo(s);
+  if (SUAVE) {
+    const L = s1 - s0;
+    const t2 = t * t;
+    const derivada =
+      ((6 * t2 - 6 * t) * h0 + (-6 * t2 + 6 * t) * h1) / L +
+      (3 * t2 - 4 * t + 1) * PENDIENTES_CLAVE[i] +
+      (3 * t2 - 2 * t) * PENDIENTES_CLAVE[i + 1];
+    return derivada * 100;
+  }
   return (((h1 - h0) * Math.PI) / 2) * Math.sin(Math.PI * t) / (s1 - s0) * 100;
 }
 
 /** Desnivel positivo de una vuelta. */
 export let DESNIVEL_VUELTA_M = desnivelDe(CIRCUITO);
 
-/** Subidas de la vuelta (tramos en los que la altitud sube entre dos puntos clave). */
-export const subidasDe = (puntos: [number, number][]) =>
+/**
+ * Subidas de la vuelta (tramos en los que la altitud sube entre dos puntos clave). Con el perfil
+ * suave (`unir`), los tramos de subida seguidos son una sola subida (no hay rellano entre ellos).
+ */
+export const subidasDe = (puntos: [number, number][], unir = false) =>
   puntos
     .slice(1)
     .map(([km, h], i) => ({
@@ -61,8 +106,16 @@ export const subidasDe = (puntos: [number, number][]) =>
       desnivel: h - puntos[i][1],
     }))
     .filter((t) => t.desnivel > 0)
+    .reduce<{ inicio: number; fin: number; desnivel: number }[]>((lista, t) => {
+      const ultima = lista[lista.length - 1];
+      if (unir && ultima && ultima.fin === t.inicio) {
+        ultima.fin = t.fin;
+        ultima.desnivel += t.desnivel;
+      } else lista.push({ ...t });
+      return lista;
+    }, [])
     .map((t) => ({ ...t, pendienteMedia: (t.desnivel / (t.fin - t.inicio)) * 100 }));
-const calcularSubidas = () => subidasDe(PUNTOS);
+const calcularSubidas = () => subidasDe(PUNTOS, SUAVE);
 export let SUBIDAS = calcularSubidas();
 
 export interface InfoSubidas {
@@ -109,6 +162,8 @@ export function usarCircuito(id: string) {
   CIRCUITO_ID = CIRCUITO.id;
   LONGITUD_VUELTA_M = longitudDe(CIRCUITO);
   PUNTOS = CIRCUITO.puntos;
+  SUAVE = CIRCUITO.perfil === 'suave';
+  PENDIENTES_CLAVE = pendientesClave(PUNTOS);
   DESNIVEL_VUELTA_M = desnivelDe(CIRCUITO);
   SUBIDAS = calcularSubidas();
   ALTITUD_MIN = Math.min(...PUNTOS.map((p) => p[1]));

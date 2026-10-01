@@ -41,9 +41,9 @@ export function segmentosDe(c: DefCircuito): Segmento[] {
   const guardados = cache.get(c.id);
   if (guardados) return guardados;
   const lista: Segmento[] = [
-    ...subidasDe(c.puntos).filter((s) => s.desnivel >= c.desnivelSegmento).map((s, i) => ({
+    ...subidasDe(c.puntos, c.perfil === 'suave').filter((s) => s.desnivel >= c.desnivelSegmento).map((s, i) => ({
       id: `subida-${i + 1}`,
-      nombre: s.desnivel >= 60 ? 'Puerto' : `Repecho del km ${km(s.inicio)}`,
+      nombre: s.desnivel >= 60 ? (c.nombrePuerto ?? 'Puerto') : `Repecho del km ${km(s.inicio)}`,
       tipo: 'subida' as const,
       inicio: s.inicio,
       fin: s.fin,

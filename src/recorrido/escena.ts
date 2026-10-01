@@ -11,7 +11,7 @@ import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { esDispositivoIos, type Avatar, type Calidad } from './avatar';
 import { Ciclista3D } from './ciclista3d';
-import { CIRCUITO, LONGITUD_VUELTA_M, SUBIDAS, altitud, enVuelta, pendiente } from './perfil';
+import { ALTITUD_MAX, ALTITUD_MIN, CIRCUITO, LONGITUD_VUELTA_M, SUBIDAS, altitud, enVuelta, pendiente } from './perfil';
 import {
   cargarCielo,
   cargarModelo,
@@ -323,6 +323,11 @@ export class EscenaRecorrido {
   private tr = crearTrazado();
   private indice: IndiceCarretera;
   private lago: { x: number; z: number; r: number; nivel: number };
+  /**
+   * En montaña, puntos de la carretera cada 200 m con su altitud: el paisaje lejano sube y baja
+   * con ella (si no, la carretera del puerto iría por encima de todo). En llano, null.
+   */
+  private muestrasRegion: { x: Float32Array; z: Float32Array; h: Float32Array } | null = null;
   /** Río del circuito: lado (+1/−1 respecto a la carretera), distancia, ancho, nivel del agua y tramo (m). */
   private rio: { lado: number; distancia: number; ancho: number; nivel: number; desde: number; hasta: number } | null =
     null;
@@ -442,6 +447,17 @@ export class EscenaRecorrido {
     this.escena.add(new THREE.HemisphereLight(0xcfe6ff, 0x55683a, 0.5));
 
     this.indice = new IndiceCarretera(this.tr);
+    if (CIRCUITO.paisaje === 'sierra') {
+      const paso = Math.round(200 / PASO_M);
+      const n = Math.floor(this.tr.n / paso);
+      const m = { x: new Float32Array(n), z: new Float32Array(n), h: new Float32Array(n) };
+      for (let k = 0; k < n; k++) {
+        m.x[k] = this.tr.x[k * paso];
+        m.z[k] = this.tr.z[k * paso];
+        m.h[k] = altitud(k * paso * PASO_M);
+      }
+      this.muestrasRegion = m;
+    }
     this.lago = this.situarLago();
     this.rio = this.situarRio();
 
@@ -602,10 +618,28 @@ export class EscenaRecorrido {
     return Math.abs(lateral - r.lado * r.distancia);
   }
 
+  /**
+   * Relieve lejos de la carretera: las colinas del circuito y, en montaña, sobre la altitud de la
+   * carretera más cercana (media ponderada por distancia, para que no haya escalones).
+   */
+  private fondo(x: number, z: number) {
+    const m = this.muestrasRegion;
+    if (!m) return colinas(x, z);
+    let suma = 0;
+    let pesos = 0;
+    for (let k = 0; k < m.h.length; k++) {
+      const d2 = (x - m.x[k]) ** 2 + (z - m.z[k]) ** 2 + 150 * 150;
+      const w = 1 / (d2 * Math.sqrt(d2));
+      suma += w * m.h[k];
+      pesos += w;
+    }
+    return suma / pesos + colinas(x, z);
+  }
+
   /** Altura del terreno: igual a la carretera cerca de ella, colinas lejos y el hueco del lago. */
   private alturaTerreno(x: number, z: number, cercano = this.indice.cercano(x, z)) {
     const w = suavizado(ZONA_LLANA_M, 300, cercano.distancia);
-    let h = cercano.alt * (1 - w) + colinas(x, z) * w;
+    let h = cercano.alt * (1 - w) + (w > 0 ? this.fondo(x, z) * w : 0);
     const dl = Math.hypot(x - this.lago.x, z - this.lago.z);
     if (dl < this.lago.r + 90) {
       const fondo = this.lago.nivel - 3 - 4 * (1 - dl / (this.lago.r + 90));
@@ -627,11 +661,19 @@ export class EscenaRecorrido {
   /** Color base del terreno: cunetas, praderas junto a la carretera y campos de cultivo lejos. */
   private colorTerreno(x: number, z: number, distancia: number, h: number, c: THREE.Color) {
     const ribera = CIRCUITO.paisaje === 'ribera';
-    const praderas = ribera ? [0x6b8f3e, 0x7a9444, 0x668a3a] : [0x5d8a3c, 0x557f37, 0x68904a];
-    // En la ribera, casi todo cereal (dorado y paja) con alguna parcela verde o de tierra
+    const sierra = CIRCUITO.paisaje === 'sierra';
+    const praderas = ribera
+      ? [0x6b8f3e, 0x7a9444, 0x668a3a]
+      : sierra
+        ? [0x4f7634, 0x5a7d38, 0x4a6b31]
+        : [0x5d8a3c, 0x557f37, 0x68904a];
+    // En la ribera, casi todo cereal (dorado y paja) con alguna parcela verde o de tierra;
+    // en la sierra, pinar, matorral, prados de altura y pedregales
     const campos = ribera
       ? [0xd8c25a, 0xcdb44e, 0xe0cc6a, 0xc2a843, 0xd2c23d, 0x9fae52, 0x9c7f55, 0xe3d27a]
-      : [0xc9b35d, 0x86a24a, 0x8e6f48, 0x6f9e4a, 0x4f7a36, 0xd2c23d, 0xa7b35a];
+      : sierra
+        ? [0x34502a, 0x2f4a26, 0x55693a, 0x6b7444, 0x7c9248, 0x7d6f52, 0x868276, 0x3a5a2c]
+        : [0xc9b35d, 0x86a24a, 0x8e6f48, 0x6f9e4a, 0x4f7a36, 0xd2c23d, 0xa7b35a];
     // Parcelas giradas para que no parezcan una cuadrícula
     const rx = x * 0.8 + z * 0.6;
     const rz = -x * 0.6 + z * 0.8;
@@ -647,8 +689,14 @@ export class EscenaRecorrido {
       const mitad = this.rio.ancho / 2;
       if (dr < mitad + 14) c.lerp(new THREE.Color(0xa89572), 1 - suavizado(mitad - 2, mitad + 14, dr));
     }
-    // Zonas altas más secas
-    if (h > 95) c.lerp(new THREE.Color(0x9a9a58), suavizado(95, 140, h) * 0.5);
+    if (sierra) {
+      // Cerca de la cumbre: roca y pedregal entre el pasto
+      const cima = ALTITUD_MAX - 50;
+      if (h > cima) c.lerp(new THREE.Color(0x8b867a), suavizado(cima, cima + 120, h) * (0.35 + 0.4 * hashEntero(Math.floor(x / 60), Math.floor(z / 60))));
+    } else if (h > ALTITUD_MIN + 75) {
+      // Zonas altas más secas
+      c.lerp(new THREE.Color(0x9a9a58), suavizado(ALTITUD_MIN + 75, ALTITUD_MIN + 120, h) * 0.5);
+    }
     // Cuneta de tierra y grava junto al asfalto
     if (distancia < 9) c.lerp(new THREE.Color(0x8c7f63), 1 - distancia / 9);
     // Orilla del lago
@@ -910,8 +958,10 @@ export class EscenaRecorrido {
       if (cerca.distancia < Math.max(min, 5.6) || this.enLago(x, z)) return null;
       return { x, z, y: this.alturaTerreno(x, z, cerca) };
     };
+    // En la sierra: pinares, poca hoja ancha y más roca
+    const sierra = CIRCUITO.paisaje === 'sierra';
     // Bosquecillos repartidos por el paisaje
-    const bosques = Array.from({ length: 32 }, () => {
+    const bosques = Array.from({ length: sierra ? 60 : 32 }, () => {
       const l = junto(180, 1300, 1);
       return l ? { ...l, r: 60 + rnd() * 90 } : null;
     }).filter((b): b is Lugar & { r: number } => b !== null);
@@ -988,7 +1038,7 @@ export class EscenaRecorrido {
     // junto a la carretera se ponen modelos reales (ver vegetacionReal)
     const pinos = instanciar(
       [[pino, matCopa], [tronco, matTronco, true]],
-      Math.round(1000 * f),
+      Math.round((sierra ? 2000 : 1000) * f),
       () => (rnd() < 0.6 ? enBosque() : junto(150, 450)),
       () => {
         const s = 0.7 + rnd() * 0.9;
@@ -1000,7 +1050,7 @@ export class EscenaRecorrido {
     // Árboles frondosos
     const frondosos = instanciar(
       [[copaFrondosa, matCopa], [tronco, matTronco, true]],
-      Math.round(900 * f),
+      Math.round((sierra ? 250 : 900) * f),
       () => (rnd() < 0.5 ? enBosque() : junto(150, 450)),
       () => {
         const s = 0.7 + rnd() * 0.8;
@@ -1012,7 +1062,7 @@ export class EscenaRecorrido {
     // Chopos alrededor del lago y en hileras junto a los llanos
     const chopos = instanciar(
       [[chopo, matCopa], [tronco, matTronco, true]],
-      Math.round(320 * f),
+      Math.round((sierra ? 40 : 320) * f),
       () => {
         if (this.rio && rnd() < 0.65) {
           const r = this.rio;
@@ -1142,6 +1192,9 @@ export class EscenaRecorrido {
       const s = min + rnd() * (max - min);
       return [s, s, s];
     };
+    // Cantidades según el paisaje: [normal, sierra]
+    const sierra = CIRCUITO.paisaje === 'sierra';
+    const cuantos = (normal: number, enSierra: number) => (sierra ? enSierra : normal);
 
     const poner = (
       lista: string[],
@@ -1163,8 +1216,8 @@ export class EscenaRecorrido {
     const sombra = true;
     // Árboles: modelo real hasta unos 250 m y su impostor más lejos (LOD)
     const lod = true;
-    poner(['CommonTree_1', 'CommonTree_2', 'CommonTree_3', 'CommonTree_4', 'CommonTree_5'], 2200, () => junto(11, 200, 1.5), escalaUniforme(0.9, 1.5), { celda: 200, visibleHasta: 110, sombra, lod });
-    poner(['Pine_1', 'Pine_2', 'Pine_3', 'Pine_4', 'Pine_5'], 1900, () => junto(11, 200, 1.5), escalaUniforme(0.9, 1.45), { celda: 200, visibleHasta: 110, sombra, lod });
+    poner(['CommonTree_1', 'CommonTree_2', 'CommonTree_3', 'CommonTree_4', 'CommonTree_5'], cuantos(2200, 500), () => junto(11, 200, 1.5), escalaUniforme(0.9, 1.5), { celda: 200, visibleHasta: 110, sombra, lod });
+    poner(['Pine_1', 'Pine_2', 'Pine_3', 'Pine_4', 'Pine_5'], cuantos(1900, 3400), () => junto(11, 200, 1.5), escalaUniforme(0.9, 1.45), { celda: 200, visibleHasta: 110, sombra, lod });
     this.construirImpostoresLod();
     poner(['TwistedTree_1', 'TwistedTree_3', 'TwistedTree_5'], 200, () => junto(16, 160, 1.4), escalaUniforme(0.55, 0.85), { celda: 300, visibleHasta: 300, sombra });
     poner(['DeadTree_1', 'DeadTree_3'], 40, () => junto(14, 140, 1.4), escalaUniforme(0.6, 0.9), { celda: 300, visibleHasta: 300 });
@@ -1185,8 +1238,8 @@ export class EscenaRecorrido {
       ) => {
         for (const n of lista) instanciar(r(n), Math.round((total / lista.length) * f), lugar, escala, (c) => tono(c, variacion), opciones);
       };
-      ponerR(['rock_moss_set_01', 'rock_moss_set_02'], 480, () => junto(8, 200, 1.5), escalaUniforme(0.35, 1.3), { celda: 200, visibleHasta: 190, hundir: 0.15, sombra });
-      ponerR(['rock_07', 'stone_01'], 1600, () => junto(5.4, 14, 1.4), () => {
+      ponerR(['rock_moss_set_01', 'rock_moss_set_02'], cuantos(480, 1000), () => junto(8, 200, 1.5), escalaUniforme(0.35, 1.3), { celda: 200, visibleHasta: 190, hundir: 0.15, sombra });
+      ponerR(['rock_07', 'stone_01'], cuantos(1600, 2400), () => junto(5.4, 14, 1.4), () => {
         const s = 1.5 + rnd() * 3.5;
         return [s, s * (0.7 + rnd() * 0.5), s];
       }, { celda: 150, visibleHasta: 60 });
@@ -1197,13 +1250,13 @@ export class EscenaRecorrido {
       ponerR(['weed_plant_02', 'celandine_01', 'shrub_sorrel_01', 'shrub_03'], 2400, () => junto(5.5, 22, 2), escalaUniforme(1.2, 2.4), { celda: 150, visibleHasta: 45 });
       ponerR(['shrub_04'], 300, () => junto(5.5, 22, 2), escalaUniforme(1.2, 2.2), { celda: 150, visibleHasta: 45 });
     } else {
-      poner(['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'], 700, () => junto(7, 220, 1.6), escalaUniforme(0.7, 2.6), { celda: 250, visibleHasta: 320, hundir: 0.15 }, 0.25);
+      poner(['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'], cuantos(700, 1400), () => junto(7, 220, 1.6), escalaUniforme(0.7, 2.6), { celda: 250, visibleHasta: 320, hundir: 0.15 }, 0.25);
       poner(['Pebble_Round_1', 'Pebble_Round_2', 'Pebble_Round_3'], 1800, () => junto(5.4, 12, 1.5), escalaUniforme(0.8, 2), { celda: 250, visibleHasta: 120 }, 0.25);
     }
     // Hierba baja, flores y plantas en las cunetas (la alta, solo de vez en cuando)
     poner(['Grass_Common_Short', 'Grass_Wispy_Short'], 13000, () => junto(5.4, 35, 2.2), escalaUniforme(0.7, 1.3), { celda: 250, visibleHasta: 160 });
     poner(['Grass_Common_Tall', 'Grass_Wispy_Tall'], 4000, () => junto(7, 40, 1.8), escalaUniforme(0.6, 1.05), { celda: 250, visibleHasta: 160 });
-    poner(['Flower_3_Group', 'Flower_4_Group'], 2400, () => junto(6, 40, 1.8), escalaUniforme(0.7, 1.2), { celda: 250, visibleHasta: 140 }, 0.1);
+    poner(['Flower_3_Group', 'Flower_4_Group'], cuantos(2400, 900), () => junto(6, 40, 1.8), escalaUniforme(0.7, 1.2), { celda: 250, visibleHasta: 140 }, 0.1);
     poner(['Fern_1', 'Clover_1', 'Clover_2'], realistas ? 1500 : 3000, () => junto(6, 60, 1.8), escalaUniforme(0.8, 1.4), { celda: 250, visibleHasta: 140 });
     poner(['Plant_1_Big', 'Plant_7_Big'], realistas ? 700 : 1400, () => junto(6.5, 50, 1.8), escalaUniforme(0.7, 1.3), { celda: 250, visibleHasta: 140 });
     poner(['Mushroom_Common'], 300, () => junto(8, 40, 1.5), escalaUniforme(0.8, 1.6), { celda: 250, visibleHasta: 80 });
@@ -1610,7 +1663,7 @@ export class EscenaRecorrido {
       const e = suavizado(r0, r0 + 1700, r);
       const macizo = 0.45 + 0.9 * fbm(x / 7000 + 3, z / 7000 - 2, 3, 5);
       const h = 120 + 1150 * crestas(x / 2300, z / 2300, 7, 11) ** 1.25 * macizo;
-      return colinas(x, z) - 4 + e * h;
+      return this.fondo(x, z) - 4 + e * h;
     };
     const pos = new Float32Array((nA + 1) * (nR + 1) * 3);
     const col = new Float32Array((nA + 1) * (nR + 1) * 3);
@@ -1681,7 +1734,7 @@ export class EscenaRecorrido {
       const d = 800 + rnd() * 4200;
       const ancho = 500 + rnd() * 700;
       nube.scale.set(ancho, ancho * 0.45, 1);
-      nube.position.set(this.tr.centroX + Math.cos(a) * d, 650 + rnd() * 500, this.tr.centroZ + Math.sin(a) * d);
+      nube.position.set(this.tr.centroX + Math.cos(a) * d, 650 + (ALTITUD_MIN - 20) + rnd() * 500, this.tr.centroZ + Math.sin(a) * d);
       this.escena.add(nube);
       this.nubes.push(nube);
     }
@@ -1845,6 +1898,8 @@ export class EscenaRecorrido {
         const g = (altitud(Math.min(t.fin, s + 500)) - altitud(s)) / (Math.min(t.fin, s + 500) - s) * 100;
         cartel(s - 30, pct(g), 2.0, g >= 7 ? '#a3221b' : g >= 5 ? '#c26512' : '#1f5a2a');
       }
+      // Cartel azul en lo alto del puerto, con su nombre y la altitud
+      if (CIRCUITO.nombrePuerto && t.desnivel >= 60) cartel(t.fin + 15, `${CIRCUITO.nombre} · ${Math.round(altitud(t.fin))} m`, 5.2, '#1d4f91');
     }
   }
 

@@ -4,18 +4,27 @@
  */
 import { CIRCUITOS, desnivelDe, longitudDe, type DefCircuito } from '../recorrido/circuitos';
 import { RITMOS_GRUPETA, vatiosGrupeta } from '../recorrido/bots';
+import { pendientesClave } from '../recorrido/perfil';
 
 const ANCHO = 200;
 const ALTO = 44;
-/** Misma escala de altura en todos los circuitos, para que se vea cuál es más duro. */
-const ALTITUD_ESCALA = 140;
+/** Misma escala de altura en todos los circuitos (la del más montañoso), para que se vea cuál es más duro. */
+const ALTITUD_ESCALA = Math.max(
+  ...CIRCUITOS.map((c) => Math.max(...c.puntos.map((p) => p[1])) - Math.min(...c.puntos.map((p) => p[1]))),
+);
 
-/** Altitud interpolada con coseno entre los puntos clave (igual que en el recorrido). */
-function altitudEn(c: DefCircuito, km: number) {
+/** Altitud entre los puntos clave, interpolada igual que en el recorrido (coseno o suave). */
+function altitudEn(c: DefCircuito, km: number, d: number[]) {
   const p = c.puntos;
   for (let i = 0; i < p.length - 1; i++) {
     if (km <= p[i + 1][0]) {
       const t = (km - p[i][0]) / (p[i + 1][0] - p[i][0]);
+      if (c.perfil === 'suave') {
+        const L = (p[i + 1][0] - p[i][0]) * 1000;
+        const t2 = t * t;
+        const t3 = t2 * t;
+        return (2 * t3 - 3 * t2 + 1) * p[i][1] + (t3 - 2 * t2 + t) * L * d[i] + (-2 * t3 + 3 * t2) * p[i + 1][1] + (t3 - t2) * L * d[i + 1];
+      }
       return p[i][1] + ((p[i + 1][1] - p[i][1]) * (1 - Math.cos(Math.PI * t))) / 2;
     }
   }
@@ -26,10 +35,11 @@ function MiniPerfil({ c }: { c: DefCircuito }) {
   const total = longitudDe(c) / 1000;
   const minimo = Math.min(...c.puntos.map((p) => p[1]));
   const y = (h: number) => ALTO - 2 - ((h - minimo) / ALTITUD_ESCALA) * (ALTO - 6);
+  const d = pendientesClave(c.puntos);
   const puntos: string[] = [];
   for (let i = 0; i <= 80; i++) {
     const km = (i / 80) * total;
-    puntos.push(`${((i / 80) * ANCHO).toFixed(1)},${y(altitudEn(c, km)).toFixed(1)}`);
+    puntos.push(`${((i / 80) * ANCHO).toFixed(1)},${y(altitudEn(c, km, d)).toFixed(1)}`);
   }
   return (
     <svg viewBox={`0 0 ${ANCHO} ${ALTO}`} preserveAspectRatio="none" className="mini-perfil" aria-hidden>
