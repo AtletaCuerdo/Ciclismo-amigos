@@ -3,6 +3,7 @@ import {
   CASCOS,
   COLORES_PELO,
   EQUIPACIONES,
+  MARCAS,
   MODELOS,
   PEINADOS,
   RUEDAS,
@@ -162,6 +163,9 @@ export function EditorAvatar({ perfil, onCambiar, avatarRechazado, onVolver }: P
 
           <h3>Bici</h3>
           <Opciones opciones={MODELOS} valor={avatar.modelo} onElegir={(modelo) => cambiar({ modelo })} />
+
+          <h3>Marca del cuadro</h3>
+          <Opciones opciones={MARCAS} valor={avatar.marca} onElegir={(marca) => cambiar({ marca })} />
 
           <h3>Ruedas</h3>
           <Opciones

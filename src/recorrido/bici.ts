@@ -13,7 +13,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import type { ModeloBici, TipoRuedas } from './avatar';
+import { MARCAS, type ModeloBici, type TipoRuedas } from './avatar';
 import { mallaGuardada } from './cacheMallas';
 import { caja, cilindroZ, mallaSdf, tubo, tuboCurvo, type Primitiva, type Vec } from './sdf';
 
@@ -581,34 +581,45 @@ export function mallaCockpit(modelo: ModeloBici): THREE.BufferGeometry {
 // Materiales
 // ---------------------------------------------------------------------------
 
-let texturaLogo: THREE.CanvasTexture | null = null;
+const texturasLogo = new Map<string, THREE.CanvasTexture>();
 
-function logo() {
-  if (!texturaLogo) {
+/** Rótulo de la marca para el tubo diagonal (una textura por marca, compartida). */
+export function logo(marca = 'amigos') {
+  let t = texturasLogo.get(marca);
+  if (!t) {
+    const m = MARCAS.find((x) => x.id === marca) ?? MARCAS[0];
     const lienzo = document.createElement('canvas');
     lienzo.width = 1024;
     lienzo.height = 128;
     const ctx = lienzo.getContext('2d')!;
     ctx.fillStyle = '#fff';
-    ctx.font = 'italic 900 104px "Arial Black", system-ui, sans-serif';
+    ctx.font = m.fuente;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('AMIGOS', 512, 70, 1000);
-    texturaLogo = new THREE.CanvasTexture(lienzo);
-    texturaLogo.anisotropy = 8;
+    const conEspacio = ctx as CanvasRenderingContext2D & { letterSpacing?: string };
+    if (m.espacio && 'letterSpacing' in conEspacio) conEspacio.letterSpacing = `${m.espacio}px`;
+    ctx.fillText(m.texto, 512, m.raya ? 60 : 70, 1000);
+    // Algunas marcas llevan una raya bajo el nombre
+    if (m.raya) {
+      const ancho = Math.min(1000, ctx.measureText(m.texto).width);
+      ctx.fillRect(512 - ancho / 2, 112, ancho, 10);
+    }
+    t = new THREE.CanvasTexture(lienzo);
+    t.anisotropy = 8;
+    texturasLogo.set(marca, t);
   }
-  return texturaLogo;
+  return t;
 }
 
 /**
  * Material de las piezas SDF: el atributo «zona» elige pintura principal, secundaria,
  * carbono (con textura de tejido), goma/cinta mate o metal. Rotula el tubo diagonal.
  */
-export function materialCuadro(pintura: string, pintura2: string, cuadro?: ReturnType<typeof tuboDiagonal>) {
+export function materialCuadro(pintura: string, pintura2: string, cuadro?: ReturnType<typeof tuboDiagonal>, marca?: string) {
   const uniformes = {
     uPintura: { value: new THREE.Color(pintura) },
     uPintura2: { value: new THREE.Color(pintura2) },
-    uLogo: { value: logo() },
+    uLogo: { value: logo(marca) },
     uDtA: { value: cuadro?.diagonalA.clone() ?? new THREE.Vector3(9, 9, 9) },
     uDtB: { value: cuadro?.diagonalB.clone() ?? new THREE.Vector3(9, 9, 10) },
     uDtF: { value: cuadro?.diagonalFondo ?? 0 },
@@ -669,11 +680,13 @@ export function materialCuadro(pintura: string, pintura2: string, cuadro?: Retur
         float tDt = dot( rel, eDt ) / max( lDt, 1e-4 );
         float vDt = dot( rel, vec2( -eDt.y, eDt.x ) ) / max( uDtF, 1e-4 );
         vec3 nB = normalize( vNorB );
-        if ( uDtF > 0.0 && vZona.x > 0.5 && tDt > 0.18 && tDt < 0.6 && abs( vDt ) < 0.8 && abs( nB.z ) > 0.35 ) {
-          float u = ( tDt - 0.18 ) / 0.42;
+        // A lo largo de casi todo el tubo (sobre la pintura o el panel), nunca sobre carbono, goma o metal
+        bool pintado = vZona.y < 0.5 && vZona.z < 0.5 && vZona.w < 0.5;
+        if ( uDtF > 0.0 && pintado && tDt > 0.04 && tDt < 0.56 && abs( vDt ) < 0.85 && abs( nB.z ) > 0.35 ) {
+          float u = ( tDt - 0.04 ) / 0.52;
           if ( vPosB.z < 0.0 ) u = 1.0 - u;
-          float letra = texture2D( uLogo, vec2( u, 0.5 + vDt * 0.62 ) ).a;
-          zCol = mix( zCol, uPintura, letra );
+          float letra = texture2D( uLogo, vec2( u, 0.5 + vDt * 0.6 ) ).a;
+          zCol = mix( zCol, vZona.x > 0.5 ? uPintura : uPintura2, letra );
         }
         diffuseColor.rgb = zCol;`,
       )
@@ -687,7 +700,7 @@ export function materialCuadro(pintura: string, pintura2: string, cuadro?: Retur
         #endif`,
       );
   };
-  m.customProgramCacheKey = () => 'cuadro-sdf-1';
+  m.customProgramCacheKey = () => 'cuadro-sdf-2';
   return m;
 }
 
@@ -750,7 +763,7 @@ export interface MaterialesBici {
   cuadro: THREE.MeshPhysicalMaterial;
 }
 
-export function crearMaterialesBici(pintura: string, pintura2: string, modelo: ModeloBici): MaterialesBici {
+export function crearMaterialesBici(pintura: string, pintura2: string, modelo: ModeloBici, marca?: string): MaterialesBici {
   return {
     goma: new THREE.MeshStandardMaterial({ color: '#1c1c1d', roughness: 0.86 }),
     llanta: new THREE.MeshPhysicalMaterial({ color: '#141417', roughness: 0.38, clearcoat: 1, clearcoatRoughness: 0.1 }),
@@ -761,7 +774,7 @@ export function crearMaterialesBici(pintura: string, pintura2: string, modelo: M
     disco: new THREE.MeshStandardMaterial({ color: '#c3c8cf', roughness: 0.3, metalness: 1, side: THREE.DoubleSide }),
     cadena: new THREE.MeshStandardMaterial({ color: '#8a8f96', roughness: 0.35, metalness: 1 }),
     bici2: new THREE.MeshPhysicalMaterial({ color: pintura2, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.08 }),
-    cuadro: materialCuadro(pintura, pintura2, tuboDiagonal(modelo)),
+    cuadro: materialCuadro(pintura, pintura2, tuboDiagonal(modelo), marca),
   };
 }
 

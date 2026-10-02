@@ -706,6 +706,7 @@ export default function App() {
       distancia: c.distancia ?? 0,
       velocidad: c.velocidad ?? 0,
       cadencia: c.cadencia ?? 0,
+      vatios: c.vatios,
       emoji: salida.emojis[c.uid]?.e,
     }));
   // Con quién coincido en la sesión (para los resúmenes)
@@ -1463,6 +1464,7 @@ export default function App() {
               pulso: actualRef.current.pulso,
               rebufo: rebufoRef.current,
               segundosRueda: segundosRuedaRef.current,
+              ftp: perfil.ftp,
             })}
             otros={[
               ...otrosCiclistas,
@@ -1474,6 +1476,7 @@ export default function App() {
                 distancia: b.s,
                 velocidad: b.fisica.v * 3.6,
                 cadencia: 88,
+                vatios: b.vatios,
               })),
               ...(fantasma ? [fantasma] : []),
             ]}

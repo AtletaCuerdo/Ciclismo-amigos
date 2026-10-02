@@ -25,7 +25,26 @@ export interface Avatar {
   colorPelo: string;
   barba: boolean;
   cascoModelo: Casco;
+  /** Marca (inventada) rotulada en el tubo diagonal. */
+  marca: string;
 }
+
+/**
+ * Marcas de bici inventadas, con aire a las de verdad pero sin copiar nombres ni logotipos.
+ * `fuente`: tipo de letra del rótulo (con alternativas para Windows, Mac/iPad y Android).
+ */
+export const MARCAS: { id: string; nombre: string; texto: string; fuente: string; espacio?: number; raya?: boolean }[] = [
+  { id: 'amigos', nombre: 'Amigos', texto: 'AMIGOS', fuente: 'italic 900 104px "Arial Black", system-ui, sans-serif' },
+  { id: 'canyonero', nombre: 'Canyonero', texto: 'CANYONERO', fuente: '700 100px "Arial Narrow", "Helvetica Neue", Arial, sans-serif', espacio: 10 },
+  { id: 'trekka', nombre: 'Trekka', texto: 'TREKKA', fuente: 'italic 900 110px "Arial Black", "Helvetica Neue", sans-serif', raya: true },
+  { id: 'specialista', nombre: 'Specialista', texto: 'SPECIALISTA', fuente: 'italic 800 92px Georgia, "Times New Roman", serif' },
+  { id: 'pinarella', nombre: 'Pinarella', texto: 'Pinarella', fuente: 'italic 700 112px "Brush Script MT", "Snell Roundhand", "Segoe Script", cursive' },
+  { id: 'gigante', nombre: 'Gigante', texto: 'GIGANTE', fuente: '900 108px "Arial Black", "Helvetica Neue", sans-serif', raya: true },
+  { id: 'orbitta', nombre: 'Orbitta', texto: 'orbitta', fuente: '700 116px "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif' },
+  { id: 'cervo', nombre: 'Cervo', texto: 'CERVO', fuente: '700 104px Futura, "Century Gothic", "Segoe UI", sans-serif', espacio: 26 },
+  { id: 'bianca', nombre: 'Bianca', texto: 'Bianca', fuente: 'italic 700 116px Didot, "Bodoni MT", Georgia, serif' },
+  { id: 'scotto', nombre: 'Scotto', texto: 'SCOTTO', fuente: 'italic 900 108px Impact, "Arial Black", "Helvetica Neue", sans-serif', espacio: 6 },
+];
 
 export const PEINADOS: { id: Peinado; nombre: string }[] = [
   { id: 'rapado', nombre: 'Rapado' },
@@ -115,6 +134,7 @@ export function normalizarAvatar(a: unknown): Avatar | null {
     piel: o.piel as string,
     modelo,
     ruedas,
+    marca: MARCAS.some((m) => m.id === o.marca) ? (o.marca as string) : 'amigos',
   };
 }
 
@@ -135,6 +155,7 @@ export function avatarAleatorio(): Avatar {
     cascoModelo: 'ruta',
     modelo: aleatorio<ModeloBici>(['ruta', 'aero', 'escaladora']),
     ruedas: aleatorio<TipoRuedas>(['bajo', 'medio', 'alto']),
+    marca: aleatorio(MARCAS).id,
   };
 }
 

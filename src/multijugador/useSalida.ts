@@ -17,6 +17,19 @@ import { useEffect, useRef, useState } from 'react';
 import { normalizarAvatar, type Avatar } from '../recorrido/avatar';
 
 export const SALA_POR_DEFECTO = 'general';
+
+/**
+ * Publica mi avatar en la sala. Si las reglas de Firebase aún no conocen algún campo nuevo
+ * (p. ej. la marca de la bici), se publica sin él para que al menos se vean los colores.
+ */
+async function escribirAvatar(fb: ModuloFirebase, ref: ReturnType<ModuloFirebase['ref']>, avatar: Avatar) {
+  try {
+    await fb.set(ref, avatar);
+  } catch {
+    const { marca: _marca, ...sinMarca } = avatar;
+    await fb.set(ref, sinMarca);
+  }
+}
 const CLAVE_NOMBRE = 'rodillos.nombreCiclista';
 /** Un ciclista sin actualizar en este tiempo se oculta (p. ej. pestaña congelada). */
 const CADUCIDAD_MS = 15000;
@@ -175,7 +188,7 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
             setEstado('dentro');
             try {
               await fb.onDisconnect(miAvatarRef).remove();
-              await fb.set(miAvatarRef, avatarRef.current);
+              await escribirAvatar(fb, miAvatarRef, avatarRef.current);
               setAvatarRechazado(false);
             } catch {
               setAvatarRechazado(true);
@@ -364,8 +377,7 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
   useEffect(() => {
     const s = sesion.current;
     if (!s || estado !== 'dentro') return;
-    s.fb
-      .set(s.fb.ref(s.fb.db, `salas/${s.sala}/avatares/${s.uid}`), avatar)
+    escribirAvatar(s.fb, s.fb.ref(s.fb.db, `salas/${s.sala}/avatares/${s.uid}`), avatar)
       .then(() => setAvatarRechazado(false))
       .catch(() => setAvatarRechazado(true));
   }, [avatar, estado]);

@@ -78,6 +78,9 @@
             "cascoModelo": {
               ".validate": "newData.val() === 'ruta' || newData.val() === 'aero' || newData.val() === 'clasico' || newData.val() === 'gorra'"
             },
+            "marca": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20"
+            },
             "$otro": {
               ".validate": false
             }

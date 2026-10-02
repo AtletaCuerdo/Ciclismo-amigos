@@ -494,6 +494,8 @@ export interface PosturaBici {
 }
 
 const ESCALA = 1.03;
+/** Cuánto se mueve la pelvis al ponerse de pie (coordenadas de la bici: +X delante, +Y arriba). */
+const DE_PIE = new THREE.Vector3(0.23, 0.1, 0);
 const HUESOS = [
   'pelvis', 'spine_01', 'spine_02', 'spine_03', 'neck_01', 'Head',
   'thigh_l', 'calf_l', 'foot_l', 'ball_l', 'thigh_r', 'calf_r', 'foot_r', 'ball_r',
@@ -524,6 +526,10 @@ export class JineteHumano {
   private cara = new THREE.Vector3();
   /** Inclinación del tronco (grados sobre la horizontal), calculada para llegar al manillar. */
   private anguloTronco = 30;
+  /** Lo mismo de pie sobre los pedales. */
+  private anguloTroncoDePie = 30;
+  /** Posición de la pelvis sentado (coordenadas de la bici). */
+  private posicionSentado = new THREE.Vector3();
 
   constructor(
     p: Plantillas,
@@ -649,7 +655,12 @@ export class JineteHumano {
     for (const m of Object.values(this.manos)) for (const b of [...m.falanges.flat(), ...m.pulgar]) this.reposo.set(b, b.quaternion.clone());
 
     this.colocarCadera();
-    this.ajustarTronco();
+    this.posicionSentado.copy(this.raiz.position);
+    this.anguloTronco = this.ajustarTronco();
+    // De pie: la pelvis sube y se adelanta sobre los pedales; el tronco se recoloca para llegar a las manetas
+    this.raiz.position.copy(this.posicionSentado).add(DE_PIE);
+    this.anguloTroncoDePie = this.ajustarTronco();
+    this.raiz.position.copy(this.posicionSentado);
   }
 
   /** Coloca la pelvis de forma que las caderas queden sobre el sillín. */
@@ -694,6 +705,7 @@ export class JineteHumano {
     const padre = this.raiz.parent!;
     padre.updateWorldMatrix(true, true);
     let mejor = Infinity;
+    let angulo = 30;
     for (let g = -5; g <= 70; g += 0.5) {
       for (const [h, q] of this.reposo) h.quaternion.copy(q);
       this.raiz.updateMatrixWorld(true);
@@ -710,9 +722,10 @@ export class JineteHumano {
       }
       if (error < mejor) {
         mejor = error;
-        this.anguloTronco = g;
+        angulo = g;
       }
     }
+    return angulo;
   }
 
   /** Dedos y palma deseados para cada mano (coordenadas de la bici). */
@@ -780,16 +793,20 @@ export class JineteHumano {
    * @param pedales posiciones de los pedales izquierdo y derecho (coordenadas de la bici)
    * @param anguloBiela para mover un poco los tobillos
    */
-  posar(pedales: { izq: THREE.Vector3; der: THREE.Vector3 }, anguloBiela: number) {
+  posar(pedales: { izq: THREE.Vector3; der: THREE.Vector3 }, anguloBiela: number, dePie = 0) {
     const H = this.huesos;
     const P = this.postura;
     const padre = this.raiz.parent!;
+    // De pie (0 sentado … 1 de pie): pelvis arriba y adelante, con un vaivén lateral al pedalear
+    const pie = P.cabra ? 0 : dePie;
+    this.raiz.position.copy(this.posicionSentado).addScaledVector(DE_PIE, pie);
+    this.raiz.position.z += pie * 0.035 * Math.sin(anguloBiela);
     padre.updateWorldMatrix(true, true);
     for (const [h, q] of this.reposo) h.quaternion.copy(q);
     this.raiz.updateMatrixWorld(true);
 
     // Tronco inclinado hacia el manillar, cuello y mirada al frente
-    this.posarTronco(this.anguloTronco);
+    this.posarTronco(this.anguloTronco + (this.anguloTroncoDePie - this.anguloTronco) * pie);
     const pCuello = H.neck_01.getWorldPosition(new THREE.Vector3());
     apuntar(H.neck_01, H.Head, pCuello.add(this.dirMundo(P.cabra ? 0.72 : 0.5, P.cabra ? 0.69 : 0.86, 0)));
     orientar(H.Head, this.cara, this.dirMundo(1, P.cabra ? -0.1 : -0.16, 0));

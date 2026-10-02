@@ -190,6 +190,82 @@ function texturaTexto(texto: string, fondo: string, color: string, ancho = 512, 
   return tex;
 }
 
+/** Panel direccional de curva: chevrones blancos sobre rojo, hacia la derecha o la izquierda. */
+function texturaChevron(derecha: boolean) {
+  const { c, ctx } = lienzo(128, 160);
+  ctx.fillStyle = '#c8102e';
+  ctx.fillRect(0, 0, 128, 160);
+  ctx.fillStyle = '#ffffff';
+  for (const x0 of [18, 62]) {
+    ctx.beginPath();
+    ctx.moveTo(x0, 22);
+    ctx.lineTo(x0 + 22, 22);
+    ctx.lineTo(x0 + 52, 80);
+    ctx.lineTo(x0 + 22, 138);
+    ctx.lineTo(x0, 138);
+    ctx.lineTo(x0 + 30, 80);
+    ctx.closePath();
+    ctx.fill();
+  }
+  if (!derecha) {
+    // Espejo: el mismo dibujo apuntando a la izquierda
+    const { c: c2, ctx: ctx2 } = lienzo(128, 160);
+    ctx2.translate(128, 0);
+    ctx2.scale(-1, 1);
+    ctx2.drawImage(c, 0, 0);
+    const t = new THREE.CanvasTexture(c2);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/** Señal triangular de curva peligrosa (hacia la derecha o la izquierda). */
+function texturaCurva(derecha: boolean) {
+  const { c, ctx } = lienzo(256, 230);
+  ctx.clearRect(0, 0, 256, 230);
+  const triangulo = (m: number) => {
+    ctx.beginPath();
+    ctx.moveTo(128, 8 + m);
+    ctx.lineTo(248 - m * 1.7, 222 - m);
+    ctx.lineTo(8 + m * 1.7, 222 - m);
+    ctx.closePath();
+  };
+  ctx.fillStyle = '#c8102e';
+  triangulo(0);
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  triangulo(26);
+  ctx.fill();
+  // Flecha curva
+  ctx.save();
+  if (!derecha) {
+    ctx.translate(256, 0);
+    ctx.scale(-1, 1);
+  }
+  ctx.strokeStyle = '#111111';
+  ctx.lineWidth = 16;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(110, 190);
+  ctx.lineTo(110, 140);
+  ctx.quadraticCurveTo(110, 100, 150, 100);
+  ctx.stroke();
+  ctx.fillStyle = '#111111';
+  ctx.beginPath();
+  ctx.moveTo(176, 100);
+  ctx.lineTo(146, 78);
+  ctx.lineTo(146, 122);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 function texturaNube(semilla: number) {
   const { c, ctx } = lienzo(256, 128);
   const rnd = aleatorio(semilla);
@@ -223,6 +299,8 @@ export interface OtroCiclista {
   distancia: number; // m
   velocidad: number; // km/h
   cadencia: number;
+  /** Vatios (si se saben): con muchos, sprint de pie. */
+  vatios?: number;
   /** Emoji que acaba de lanzar (se ve sobre su cabeza). */
   emoji?: string;
 }
@@ -231,6 +309,21 @@ export interface DatosYo {
   distancia: number; // m (autoritativa, viene de la grabación, 1 vez/s)
   velocidad: number; // km/h
   cadencia: number;
+  /** Para ponerse de pie en los sprints. */
+  potencia?: number;
+  ftp?: number;
+}
+
+/**
+ * ¿De pie? En rampas duras, a ratos (como en la realidad: unos segundos de pie y otra vez
+ * sentado; cada ciclista a su ritmo según `semilla`), y siempre en un sprint.
+ */
+function tocaDePie(grado: number, sprint: boolean, velocidadMs: number, t: number, semilla: number) {
+  if (velocidadMs < 1) return false;
+  if (sprint) return true;
+  if (grado < 7) return false;
+  const [ciclo, dePie] = grado >= 10 ? [30, 14] : [40, 10];
+  return (t / 1000 + semilla * 13.7) % ciclo < dePie;
 }
 
 interface EstadoOtro {
@@ -241,6 +334,7 @@ interface EstadoOtro {
   vObjetivo: number; // m/s recibida
   v: number; // m/s suavizada
   cadencia: number;
+  vatios?: number;
   sRender: number;
   carril: number;
   fantasma: boolean;
@@ -331,11 +425,13 @@ export class EscenaRecorrido {
   private punto: PuntoRuta = { pos: new THREE.Vector3(), dx: 1, dz: 0 };
   /** Dirección del sol (se ajusta a la del cielo fotográfico cuando carga). */
   private dirSol = SOL.clone();
+  private sprintYo = false;
   private destruida = false;
   private materialTerreno: THREE.MeshStandardMaterial | null = null;
   private materialGrava: THREE.MeshStandardMaterial | null = null;
   private texturaRuido: THREE.DataTexture | null = null;
   private materialAsfalto: THREE.MeshStandardMaterial | null = null;
+  private materialParche: THREE.MeshStandardMaterial | null = null;
   private detras = new THREE.Vector3();
   private mira = new THREE.Vector3();
 
@@ -484,6 +580,12 @@ export class EscenaRecorrido {
         this.materialAsfalto.roughness = 1;
         this.materialAsfalto.color.set(0xffffff);
         this.materialAsfalto.needsUpdate = true;
+        if (this.materialParche) {
+          this.materialParche.map = asfalto;
+          this.materialParche.normalMap = asfaltoNormal;
+          this.materialParche.color.set(0x8c8c8c);
+          this.materialParche.needsUpdate = true;
+        }
       }
       // Arcenes de grava real (1,3 m de ancho; la textura se repite cada 1,3 × 2,6 m)
       if (this.materialGrava) {
@@ -799,6 +901,23 @@ export class EscenaRecorrido {
     discontinua.map = texturaDiscontinua();
     discontinua.alphaTest = 0.5;
     this.cinta(-0.07, 0.07, 0.31, 0.31, 0, LONGITUD_VUELTA_M, discontinua, 9);
+    // Parches de asfalto nuevo (más oscuros) aquí y allá, en un carril o en los dos
+    const parche = new THREE.MeshStandardMaterial({
+      color: 0x34373b,
+      roughness: 0.75,
+      side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    });
+    this.materialParche = parche;
+    const rndP = aleatorio(77);
+    for (let s = 150; s < LONGITUD_VUELTA_M - 60; s += 180 + rndP() * 420) {
+      const largo = 6 + rndP() ** 2 * 45;
+      const carril = rndP();
+      const [a, b] = carril < 0.4 ? [0.15, 3.4] : carril < 0.8 ? [-3.4, -0.15] : [-3.4, 3.4];
+      this.cinta(a, b, 0.302, 0.302, s, s + largo, parche, 2);
+    }
     // Arcenes de grava un poco más bajos
     const grava = new THREE.MeshStandardMaterial({ color: 0x8a8272, roughness: 1, side: THREE.DoubleSide });
     this.materialGrava = grava;
@@ -834,20 +953,112 @@ export class EscenaRecorrido {
     this.escena.add(inst);
   }
 
-  private crearQuitamiedosYVallas() {
-    // Quitamiedos metálicos en las bajadas (lado exterior)
-    const metal = new THREE.MeshStandardMaterial({ color: 0xc7ccd1, roughness: 0.35, metalness: 0.8, side: THREE.DoubleSide });
-    const bajadas: [number, number][] = [[5000, 7500], [13000, 15000], [10600, 11900]];
-    for (const [a, b] of bajadas) this.cinta(6.2, 6.2, 0.55, 0.9, a, b, metal, 4);
-    this.postes(bajadas, 6.25, 4, new THREE.BoxGeometry(0.1, 0.9, 0.12), metal, 0.45);
+  /**
+   * Curvas del circuito: tramos con radio menor que `radioMax` (m), con su sentido
+   * (+1 a la derecha, -1 a la izquierda) y el radio más cerrado.
+   */
+  private curvas(radioMax: number) {
+    const n = this.tr.n;
+    const w = Math.round(25 / PASO_M);
+    const giro = (i: number) => {
+      const a = (i - w + n) % n;
+      const b = (i + w) % n;
+      const c = this.tr.dx[a] * this.tr.dz[b] - this.tr.dz[a] * this.tr.dx[b];
+      const d = this.tr.dx[a] * this.tr.dx[b] + this.tr.dz[a] * this.tr.dz[b];
+      return Math.atan2(c, d);
+    };
+    const lista: { desde: number; hasta: number; lado: number; radio: number }[] = [];
+    let actual: (typeof lista)[number] | null = null;
+    for (let i = 0; i < n; i++) {
+      const g = giro(i);
+      const radio = (2 * w * PASO_M) / Math.max(1e-6, Math.abs(g));
+      const lado = Math.sign(g);
+      if (radio < radioMax && (!actual || actual.lado === lado)) {
+        if (!actual) actual = { desde: i * PASO_M, hasta: i * PASO_M, lado, radio };
+        actual.hasta = i * PASO_M;
+        actual.radio = Math.min(actual.radio, radio);
+      } else if (actual) {
+        if (actual.hasta - actual.desde >= 20) lista.push(actual);
+        actual = null;
+      }
+    }
+    if (actual && actual.hasta - actual.desde >= 20) lista.push(actual);
+    return lista;
+  }
 
-    // Vallas de madera en los llanos
+  /** Una placa vertical junto a la carretera, mirando al ciclista que llega. */
+  private placa(s: number, lateral: number, ancho: number, alto: number, altura: number, material: THREE.Material) {
+    const k = Math.round(enVuelta(s) / PASO_M) % this.tr.n;
+    const base = new THREE.Vector3(this.tr.x[k] - this.tr.dz[k] * lateral, altitud(s), this.tr.z[k] + this.tr.dx[k] * lateral);
+    const malla = new THREE.Mesh(new THREE.PlaneGeometry(ancho, alto), material);
+    malla.position.copy(base).add(new THREE.Vector3(0, altura, 0));
+    malla.rotation.y = Math.atan2(-this.tr.dz[k], this.tr.dx[k]) - Math.PI / 2;
+    malla.castShadow = true;
+    this.escena.add(malla);
+    return base;
+  }
+
+  private crearQuitamiedosYVallas() {
+    const metal = new THREE.MeshStandardMaterial({ color: 0xc7ccd1, roughness: 0.35, metalness: 0.8, side: THREE.DoubleSide });
+    const matPoste = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.5, metalness: 0.5 });
+    const geoPoste = new THREE.CylinderGeometry(0.04, 0.04, 1, 6);
+    const poste = (base: THREE.Vector3, alto: number) => {
+      const m = new THREE.Mesh(geoPoste, matPoste);
+      m.scale.y = alto;
+      m.position.copy(base).add(new THREE.Vector3(0, alto / 2, 0));
+      this.escena.add(m);
+    };
+    const curvas = this.curvas(320);
+
+    // Quitamiedos por fuera de las curvas cerradas y de las curvas en bajada
+    const quitamiedos: [number, number, number][] = [];
+    for (const c of curvas) {
+      const bajada = altitud(c.hasta + 40) < altitud(c.desde - 40) - 3;
+      if (c.radio < 230 || bajada) quitamiedos.push([c.desde - 50, c.hasta + 50, -c.lado]);
+    }
+    for (const [a, b, lado] of quitamiedos) {
+      this.cinta(lado * 6.2, lado * 6.2, 0.55, 0.9, a, b, metal, 4);
+      this.postes([[a, b]], lado * 6.25, 4, new THREE.BoxGeometry(0.1, 0.9, 0.12), metal, 0.45);
+    }
+
+    // Paneles de flechas por fuera de las curvas cerradas y señal de curva 120 m antes
+    const chevron = { [1]: new THREE.MeshStandardMaterial({ map: texturaChevron(true), roughness: 0.5, side: THREE.DoubleSide }), [-1]: new THREE.MeshStandardMaterial({ map: texturaChevron(false), roughness: 0.5, side: THREE.DoubleSide }) };
+    const senalCurva = {
+      [1]: new THREE.MeshStandardMaterial({ map: texturaCurva(true), transparent: true, alphaTest: 0.5, roughness: 0.5, side: THREE.DoubleSide }),
+      [-1]: new THREE.MeshStandardMaterial({ map: texturaCurva(false), transparent: true, alphaTest: 0.5, roughness: 0.5, side: THREE.DoubleSide }),
+    };
+    for (const c of curvas) {
+      if (c.radio > 260) continue;
+      const lado = c.lado as 1 | -1;
+      const centro = (c.desde + c.hasta) / 2;
+      const largo = Math.min(90, c.hasta - c.desde + 30);
+      for (let s = centro - largo / 2; s <= centro + largo / 2; s += 16) {
+        const base = this.placa(s, -lado * 7, 0.55, 0.7, 1.15, chevron[lado]);
+        poste(base, 0.8);
+      }
+      // La señal va a la derecha del ciclista
+      const base = this.placa(c.desde - 120, 6.6, 1.0, 0.9, 2.0, senalCurva[lado]);
+      poste(base, 1.6);
+    }
+
+    // Vallas de madera en los llanos largos (no en la sierra)
+    if (CIRCUITO.paisaje === 'sierra') return;
     const madera = new THREE.MeshStandardMaterial({ color: 0x7a5a3a, roughness: 0.9, side: THREE.DoubleSide });
-    const llanos: [number, number][] = [[200, 1400], [7600, 8900], [15300, 16700]];
+    const llanos: [number, number][] = [];
+    let desde: number | null = null;
+    for (let s = 0; s <= LONGITUD_VUELTA_M; s += 50) {
+      const llano = s < LONGITUD_VUELTA_M && Math.abs(pendiente(s)) < 1.2;
+      if (llano && desde === null) desde = s;
+      if (!llano && desde !== null) {
+        if (s - desde >= 600) llanos.push([desde + 100, Math.min(desde + 1500, s - 100)]);
+        desde = null;
+      }
+    }
+    const usados = llanos.slice(0, 4);
     for (const lado of [-9, 9]) {
-      this.postes(llanos, lado, 3, new THREE.BoxGeometry(0.12, 1.2, 0.12), madera, 0.6);
+      this.postes(usados, lado, 3, new THREE.BoxGeometry(0.12, 1.2, 0.12), madera, 0.6);
       for (const alto of [0.5, 0.95]) {
-        for (const [a, b] of llanos) this.cinta(lado, lado, alto, alto + 0.08, a, b, madera, 3);
+        for (const [a, b] of usados) this.cinta(lado, lado, alto, alto + 0.08, a, b, madera, 3);
       }
     }
   }
@@ -1928,6 +2139,7 @@ export class EscenaRecorrido {
       }
       e.vObjetivo = o.velocidad / 3.6;
       e.cadencia = o.cadencia;
+      e.vatios = o.vatios;
       e.c.ponerEmoji(o.emoji ?? null);
     }
     for (const [uid, e] of this.otros) {
@@ -2062,13 +2274,18 @@ export class EscenaRecorrido {
     this.inclinacionYo += (this.inclinacionEn(this.sYo, this.vYo) - this.inclinacionYo) * Math.min(1, dt * 4);
     p.pos.set(pxYo, pyYo, pzYo);
     this.yo.colocar(p.pos, dxYo, dzYo, pendiente(this.sYo), this.inclinacionYo);
+    // Sprint: muy por encima del FTP; se sienta al bajar (con margen, para que no parpadee)
+    const umbral = Math.max(450, 1.5 * (yo.ftp ?? 250));
+    if ((yo.potencia ?? 0) >= umbral) this.sprintYo = true;
+    else if ((yo.potencia ?? 0) < umbral * 0.8) this.sprintYo = false;
+    this.yo.ponerDePie(tocaDePie(pendiente(this.sYo), this.sprintYo, this.vYo, ahora, 0));
     this.yo.pedalear(this.vYo, yo.cadencia, dt);
     const miX = pxYo;
     const miY = pyYo;
     const miZ = pzYo;
 
     // Otros ciclistas
-    for (const e of this.otros.values()) {
+    for (const [uid, e] of this.otros) {
       e.v += (e.vObjetivo - e.v) * Math.min(1, dt * 2);
       // Otros: sus datos llegan por internet con retrasos variables → algo más de margen
       e.sRender = this.avanzar(e.sRender, e.sBase, e.recibido, e.v, ahora, dt, 2.5, 0.6);
@@ -2081,6 +2298,7 @@ export class EscenaRecorrido {
       const lean = this.inclinacionEn(e.sRender, e.v);
       q.pos.set(qx, qy, qz);
       e.c.colocar(q.pos, qdx, qdz, pendiente(e.sRender), lean);
+      if (!e.fantasma) e.c.ponerDePie(tocaDePie(pendiente(e.sRender), (e.vatios ?? 0) >= 650, e.v, ahora, (hash(uid) % 97) / 97));
       e.c.pedalear(e.v, e.cadencia, dt);
     }
 

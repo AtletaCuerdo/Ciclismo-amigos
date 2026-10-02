@@ -17,6 +17,7 @@ import {
   Z_PEDAL,
   crearMaterialesBici,
   geometriaBici,
+  logo,
   montarBici,
   type GeometriaBici,
   type MaterialesBici,
@@ -145,6 +146,14 @@ export class Ciclista3D {
   private matCiclista: MaterialesCiclista;
   private piernas: { muslo: Tubo; tibia: Tubo; pie: THREE.Mesh; lado: number }[] = [];
   private anguloBiela = Math.random() * Math.PI * 2;
+  /** 0 sentado … 1 de pie (cambia suave) y lo que se quiere ahora. */
+  private dePie = 0;
+  private quiereDePie = false;
+
+  /** De pie sobre los pedales (rampas duras, sprints) o sentado. */
+  ponerDePie(si: boolean) {
+    this.quiereDePie = si;
+  }
   private avanceCadena = 0;
   private etiqueta: THREE.Sprite | null = null;
   private globo: THREE.Sprite | null = null;
@@ -159,7 +168,7 @@ export class Ciclista3D {
 
   constructor(avatar: Avatar, nombre?: string) {
     this.avatar = avatar;
-    this.matBici = crearMaterialesBici(avatar.bici, avatar.bici2, avatar.modelo);
+    this.matBici = crearMaterialesBici(avatar.bici, avatar.bici2, avatar.modelo, avatar.marca);
     const m = (color: string, roughness: number) => new THREE.MeshStandardMaterial({ color, roughness });
     this.matCiclista = {
       maillot: m(avatar.maillot, 0.55),
@@ -334,10 +343,11 @@ export class Ciclista3D {
     if (cambiaBici) {
       // El material del cuadro lleva la posición del tubo diagonal (rotulación)
       Object.values(this.matBici).forEach((m) => m.dispose());
-      this.matBici = crearMaterialesBici(avatar.bici, avatar.bici2, avatar.modelo);
+      this.matBici = crearMaterialesBici(avatar.bici, avatar.bici2, avatar.modelo, avatar.marca);
     } else {
       const u = this.matBici.cuadro.userData.uniformes;
       u.uPintura.value.set(avatar.bici);
+      u.uLogo.value = logo(avatar.marca);
       u.uPintura2.value.set(avatar.bici2);
       this.matBici.bici2.color.set(avatar.bici2);
     }
@@ -378,8 +388,12 @@ export class Ciclista3D {
       pedal.rotation.z = -0.3 + 0.2 * Math.sin(a);
     }
 
+    // De pie, la bici se balancea a cada pedalada (hacia el lado de la pierna que empuja)
+    this.dePie += ((this.quiereDePie ? 1 : 0) - this.dePie) * Math.min(1, dt * 3);
+    if (this.dePie > 0.01) this.inclinacion.rotation.x += this.dePie * 0.09 * Math.sin(this.anguloBiela);
+
     if (this.humano) {
-      this.humano.posar({ izq: this.pedalIzq, der: this.pedalDer }, this.anguloBiela);
+      this.humano.posar({ izq: this.pedalIzq, der: this.pedalDer }, this.anguloBiela, this.dePie);
       return;
     }
 
