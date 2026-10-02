@@ -59,6 +59,12 @@ export class FisicaVirtual {
 
 /** Ahorro máximo de resistencia del aire yendo a rueda (como en Zwift, 25-30 %). */
 export const REBUFO_MAX = 0.3;
+/**
+ * Por debajo de esta distancia vais en paralelo (las bicis se solapan: miden ~1,7 m) y no hay
+ * rebufo; de aquí a REBUFO_ENTRA_M entra poco a poco al meterte detrás de su rueda (m).
+ */
+const REBUFO_PARALELO_M = 1.6;
+const REBUFO_ENTRA_M = 2.4;
 /** Hasta aquí detrás de otro ciclista se nota el rebufo entero (m). */
 const REBUFO_PLENO_M = 3;
 /** A partir de aquí ya no se nota (m). */
@@ -71,8 +77,13 @@ const REBUFO_LIMITE_M = 12;
 export function ahorroRebufo(huecos: number[]) {
   let mejor = 0;
   for (const h of huecos) {
-    if (h < 0.3 || h > REBUFO_LIMITE_M) continue;
-    const f = h <= REBUFO_PLENO_M ? 1 : (REBUFO_LIMITE_M - h) / (REBUFO_LIMITE_M - REBUFO_PLENO_M);
+    if (h < REBUFO_PARALELO_M || h > REBUFO_LIMITE_M) continue;
+    const f =
+      h < REBUFO_ENTRA_M
+        ? (h - REBUFO_PARALELO_M) / (REBUFO_ENTRA_M - REBUFO_PARALELO_M)
+        : h <= REBUFO_PLENO_M
+          ? 1
+          : (REBUFO_LIMITE_M - h) / (REBUFO_LIMITE_M - REBUFO_PLENO_M);
     mejor = Math.max(mejor, REBUFO_MAX * f);
   }
   return mejor;

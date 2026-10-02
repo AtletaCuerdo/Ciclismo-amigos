@@ -472,12 +472,18 @@ export default function App() {
   // En el recorrido, la velocidad es la virtual (sale de los vatios y la pendiente)
   const leerActual = (): ValoresActuales =>
     enRecorridoRef.current ? { ...actualRef.current, velocidad: velVirtualRef.current } : actualRef.current;
-  const grabacion = useGrabacion(leerActual, () => pendienteRef.current);
+  const adelantoRef = useRef(0);
+  const grabacion = useGrabacion(
+    leerActual,
+    () => pendienteRef.current,
+    () => adelantoRef.current,
+  );
 
   // ---- Punto del circuito ----
   // La grabación cuenta los metros rodados de verdad (TCX, Strava); el punto del circuito
   // puede ir adelantado para aparecer junto a un amigo que empezó antes.
   const [adelanto, setAdelanto] = useState(0);
+  adelantoRef.current = adelanto;
   const distanciaRef = useRef(0);
   distanciaRef.current = Math.max(0, adelanto + grabacion.distanciaM);
   /** Coloca mi ciclista en el punto `s` del circuito (sin tocar lo grabado). */

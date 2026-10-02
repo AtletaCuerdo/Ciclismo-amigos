@@ -8,14 +8,55 @@ import type { Entreno } from './tipos';
 const iso = (ms: number) => new Date(ms).toISOString();
 const entero = (n: number) => Math.round(n).toString();
 
-export function generarTcx(e: Entreno): string {
+/** Posición GPS virtual y altitud del circuito en el punto s (m desde la salida). */
+export type Geo = (s: number) => { lat: number; lon: number; alt: number };
+
+/**
+ * Mapa virtual para Strava (como hace Zwift con Watopia): el circuito se sitúa en mitad del
+ * Mediterráneo, al este de Menorca, donde no hay segmentos reales con los que se pueda cruzar.
+ * Cada circuito en su sitio, para que no se solapen. null si la sesión no guarda su recorrido.
+ */
+export async function prepararGeo(e: Entreno): Promise<Geo | null> {
+  const id = e.resumen.circuito;
+  if (!id || !e.muestras.some((m) => m.s !== undefined)) return null;
+  const [{ CIRCUITOS, circuitoPorId, longitudDe }, { trazadoDe }, { altitudEnCircuito }] = await Promise.all([
+    import('../recorrido/circuitos'),
+    import('../recorrido/trazado'),
+    import('../recorrido/perfil'),
+  ]);
+  const c = circuitoPorId(id);
+  const paso = 5;
+  const tr = trazadoDe(c, paso);
+  const largo = longitudDe(c);
+  const indice = Math.max(0, CIRCUITOS.indexOf(c));
+  const lat0 = 39.5 - 0.12 * indice;
+  const lon0 = 5.0;
+  const mLat = 111320;
+  const mLon = 111320 * Math.cos((lat0 * Math.PI) / 180);
+  return (sAbs: number) => {
+    const x = (((sAbs % largo) + largo) % largo) / paso;
+    const i = Math.floor(x) % tr.n;
+    const j = (i + 1) % tr.n;
+    const f = x - Math.floor(x);
+    const px = tr.x[i] + (tr.x[j] - tr.x[i]) * f - tr.centroX;
+    const pz = tr.z[i] + (tr.z[j] - tr.z[i]) * f - tr.centroZ;
+    return { lat: lat0 - pz / mLat, lon: lon0 + px / mLon, alt: altitudEnCircuito(c, sAbs) };
+  };
+}
+
+/** `geo`: si se pasa, cada punto lleva su posición en el mapa virtual y la altitud del circuito. */
+export function generarTcx(e: Entreno, geo: Geo | null = null): string {
   const r = e.resumen;
   const conAltitud = e.muestras.some((m) => m.alt !== 0);
 
   const puntos = e.muestras
     .map((m) => {
       let s = `<Trackpoint><Time>${iso(m.t)}</Time>`;
-      if (conAltitud) s += `<AltitudeMeters>${m.alt.toFixed(1)}</AltitudeMeters>`;
+      const g = geo && m.s !== undefined ? geo(m.s) : null;
+      if (g) {
+        s += `<Position><LatitudeDegrees>${g.lat.toFixed(7)}</LatitudeDegrees><LongitudeDegrees>${g.lon.toFixed(7)}</LongitudeDegrees></Position>`;
+        s += `<AltitudeMeters>${g.alt.toFixed(1)}</AltitudeMeters>`;
+      } else if (conAltitud) s += `<AltitudeMeters>${m.alt.toFixed(1)}</AltitudeMeters>`;
       s += `<DistanceMeters>${m.d.toFixed(1)}</DistanceMeters>`;
       if (m.hr) s += `<HeartRateBpm><Value>${entero(m.hr)}</Value></HeartRateBpm>`;
       if (m.c !== undefined) s += `<Cadence>${Math.min(254, Math.round(m.c))}</Cadence>`;
@@ -43,7 +84,7 @@ export function generarTcx(e: Entreno): string {
   const notas = `Entrenamiento en rodillo${r.potenciaEstimada ? ' (potencia estimada)' : ''} · RideCrew`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:ns3="http://www.garmin.com/xmlschemas/ActivityExtension/v2">
+<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:ns3="http://www.garmin.com/xmlschemas/ActivityExtension/v2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 <Activities>
 <Activity Sport="Biking">
 <Id>${iso(e.inicio)}</Id>
@@ -54,6 +95,7 @@ ${puntos}
 ${r.potenciaMedia !== undefined ? `<Extensions><ns3:LX><ns3:AvgWatts>${entero(r.potenciaMedia)}</ns3:AvgWatts></ns3:LX></Extensions>` : ''}
 </Lap>
 <Notes>${notas}</Notes>
+<Creator xsi:type="Device_t"><Name>RideCrew with barometer</Name><UnitId>0</UnitId><ProductID>0</ProductID><Version><VersionMajor>1</VersionMajor><VersionMinor>0</VersionMinor></Version></Creator>
 </Activity>
 </Activities>
 </TrainingCenterDatabase>
@@ -70,7 +112,7 @@ export function nombreArchivo(inicio: number) {
 /** Descarga el TCX. Si el navegador no puede descargar (algunas apps de iOS), ofrece compartirlo. */
 export async function descargarTcx(e: Entreno) {
   const nombre = nombreArchivo(e.inicio);
-  const blob = new Blob([generarTcx(e)], { type: 'application/vnd.garmin.tcx+xml' });
+  const blob = new Blob([generarTcx(e, await prepararGeo(e).catch(() => null))], { type: 'application/vnd.garmin.tcx+xml' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -93,6 +135,8 @@ export function puedeCompartir() {
 
 /** Abre la hoja de compartir con el TCX (útil en iPad/iPhone para guardarlo en Archivos o enviarlo). */
 export async function compartirTcx(e: Entreno) {
-  const archivo = new File([generarTcx(e)], nombreArchivo(e.inicio), { type: 'application/xml' });
+  const archivo = new File([generarTcx(e, await prepararGeo(e).catch(() => null))], nombreArchivo(e.inicio), {
+    type: 'application/xml',
+  });
   await navigator.share({ files: [archivo], title: 'Entrenamiento en rodillo' });
 }

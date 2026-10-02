@@ -75,6 +75,39 @@ export function altitud(s: number) {
   return h0 + (h1 - h0) * (1 - Math.cos(Math.PI * t)) / 2;
 }
 
+const pendientesPorCircuito = new Map<string, number[]>();
+
+/**
+ * Altitud en el punto s de un circuito cualquiera (no hace falta que sea el elegido), con la
+ * misma interpolación que el recorrido. Sirve, p. ej., para exportar a Strava una sesión antigua.
+ */
+export function altitudEnCircuito(c: DefCircuito, s: number) {
+  const p = c.puntos;
+  const largo = longitudDe(c);
+  const x = ((s % largo) + largo) % largo;
+  let d = pendientesPorCircuito.get(c.id);
+  if (!d) {
+    d = pendientesClave(p);
+    pendientesPorCircuito.set(c.id, d);
+  }
+  for (let i = 0; i < p.length - 1; i++) {
+    const s0 = p[i][0] * 1000;
+    const s1 = p[i + 1][0] * 1000;
+    if (x < s1 || i === p.length - 2) {
+      const t = (x - s0) / (s1 - s0);
+      const [h0, h1] = [p[i][1], p[i + 1][1]];
+      if (c.perfil === 'suave') {
+        const L = s1 - s0;
+        const t2 = t * t;
+        const t3 = t2 * t;
+        return (2 * t3 - 3 * t2 + 1) * h0 + (t3 - 2 * t2 + t) * L * d[i] + (-2 * t3 + 3 * t2) * h1 + (t3 - t2) * L * d[i + 1];
+      }
+      return h0 + ((h1 - h0) * (1 - Math.cos(Math.PI * t))) / 2;
+    }
+  }
+  return p[p.length - 1][1];
+}
+
 /** Pendiente (%) en la distancia s: derivada exacta de la interpolación. */
 export function pendiente(s: number) {
   const { s0, s1, h0, h1, t, i } = tramo(s);

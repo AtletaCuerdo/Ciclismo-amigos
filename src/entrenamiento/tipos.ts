@@ -7,6 +7,8 @@ export interface Muestra {
   hr?: number; // pulso, ppm
   d: number; // distancia acumulada, m
   alt: number; // altitud virtual acumulada, m (solo cambia en modo pendiente)
+  /** Punto del circuito (m desde la salida, contando vueltas), para el mapa y el perfil en Strava. */
+  s?: number;
 }
 
 export interface Resumen {

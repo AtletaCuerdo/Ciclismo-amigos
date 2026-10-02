@@ -17,7 +17,17 @@ export interface DefCircuito {
    * Forma de la carretera: una curva cerrada alrededor del centro con radios `rx`×`rz` (m,
    * antes de escalarla a la longitud exacta) deformada con ondas [amplitud, frecuencia, fase].
    */
-  forma: { n: number; rx: number; rz: number; ondas: [number, number, number][] };
+  forma: {
+    n: number;
+    rx: number;
+    rz: number;
+    ondas: [number, number, number][];
+    /**
+     * Curvas a izquierda y derecha sobre la forma general: [amplitud m, longitud de onda m, fase].
+     * El radio mínimo de cada una es ≈ onda² / (4π²·amplitud).
+     */
+    meandros?: [number, number, number][];
+  };
   /** Lago junto a la carretera: en el metro `s`, a `distancia` hacia dentro, de radio `r`. */
   lago: { s: number; distancia: number; r: number } | null;
   /**
@@ -71,6 +81,11 @@ export const CIRCUITOS: DefCircuito[] = [
         [0.16, 3, 0.6],
         [0.09, 5, 1.3],
       ],
+      // Curvas a izquierda y derecha cada pocos cientos de metros (radio mínimo ~170-250 m)
+      meandros: [
+        [40, 750, 0.9],
+        [90, 2100, 2.4],
+      ],
     },
     lago: { s: 8200, distancia: 270, r: 175 },
     rio: null,
@@ -107,6 +122,11 @@ export const CIRCUITOS: DefCircuito[] = [
       ondas: [
         [0.07, 2, 0.4],
         [0.05, 4, 2.1],
+      ],
+      // Curvas a izquierda y derecha cada pocos cientos de metros (radio mínimo ~170-250 m)
+      meandros: [
+        [45, 800, 0.3],
+        [110, 2400, 1.7],
       ],
     },
     lago: null,
@@ -155,6 +175,11 @@ export const CIRCUITOS: DefCircuito[] = [
       ondas: [
         [0.12, 3, 1.1],
         [0.05, 6, 0.4],
+      ],
+      // Curvas a izquierda y derecha cada pocos cientos de metros (radio mínimo ~170-250 m)
+      meandros: [
+        [35, 850, 0.5],
+        [80, 2200, 1.2],
       ],
     },
     lago: null,

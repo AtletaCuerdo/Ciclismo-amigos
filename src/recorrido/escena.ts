@@ -22,6 +22,7 @@ import {
   type ParteModelo,
 } from './recursos';
 import { crestas, datosRuidoPeriodico, fbm } from './ruido';
+import { trazadoDe, type Trazado } from './trazado';
 
 /** Luminancia media (lineal) de la textura de hierba: sirve para usarla como detalle sin oscurecer. */
 const LUMINANCIA_HIERBA = 0.05;
@@ -84,60 +85,8 @@ function colinas(x: number, z: number) {
 // Trazado horizontal
 // ---------------------------------------------------------------------------
 
-interface Trazado {
-  n: number;
-  x: Float32Array;
-  z: Float32Array;
-  dx: Float32Array; // dirección unitaria
-  dz: Float32Array;
-  centroX: number;
-  centroZ: number;
-}
-
-/** Curva cerrada irregular (forma del circuito) escalada para medir exactamente una vuelta. */
-function crearTrazado(): Trazado {
-  const puntos: THREE.Vector3[] = [];
-  const { n, rx, rz, ondas } = CIRCUITO.forma;
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2;
-    // La primera onda con seno y las demás con coseno, como la forma original del lago
-    const r = 1 + ondas.reduce((t, [amp, frec, fase], k) => t + amp * (k === 0 ? Math.sin : Math.cos)(frec * a + fase), 0);
-    puntos.push(new THREE.Vector3(Math.cos(a) * rx * r, 0, Math.sin(a) * rz * r));
-  }
-  let curva = new THREE.CatmullRomCurve3(puntos, true, 'centripetal');
-  curva.arcLengthDivisions = 6000;
-  const escala = LONGITUD_VUELTA_M / curva.getLength();
-  curva = new THREE.CatmullRomCurve3(
-    puntos.map((p) => p.multiplyScalar(escala)),
-    true,
-    'centripetal',
-  );
-  curva.arcLengthDivisions = 6000;
-
-  const total = Math.round(LONGITUD_VUELTA_M / PASO_M);
-  const t: Trazado = {
-    n: total,
-    x: new Float32Array(total),
-    z: new Float32Array(total),
-    dx: new Float32Array(total),
-    dz: new Float32Array(total),
-    centroX: 0,
-    centroZ: 0,
-  };
-  for (let i = 0; i < total; i++) {
-    const u = i / total;
-    const p = curva.getPointAt(u);
-    const d = curva.getTangentAt(u);
-    const largo = Math.hypot(d.x, d.z) || 1;
-    t.x[i] = p.x;
-    t.z[i] = p.z;
-    t.dx[i] = d.x / largo;
-    t.dz[i] = d.z / largo;
-    t.centroX += p.x / total;
-    t.centroZ += p.z / total;
-  }
-  return t;
-}
+/** Trazado del circuito elegido. */
+const crearTrazado = () => trazadoDe(CIRCUITO, PASO_M);
 
 /** Índice espacial del trazado para encontrar el punto de carretera más cercano. */
 class IndiceCarretera {

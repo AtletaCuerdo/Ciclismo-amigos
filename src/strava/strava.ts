@@ -10,7 +10,7 @@
  * Mientras no se rellenen VITE_STRAVA_CLIENT_ID y VITE_STRAVA_INTERMEDIARIO (en el archivo
  * .env.production, que se sube al repositorio: ninguno de los dos es secreto) todo queda oculto.
  */
-import { generarTcx } from '../entrenamiento/tcx';
+import { generarTcx, prepararGeo } from '../entrenamiento/tcx';
 import type { Entreno } from '../entrenamiento/tipos';
 
 /** Número de la aplicación creada en strava.com/settings/api (es público, no es secreto). */
@@ -141,7 +141,8 @@ export async function subirAStrava(e: Entreno, nombre: string, descripcion: stri
   if (!c) throw new Error('No estás conectado con Strava');
   const r = await llamar<ResultadoSubida & { refresh?: string }>('/subir', {
     refresh: c.refresh,
-    tcx: generarTcx(e),
+    // Con mapa virtual y perfil del circuito (Strava solo enseña desnivel y gráfica si hay GPS)
+    tcx: generarTcx(e, await prepararGeo(e).catch(() => null)),
     nombre,
     descripcion,
     externo: `rodillos-${e.id}`,

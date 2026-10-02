@@ -61,7 +61,15 @@ const vacio = (): Interno => ({
 /** Si pasa más tiempo entre dos ticks (pestaña en segundo plano…), no se inventa distancia. */
 const MAX_DT_S = 5;
 
-export function useGrabacion(leerActual: () => ValoresActuales, leerPendiente: () => number | null) {
+/**
+ * `leerAdelanto`: metros que el punto del circuito va por delante de lo pedaleado (al aparecer
+ * junto a un amigo); con él cada muestra guarda su punto del circuito.
+ */
+export function useGrabacion(
+  leerActual: () => ValoresActuales,
+  leerPendiente: () => number | null,
+  leerAdelanto?: () => number,
+) {
   const g = useRef<Interno>(vacio());
   const [, refrescar] = useReducer((x: number) => x + 1, 0);
 
@@ -70,6 +78,8 @@ export function useGrabacion(leerActual: () => ValoresActuales, leerPendiente: (
   leerActualRef.current = leerActual;
   const leerPendienteRef = useRef(leerPendiente);
   leerPendienteRef.current = leerPendiente;
+  const leerAdelantoRef = useRef(leerAdelanto);
+  leerAdelantoRef.current = leerAdelanto;
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -91,6 +101,8 @@ export function useGrabacion(leerActual: () => ValoresActuales, leerPendiente: (
       }
 
       const m: Muestra = { t, d: s.distancia, alt: s.altitud };
+      const adelanto = leerAdelantoRef.current?.();
+      if (adelanto !== undefined) m.s = Math.round((adelanto + s.distancia) * 10) / 10;
       if (a.potencia !== undefined) m.p = Math.max(0, a.potencia);
       if (a.cadencia !== undefined) m.c = a.cadencia;
       if (a.velocidad !== undefined) m.v = a.velocidad;
