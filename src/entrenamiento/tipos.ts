@@ -32,6 +32,8 @@ export interface Resumen {
   circuitos?: [number, string][];
   /** Con quién se coincidió en la salida en grupo (nombres). */
   companeros?: string[];
+  /** Muestras en las que empieza una vuelta (un intervalo del entrenamiento), para Strava. */
+  vueltas?: number[];
 }
 
 /** Título según el porcentaje del tiempo que se ha ido a rueda (para las risas del grupo). */

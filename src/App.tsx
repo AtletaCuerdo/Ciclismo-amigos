@@ -1002,6 +1002,7 @@ export default function App() {
     sesionRef.current = { nombres: [] };
     companerosRef.current = new Set();
     cambiosCircuitoRef.current = [[Date.now(), CIRCUITO.id]];
+    cortesRef.current = [];
     setCircuitoSiguiente(null);
     setEntrenoActivo(null);
     setTerminado(null);
@@ -1062,9 +1063,24 @@ export default function App() {
     }
   };
 
+  // Dónde empieza cada intervalo (segundos de la grabación): serán las vueltas en Strava
+  const cortesRef = useRef<number[]>([]);
+  /** Desde `desde` (s) manda este entrenamiento: se quitan los cortes de lo que ya no se hará. */
+  const apuntarCortes = (desde: number, tramos: Tramo[] | null) => {
+    const quedan = cortesRef.current.filter((k) => k < desde);
+    quedan.push(desde);
+    if (tramos) {
+      for (const t of tramos) quedan.push(desde + t.inicio);
+      quedan.push(desde + duracionTotal(tramos));
+    }
+    cortesRef.current = quedan;
+  };
+
   const empezarEntreno = (e: Entrenamiento) => {
     const tramos = desplegar(e.bloques);
     mantenerPantallaEncendida();
+    cortesRef.current = [];
+    apuntarCortes(0, tramos);
     sesionRef.current = { nombres: [] };
     companerosRef.current = new Set();
     cambiosCircuitoRef.current = [[Date.now(), CIRCUITO.id]];
@@ -1082,10 +1098,14 @@ export default function App() {
     apuntarEnSesion(e);
     setEntrenoActivo({ entreno: e, tramos, total: duracionTotal(tramos), inicioS: grabacion.segundos });
     setIntensidad(100);
+    apuntarCortes(grabacion.segundos, tramos);
   };
 
   /** Al acabar un entrenamiento, seguir rodando libre (el rodillo vuelve a seguir la pendiente). */
-  const seguirLibre = () => setEntrenoActivo(null);
+  const seguirLibre = () => {
+    apuntarCortes(grabacion.segundos, null);
+    setEntrenoActivo(null);
+  };
 
   /** Guarda la sesión y vuelve al inicio con el resumen. */
   const terminar = async () => {
@@ -1096,6 +1116,8 @@ export default function App() {
     if (entreno) {
       entreno.resumen.circuito = circuitoId;
       if (cambiosCircuitoRef.current.length > 1) entreno.resumen.circuitos = cambiosCircuitoRef.current;
+      const vueltas = [...new Set(cortesRef.current)].filter((k) => k > 0 && k < entreno.muestras.length).sort((a, b) => a - b);
+      if (vueltas.length) entreno.resumen.vueltas = vueltas;
       if (companerosRef.current.size) entreno.resumen.companeros = [...companerosRef.current].slice(0, 20);
     }
     // Tiempo a rueda (rebufo): al resumen y, si voy en grupo, al chat para que lo vean todos

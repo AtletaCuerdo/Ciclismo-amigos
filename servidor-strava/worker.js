@@ -4,7 +4,7 @@
  * Guarda la clave secreta de la aplicación de Strava, que no puede ir en la web porque
  * cualquiera podría verla, y hace tres cosas:
  *   POST /token   { code }                        → canjea el código de autorización
- *   POST /subir   { refresh, tcx, nombre, descripcion, externo } → sube el TCX y devuelve la actividad
+ *   POST /subir   { refresh, fit | tcx, nombre, descripcion, externo } → sube el archivo y devuelve la actividad
  *   POST /desconectar { refresh }                 → revoca el permiso en Strava
  *
  * No guarda nada: cada ciclista conserva su propio «refresh token» en su navegador.
@@ -81,15 +81,23 @@ async function canjearCodigo(env, code) {
   };
 }
 
-async function subir(env, { refresh, tcx, nombre, descripcion, externo }) {
-  if (!refresh || !tcx) throw new Error('Faltan datos para subir');
+async function subir(env, { refresh, fit, tcx, nombre, descripcion, externo }) {
+  if (!refresh || (!fit && !tcx)) throw new Error('Faltan datos para subir');
   // Cada subida pide un token nuevo (dura 6 h); Strava puede cambiar también el refresh token
   const t = await pedirToken(env, { refresh_token: refresh, grant_type: 'refresh_token' });
   const acceso = t.access_token;
 
   const form = new FormData();
-  form.append('file', new Blob([tcx], { type: 'application/xml' }), 'entrenamiento.tcx');
-  form.append('data_type', 'tcx');
+  if (fit) {
+    // FIT (como Zwift o MyWhoosh): Strava lo crea como «Virtual Ride», con la altitud del archivo
+    // y una vuelta por intervalo (para el «Análisis del entrenamiento»)
+    const bytes = Uint8Array.from(atob(fit), (c) => c.charCodeAt(0));
+    form.append('file', new Blob([bytes], { type: 'application/octet-stream' }), 'entrenamiento.fit');
+    form.append('data_type', 'fit');
+  } else {
+    form.append('file', new Blob([tcx], { type: 'application/xml' }), 'entrenamiento.tcx');
+    form.append('data_type', 'tcx');
+  }
   // Sin «trainer»: Strava quita el mapa y el desnivel a las actividades de rodillo. Se sube como
   // actividad normal y luego se cambia a «Virtual Ride» (como Zwift o MyWhoosh), que sí los enseña.
   if (nombre) form.append('name', String(nombre).slice(0, 200));

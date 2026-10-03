@@ -11,6 +11,7 @@
  * .env.production, que se sube al repositorio: ninguno de los dos es secreto) todo queda oculto.
  */
 import { generarTcx, prepararGeo } from '../entrenamiento/tcx';
+import { fitBase64, generarFit } from '../entrenamiento/fit';
 import type { Entreno } from '../entrenamiento/tipos';
 
 /** Número de la aplicación creada en strava.com/settings/api (es público, no es secreto). */
@@ -139,10 +140,13 @@ export interface ResultadoSubida {
 export async function subirAStrava(e: Entreno, nombre: string, descripcion: string): Promise<ResultadoSubida> {
   const c = leerConexion();
   if (!c) throw new Error('No estás conectado con Strava');
+  const geo = await prepararGeo(e).catch(() => null);
   const r = await llamar<ResultadoSubida & { refresh?: string }>('/subir', {
     refresh: c.refresh,
-    // Con mapa virtual y perfil del circuito (Strava solo enseña desnivel y gráfica si hay GPS)
-    tcx: generarTcx(e, await prepararGeo(e).catch(() => null)),
+    // FIT (como Zwift o MyWhoosh): actividad virtual con la altitud del circuito y una vuelta por
+    // intervalo. El TCX va de reserva por si el intermediario aún no sabe subir FIT.
+    fit: fitBase64(generarFit(e, geo)),
+    tcx: generarTcx(e, geo),
     nombre,
     descripcion,
     externo: `rodillos-${e.id}`,
