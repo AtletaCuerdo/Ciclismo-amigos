@@ -3236,3 +3236,108 @@ p {
 .pantalla .selector-circuito .cabecera-panel {
   display: none;
 }
+
+/* ---------- Vatios en la gráfica del entreno ---------- */
+
+.grafica-con-vatios {
+  position: relative;
+}
+
+.rotulo-vatios {
+  position: absolute;
+  transform: translate(-50%, -110%);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #1d1d1f;
+  pointer-events: none;
+}
+
+.lista-intervalos {
+  list-style: none;
+  margin: 10px 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 14px;
+}
+
+.lista-intervalos li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.intervalo-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+
+/* ---------- Mandos del entreno en el recorrido ---------- */
+
+.hud-entreno-mandos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.hud-intensidad {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hud-intensidad button,
+.hud-entreno-boton {
+  min-width: 36px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.hud-intensidad span {
+  min-width: 50px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.hud-intensidad span.cambiada {
+  color: #fbbf24;
+}
+
+.selector-libre {
+  margin: 0 0 8px;
+}
+
+/* ---------- Cambio de circuito ---------- */
+
+.aviso-cambio-circuito {
+  position: absolute;
+  top: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(15, 17, 21, 0.78);
+  color: #fff;
+  font-size: 14px;
+  white-space: nowrap;
+}

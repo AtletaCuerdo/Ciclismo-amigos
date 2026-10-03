@@ -2319,6 +2319,13 @@ export class EscenaRecorrido {
       const lean = this.inclinacionEn(e.sRender, e.v);
       q.pos.set(qx, qy, qz);
       e.c.colocar(q.pos, qdx, qdz, pendiente(e.sRender), lean);
+      // Los carteles de los bots y grupetas solo de cerca (los de tus amigos, siempre)
+      if (uid.startsWith('bot-')) {
+        let h = (e.sRender - this.sYo) % LONGITUD_VUELTA_M;
+        if (h > LONGITUD_VUELTA_M / 2) h -= LONGITUD_VUELTA_M;
+        if (h < -LONGITUD_VUELTA_M / 2) h += LONGITUD_VUELTA_M;
+        e.c.mostrarNombre(h > -80 && h < 220);
+      }
       if (!e.fantasma) e.c.ponerDePie(tocaDePie(pendiente(e.sRender), (e.vatios ?? 0) >= 650, e.v, ahora, (hash(uid) % 97) / 97));
       e.c.pedalear(e.v, e.cadencia, dt);
     }

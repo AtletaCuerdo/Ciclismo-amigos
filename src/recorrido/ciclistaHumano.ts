@@ -229,27 +229,28 @@ function numeroDorsal(texto: string) {
  * Cuatro imperdibles en las esquinas, como en una carrera.
  */
 function texturaDorsal(nombre: string | null, semilla: string) {
+  // Doble resolución y letra gruesa: se tiene que leer desde la bici de detrás
   const lienzo = document.createElement('canvas');
-  lienzo.width = 256;
-  lienzo.height = 160;
+  lienzo.width = 512;
+  lienzo.height = 340;
   const ctx = lienzo.getContext('2d')!;
-  ctx.fillStyle = '#f7f6f1';
-  ctx.fillRect(0, 0, 256, 160);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, 512, 340);
   ctx.fillStyle = '#d62828';
-  ctx.fillRect(0, 0, 256, 14);
-  ctx.fillStyle = '#111111';
+  ctx.fillRect(0, 0, 512, 26);
+  ctx.fillStyle = '#000000';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = '900 88px "Arial Black", Impact, system-ui, sans-serif';
-  ctx.fillText(String(numeroDorsal(nombre ?? semilla)), 128, nombre ? 70 : 86, 230);
+  ctx.font = '900 190px "Arial Black", Impact, system-ui, sans-serif';
+  ctx.fillText(String(numeroDorsal(nombre ?? semilla)), 256, nombre ? 140 : 180, 480);
   if (nombre) {
-    ctx.font = 'bold 30px system-ui, "Segoe UI", sans-serif';
-    ctx.fillText(nombre.toUpperCase().slice(0, 14), 128, 132, 236);
+    ctx.font = '900 64px "Arial Black", system-ui, sans-serif';
+    ctx.fillText(nombre.toUpperCase().slice(0, 12), 256, 285, 490);
   }
-  ctx.fillStyle = '#9a9a9a';
-  for (const [x, y] of [[10, 22], [246, 22], [10, 150], [246, 150]]) {
+  ctx.fillStyle = '#8a8a8a';
+  for (const [x, y] of [[18, 44], [494, 44], [18, 320], [494, 320]]) {
     ctx.beginPath();
-    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.arc(x, y, 7, 0, Math.PI * 2);
     ctx.fill();
   }
   const t = new THREE.CanvasTexture(lienzo);
@@ -367,7 +368,7 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
             + bE( abs( abs( vRest.x ) - 0.052 ), -0.0025, 0.0025, wX ) * bE( vRest.y, uBajo, uBajo + 0.09, wY );
           m *= 1.0 - 0.4 * clamp( bolsillo, 0.0, 1.0 ) * espalda;
           // Dorsal de papel sobre los bolsillos
-          vec2 uvD = vec2( 0.5 - vRest.x / 0.2, ( vRest.y - uBajo - 0.012 ) / 0.11 );
+          vec2 uvD = vec2( 0.5 - vRest.x / 0.25, ( vRest.y - uBajo - 0.008 ) / 0.165 );
           float enDorsal = uConDorsal * step( 0.0, uvD.x ) * step( uvD.x, 1.0 ) * step( 0.0, uvD.y ) * step( uvD.y, 1.0 )
             * ( 1.0 - cE( nR.z, -0.35, 0.05 ) );
           m = mix( m, texture2D( uDorsal, clamp( uvD, 0.0, 1.0 ) ).rgb, enDorsal );

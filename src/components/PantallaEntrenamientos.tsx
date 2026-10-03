@@ -8,7 +8,7 @@ import {
   type Categoria,
   type Entrenamiento,
 } from '../entrenamientos/tipos';
-import { GraficaEntrenamiento } from './GraficaEntrenamiento';
+import { GraficaEntrenamiento, ListaIntervalos } from './GraficaEntrenamiento';
 
 interface Props {
   entrenamientos: Entrenamiento[];
@@ -175,7 +175,8 @@ function FichaEntrenamiento({
         </p>
       )}
       <p>{entreno.descripcion}</p>
-      <GraficaEntrenamiento tramos={tramos} alto={130} />
+      <GraficaEntrenamiento tramos={tramos} alto={130} ftp={ftp} />
+      <ListaIntervalos tramos={tramos} ftp={ftp} />
       <div className="datos-entreno">
         <div>
           <strong>{formatoDuracion(duracionTotal(tramos))}</strong>

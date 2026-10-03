@@ -328,6 +328,11 @@ export class Ciclista3D {
     }
   }
 
+  /** Enseña u oculta el cartel con el nombre (p. ej. los bots lejanos). */
+  mostrarNombre(si: boolean) {
+    if (this.etiqueta) this.etiqueta.visible = si;
+  }
+
   ponerNombre(nombre: string) {
     if (this.etiqueta) {
       this.etiqueta.material.map?.dispose();

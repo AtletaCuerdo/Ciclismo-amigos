@@ -11,9 +11,13 @@ interface Props {
   titulo: string;
   onElegir: (e: Entrenamiento) => void;
   onCancelar: () => void;
+  /** Para rotular los vatios. */
+  ftp: number;
+  /** Si hay un entreno en marcha: dejarlo y rodar libre. */
+  onLibre?: () => void;
 }
 
-export function SelectorEntreno({ entrenamientos, titulo, onElegir, onCancelar }: Props) {
+export function SelectorEntreno({ entrenamientos, titulo, onElegir, onCancelar, ftp, onLibre }: Props) {
   const [categoria, setCategoria] = useState<Categoria>('endurance');
   const lista = useMemo(
     () =>
@@ -36,6 +40,11 @@ export function SelectorEntreno({ entrenamientos, titulo, onElegir, onCancelar }
             Cancelar
           </button>
         </div>
+        {onLibre && (
+          <button className="boton-secundario selector-libre" onClick={onLibre}>
+            🚴 Dejar el entreno y rodar libre
+          </button>
+        )}
         <div className="selector-categorias">
           {CATEGORIAS.map((c) => (
             <button
@@ -57,7 +66,7 @@ export function SelectorEntreno({ entrenamientos, titulo, onElegir, onCancelar }
                   {formatoDuracion(dur)} · TSS {carga}
                 </span>
               </div>
-              <GraficaEntrenamiento tramos={t} alto={36} />
+              <GraficaEntrenamiento tramos={t} alto={44} ftp={ftp} />
             </button>
           ))}
           {!lista.length && <p>No hay entrenamientos en esta categoría.</p>}

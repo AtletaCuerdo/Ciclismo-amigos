@@ -26,8 +26,10 @@ export interface Resumen {
   kilojulios: number;
   /** Tiempo a rueda de otro ciclista (rebufo) en la salida en grupo, s. */
   segundosRueda?: number;
-  /** Circuito en el que se rodó (para los resúmenes). */
+  /** Circuito en el que se rodó (para los resúmenes); el último si se cambió. */
   circuito?: string;
+  /** Si se cambió de circuito en la sesión: [hora (ms), circuito] desde la que se rodó en cada uno. */
+  circuitos?: [number, string][];
   /** Con quién se coincidió en la salida en grupo (nombres). */
   companeros?: string[];
 }

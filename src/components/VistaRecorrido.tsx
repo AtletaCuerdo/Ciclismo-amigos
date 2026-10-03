@@ -3,7 +3,7 @@
  * marcador (HUD) y el perfil de la vuelta. Se carga de forma diferida.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Avatar, Calidad } from '../recorrido/avatar';
+import { guardarCalidad, type Avatar, type Calidad } from '../recorrido/avatar';
 import { EscenaRecorrido, type DatosYo, type OtroCiclista } from '../recorrido/escena';
 import {
   ALTITUD_MAX,
@@ -18,6 +18,7 @@ import {
 } from '../recorrido/perfil';
 import type { Entrenamiento, Tramo } from '../entrenamientos/tipos';
 import { SelectorEntreno } from './SelectorEntreno';
+import { CIRCUITOS, circuitoPorId, desnivelDe, longitudDe } from '../recorrido/circuitos';
 import { PanelSegmentos } from './PanelSegmentos';
 import type { ResultadoSegmento } from '../App';
 import { textoTiempo, type TramoActivo } from '../recorrido/segmentos';
@@ -94,6 +95,8 @@ interface Props {
   onUnirseSalida: () => void;
   /** Ponerse en el punto `s` del circuito (junto a un amigo). */
   onJuntoA: (s: number) => void;
+  /** Circuito actual y el siguiente (se cambia al cruzar la meta). */
+  circuito: { actual: string; siguiente: string | null; onElegir: (id: string | null) => void };
   /** Mi nombre (para el dorsal). */
   miNombre?: string;
   /** Emojis rápidos (solo en la salida): el mío, si lo acabo de lanzar, y cómo lanzar uno. */
@@ -121,6 +124,10 @@ interface Props {
     objetivoW?: number;
     ftp: number;
     erg: boolean;
+    /** Intensidad del entreno (% de los vatios programados): se sube o baja sobre la marcha. */
+    intensidad: number;
+    /** Sube o baja la intensidad (en puntos de %). */
+    onIntensidad: (delta: number) => void;
   } | null;
   /** Todos los entrenamientos (para elegir otro sin salir del recorrido). */
   entrenamientos: Entrenamiento[];
@@ -135,12 +142,22 @@ interface Props {
 const mmss = (s: number) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
 
 /** Panel del entrenamiento guiado: objetivo, tiempo del tramo, siguiente tramo y gráfica. */
-function PanelEntreno({ e, potencia }: { e: NonNullable<Props['entreno']>; potencia?: number }) {
+function PanelEntreno({
+  e,
+  potencia,
+  onCambiar,
+  onLibre,
+}: {
+  e: NonNullable<Props['entreno']>;
+  potencia?: number;
+  onCambiar: () => void;
+  onLibre: () => void;
+}) {
   const t = e.segundos;
   const i = e.tramos.findIndex((x) => t >= x.inicio && t < x.inicio + x.duracion);
   const actual = e.tramos[i];
   const siguiente = i >= 0 ? e.tramos[i + 1] : undefined;
-  const w = (pct: number) => Math.round((pct * e.ftp) / 100);
+  const w = (pct: number) => Math.round((pct * e.ftp * e.intensidad) / 10000);
   const acabado = t >= e.total;
   // Cumplimiento: verde si vas a ±5 % del objetivo, amarillo ±12 %, rojo fuera
   let clase = '';
@@ -192,6 +209,25 @@ function PanelEntreno({ e, potencia }: { e: NonNullable<Props['entreno']>; poten
         )
       )}
       <GraficaEntrenamiento tramos={e.tramos} progreso={t} alto={42} className="en-hud" />
+      {!acabado && (
+        <div className="hud-entreno-mandos">
+          <div className="hud-intensidad" title="Sube o baja todos los vatios del entreno sin cancelarlo">
+            <button onClick={() => e.onIntensidad(-5)} disabled={e.intensidad <= 50} aria-label="Bajar intensidad">
+              −
+            </button>
+            <span className={e.intensidad !== 100 ? 'cambiada' : ''}>{e.intensidad} %</span>
+            <button onClick={() => e.onIntensidad(5)} disabled={e.intensidad >= 150} aria-label="Subir intensidad">
+              +
+            </button>
+          </div>
+          <button className="hud-entreno-boton" onClick={onCambiar}>
+            🔁 Cambiar
+          </button>
+          <button className="hud-entreno-boton" onClick={onLibre}>
+            🚴 Libre
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -225,6 +261,7 @@ export default function VistaRecorrido({
   chat,
   emojis,
   miNombre,
+  circuito,
   rodilloControlado,
   demo,
   marcha,
@@ -274,7 +311,9 @@ export default function VistaRecorrido({
             setError('el dispositivo se ha quedado sin memoria gráfica varias veces. Cierra otras pestañas o apps y vuelve a entrar.');
             return;
           }
-          setAviso('El dispositivo se quedó sin memoria gráfica: se ha reiniciado el recorrido en calidad media.');
+          // A partir de ahora, calidad media en este dispositivo (se puede volver a cambiar en Ajustes)
+          guardarCalidad('media');
+          setAviso('El iPad se quedó sin memoria gráfica y el recorrido se ha reiniciado en calidad media. A partir de ahora se usará la calidad media en este dispositivo.');
           setReinicios((n) => n + 1);
         };
         escena.current = e;
@@ -311,6 +350,7 @@ export default function VistaRecorrido({
   useEffect(() => escena.current?.ponerMiEmoji(emojis?.mio ?? null), [emojis?.mio, cargando]);
   useEffect(() => escena.current?.ponerMiDorsal(miNombre || null), [miNombre, cargando]);
   const [menuEmojis, setMenuEmojis] = useState(false);
+  const [menuCircuito, setMenuCircuito] = useState(false);
 
   // Perfil de altitud de la vuelta (se calcula una vez)
   const trazoPerfil = useMemo(() => {
@@ -609,6 +649,38 @@ export default function VistaRecorrido({
                   ? 'Fantasma'
                   : `${fantasma.diferencia > 0 ? '+' : '−'}${textoTiempo(Math.abs(fantasma.diferencia))}`}
           </button>
+          <div className="menu-bots-ancla">
+            <button
+              className={`boton-secundario ${circuito.siguiente ? 'activo' : ''}`}
+              onClick={() => setMenuCircuito((m) => !m)}
+              title="Cambiar de circuito al terminar la vuelta"
+            >
+              🗺️ Circuito
+            </button>
+            {menuCircuito && (
+              <div className="hud menu-bots">
+                <div className="menu-bots-cabecera">
+                  <strong>Al cruzar la meta, seguir en…</strong>
+                  <button className="chat-cerrar" onClick={() => setMenuCircuito(false)} aria-label="Cerrar">
+                    ✕
+                  </button>
+                </div>
+                {CIRCUITOS.map((c) => (
+                  <button
+                    key={c.id}
+                    className={`boton-secundario ${(circuito.siguiente ?? circuito.actual) === c.id ? 'activo' : ''}`}
+                    onClick={() => {
+                      circuito.onElegir(c.id === circuito.actual ? null : c.id);
+                      setMenuCircuito(false);
+                    }}
+                  >
+                    {c.nombre} · {longitudDe(c) / 1000} km · {desnivelDe(c)} m ↑{c.id === circuito.actual ? ' (este)' : ''}
+                  </button>
+                ))}
+                <small>Lo grabado sigue en la misma actividad. Si vas en grupo, pasas a la salida de ese circuito.</small>
+              </div>
+            )}
+          </div>
           {!entreno && (
             <button className="boton-secundario" onClick={() => setEligiendo(true)} title="Hacer un entrenamiento guiado sin salir">
               📋 Entreno
@@ -627,7 +699,9 @@ export default function VistaRecorrido({
 
       {/* Zona central libre; el entrenamiento guiado va arriba a la izquierda, pegado a la barra */}
       <div className="hud-medio">
-        {entreno && <PanelEntreno e={entreno} potencia={yo.potencia} />}
+        {entreno && (
+          <PanelEntreno e={entreno} potencia={yo.potencia} onCambiar={() => setEligiendo(true)} onLibre={onSeguirLibre} />
+        )}
         <PanelSegmentos
           distancia={yo.distancia}
           activos={segmentos.activos}
@@ -675,7 +749,29 @@ export default function VistaRecorrido({
             onOtroEntreno(e);
           }}
           onCancelar={() => setEligiendo(false)}
+          ftp={ftp}
+          onLibre={
+            entreno && !acabado
+              ? () => {
+                  setEligiendo(false);
+                  onSeguirLibre();
+                }
+              : undefined
+          }
         />
+      )}
+
+      {circuito.siguiente && (
+        <div className="aviso-cambio-circuito">
+          🗺️ Al cruzar la meta: <strong>{circuitoPorId(circuito.siguiente).nombre}</strong> · quedan{' '}
+          {((LONGITUD_VUELTA_M - (((yo.distancia % LONGITUD_VUELTA_M) + LONGITUD_VUELTA_M) % LONGITUD_VUELTA_M)) / 1000)
+            .toFixed(1)
+            .replace('.', ',')}{' '}
+          km
+          <button className="chat-cerrar" onClick={() => circuito.onElegir(null)} aria-label="Seguir en este circuito">
+            ✕
+          </button>
+        </div>
       )}
 
       {!grabacion.corriendo && !cargando && (

@@ -90,7 +90,8 @@ async function subir(env, { refresh, tcx, nombre, descripcion, externo }) {
   const form = new FormData();
   form.append('file', new Blob([tcx], { type: 'application/xml' }), 'entrenamiento.tcx');
   form.append('data_type', 'tcx');
-  form.append('trainer', '1');
+  // Sin «trainer»: Strava quita el mapa y el desnivel a las actividades de rodillo. Se sube como
+  // actividad normal y luego se cambia a «Virtual Ride» (como Zwift o MyWhoosh), que sí los enseña.
   if (nombre) form.append('name', String(nombre).slice(0, 200));
   if (descripcion) form.append('description', String(descripcion).slice(0, 2000));
   if (externo) form.append('external_id', String(externo).slice(0, 100));
@@ -99,7 +100,8 @@ async function subir(env, { refresh, tcx, nombre, descripcion, externo }) {
   if (!r.ok) throw new Error(`Strava no aceptó el archivo (${r.status}): ${estado.message ?? JSON.stringify(estado)}`);
 
   // Strava procesa el archivo en unos segundos: se consulta hasta tener la actividad
-  for (let i = 0; i < 8 && !estado.activity_id && !estado.error; i++) {
+  // (las sesiones largas tardan más: hasta ~30 s)
+  for (let i = 0; i < 20 && !estado.activity_id && !estado.error; i++) {
     await new Promise((res) => setTimeout(res, 1500));
     const c = await fetch(`${API}/api/v3/uploads/${estado.id}`, { headers: { Authorization: `Bearer ${acceso}` } });
     estado = await c.json();
@@ -114,18 +116,29 @@ async function subir(env, { refresh, tcx, nombre, descripcion, externo }) {
   }
   if (estado.error && !duplicada) throw new Error(`Strava: ${estado.error}`);
 
-  // Que aparezca como «Virtual Ride» (rodillo con recorrido virtual)
+  // Que aparezca como «Virtual Ride» (rodillo con recorrido virtual). Strava a veces tarda en dejar
+  // editar una actividad recién creada: se reintenta unas cuantas veces.
+  let tipo = null;
   if (actividad && !duplicada) {
-    await fetch(`${API}/api/v3/activities/${actividad}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${acceso}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sport_type: 'VirtualRide', trainer: true }),
-    }).catch(() => {});
+    for (let i = 0; i < 5 && tipo !== 'VirtualRide'; i++) {
+      if (i > 0) await new Promise((res) => setTimeout(res, 2000));
+      try {
+        const c = await fetch(`${API}/api/v3/activities/${actividad}`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${acceso}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sport_type: 'VirtualRide', trainer: false }),
+        });
+        if (c.ok) tipo = (await c.json()).sport_type ?? null;
+      } catch {
+        // se reintenta
+      }
+    }
   }
 
   return {
     actividad,
     duplicada,
+    tipo,
     pendiente: !actividad && !duplicada,
     refresh: t.refresh_token,
   };

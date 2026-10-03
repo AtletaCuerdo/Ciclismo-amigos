@@ -527,7 +527,9 @@ export default function App() {
 
   // ---- Objetivo del entrenamiento guiado (W) ----
   const objetivoPct = entrenoActivo ? potenciaEn(entrenoActivo.tramos, grabacion.segundos - entrenoActivo.inicioS) : undefined;
-  const objetivoW = objetivoPct !== undefined ? Math.round((objetivoPct * perfil.ftp) / 100) : undefined;
+  // Intensidad: % de los vatios programados, para subirlos o bajarlos sin cancelar el entreno
+  const [intensidad, setIntensidad] = useState(100);
+  const objetivoW = objetivoPct !== undefined ? Math.round((objetivoPct * perfil.ftp * intensidad) / 10000) : undefined;
   const objetivoRef = useRef<number | undefined>(undefined);
   objetivoRef.current = objetivoW;
   const entrenoActivoRef = useRef<EntrenoActivo | null>(null);
@@ -999,6 +1001,8 @@ export default function App() {
     mantenerPantallaEncendida(); // dentro del clic: el navegador lo exige
     sesionRef.current = { nombres: [] };
     companerosRef.current = new Set();
+    cambiosCircuitoRef.current = [[Date.now(), CIRCUITO.id]];
+    setCircuitoSiguiente(null);
     setEntrenoActivo(null);
     setTerminado(null);
     setEnRecorrido(true);
@@ -1012,6 +1016,40 @@ export default function App() {
     juntoARef.current = uid;
     rodarLibre();
   };
+
+  // ---- Cambiar de circuito sobre la marcha (al cruzar la meta) ----
+  const [circuitoSiguiente, setCircuitoSiguiente] = useState<string | null>(null);
+  const cambiosCircuitoRef = useRef<[number, string][]>([]);
+  const vueltaCambioRef = useRef(0);
+  const elegirSiguienteCircuito = (id: string | null) => {
+    vueltaCambioRef.current = Math.floor(distanciaRef.current / LONGITUD_VUELTA_M);
+    setCircuitoSiguiente(id === circuitoId ? null : id);
+  };
+  useEffect(() => {
+    if (!enRecorrido || !circuitoSiguiente) return;
+    const vuelta = Math.floor(distanciaRef.current / LONGITUD_VUELTA_M);
+    if (vuelta <= vueltaCambioRef.current) return;
+    // Meta cruzada: al circuito nuevo, en su salida (más lo que ya se ha pasado de la línea)
+    const sobra = distanciaRef.current - vuelta * LONGITUD_VUELTA_M;
+    const id = circuitoSiguiente;
+    setCircuitoSiguiente(null);
+    elegirCircuito(id);
+    setAdelanto(sobra - grabacion.distanciaM);
+    cronoRef.current.cancelar();
+    setTramosActivos([]);
+    botsRef.current = [];
+    setVersionBots((v) => v + 1);
+    decididoGrupetasRef.current = false;
+    setFantasmaActivo(false);
+    cambiosCircuitoRef.current.push([Date.now(), id]);
+    // A la salida en grupo del circuito nuevo
+    if (salida.estado !== 'fuera') {
+      void salida.salir().then(() => {
+        if (nombreVisible) void salida.unirse(nombreVisible, circuitoPorId(id).sala);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grabacion.distanciaM, enRecorrido, circuitoSiguiente]);
 
   /** Entrar a una salida programada: a su circuito y, si ya hay alguien rodando, a su lado. */
   const entrarProgramada = (circuito: string) => {
@@ -1029,8 +1067,11 @@ export default function App() {
     mantenerPantallaEncendida();
     sesionRef.current = { nombres: [] };
     companerosRef.current = new Set();
+    cambiosCircuitoRef.current = [[Date.now(), CIRCUITO.id]];
+    setCircuitoSiguiente(null);
     apuntarEnSesion(e);
     setEntrenoActivo({ entreno: e, tramos, total: duracionTotal(tramos), inicioS: 0 });
+    setIntensidad(100);
     setTerminado(null);
     setEnRecorrido(true);
   };
@@ -1040,6 +1081,7 @@ export default function App() {
     const tramos = desplegar(e.bloques);
     apuntarEnSesion(e);
     setEntrenoActivo({ entreno: e, tramos, total: duracionTotal(tramos), inicioS: grabacion.segundos });
+    setIntensidad(100);
   };
 
   /** Al acabar un entrenamiento, seguir rodando libre (el rodillo vuelve a seguir la pendiente). */
@@ -1053,6 +1095,7 @@ export default function App() {
     const entreno = grabacion.finalizar();
     if (entreno) {
       entreno.resumen.circuito = circuitoId;
+      if (cambiosCircuitoRef.current.length > 1) entreno.resumen.circuitos = cambiosCircuitoRef.current;
       if (companerosRef.current.size) entreno.resumen.companeros = [...companerosRef.current].slice(0, 20);
     }
     // Tiempo a rueda (rebufo): al resumen y, si voy en grupo, al chat para que lo vean todos
@@ -1478,6 +1521,8 @@ export default function App() {
           }
         >
           <VistaRecorrido
+            key={circuitoId}
+            circuito={{ actual: circuitoId, siguiente: circuitoSiguiente, onElegir: elegirSiguienteCircuito }}
             avatar={perfil.avatar}
             calidad={calidad}
             leerYo={() => ({
@@ -1573,6 +1618,8 @@ export default function App() {
                     objetivoW,
                     ftp: perfil.ftp,
                     erg: hayErg,
+                    intensidad,
+                    onIntensidad: (delta: number) => setIntensidad((v) => Math.max(50, Math.min(150, v + delta))),
                   }
                 : null
             }

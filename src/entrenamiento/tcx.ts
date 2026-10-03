@@ -9,37 +9,49 @@ const iso = (ms: number) => new Date(ms).toISOString();
 const entero = (n: number) => Math.round(n).toString();
 
 /** Posición GPS virtual y altitud del circuito en el punto s (m desde la salida). */
-export type Geo = (s: number) => { lat: number; lon: number; alt: number };
+export type Geo = (s: number, t?: number) => { lat: number; lon: number; alt: number };
 
 /**
- * Mapa virtual para Strava (como hace Zwift con Watopia): el circuito se sitúa en mitad del
+ * Mapa virtual para Strava (como hace Zwift con Watopia): los circuitos se sitúan en mitad del
  * Mediterráneo, al este de Menorca, donde no hay segmentos reales con los que se pueda cruzar.
- * Cada circuito en su sitio, para que no se solapen. null si la sesión no guarda su recorrido.
+ * Todos salen del mismo punto del mapa: si se cambia de circuito al cruzar la meta, el recorrido
+ * sigue sin saltos. null si la sesión no guarda su recorrido.
  */
 export async function prepararGeo(e: Entreno): Promise<Geo | null> {
   const id = e.resumen.circuito;
   if (!id || !e.muestras.some((m) => m.s !== undefined)) return null;
-  const [{ CIRCUITOS, circuitoPorId, longitudDe }, { trazadoDe }, { altitudEnCircuito }] = await Promise.all([
+  const [{ circuitoPorId, longitudDe }, { trazadoDe }, { altitudEnCircuito }] = await Promise.all([
     import('../recorrido/circuitos'),
     import('../recorrido/trazado'),
     import('../recorrido/perfil'),
   ]);
-  const c = circuitoPorId(id);
   const paso = 5;
-  const tr = trazadoDe(c, paso);
-  const largo = longitudDe(c);
-  const indice = Math.max(0, CIRCUITOS.indexOf(c));
-  const lat0 = 39.5 - 0.12 * indice;
+  const lat0 = 39.5;
   const lon0 = 5.0;
   const mLat = 111320;
   const mLon = 111320 * Math.cos((lat0 * Math.PI) / 180);
-  return (sAbs: number) => {
+  const trazados = new Map<string, ReturnType<typeof trazadoDe>>();
+  const cambios = e.resumen.circuitos?.length ? e.resumen.circuitos : [[0, id] as [number, string]];
+  // Circuito en el que se iba a la hora t
+  const circuitoEn = (t: number) => {
+    let actual = cambios[0][1];
+    for (const [desde, c] of cambios) if (t >= desde) actual = c;
+    return circuitoPorId(actual);
+  };
+  return (sAbs: number, t?: number) => {
+    const c = circuitoEn(t ?? Infinity);
+    let tr = trazados.get(c.id);
+    if (!tr) {
+      tr = trazadoDe(c, paso);
+      trazados.set(c.id, tr);
+    }
+    const largo = longitudDe(c);
     const x = (((sAbs % largo) + largo) % largo) / paso;
     const i = Math.floor(x) % tr.n;
     const j = (i + 1) % tr.n;
     const f = x - Math.floor(x);
-    const px = tr.x[i] + (tr.x[j] - tr.x[i]) * f - tr.centroX;
-    const pz = tr.z[i] + (tr.z[j] - tr.z[i]) * f - tr.centroZ;
+    const px = tr.x[i] + (tr.x[j] - tr.x[i]) * f - tr.x[0];
+    const pz = tr.z[i] + (tr.z[j] - tr.z[i]) * f - tr.z[0];
     return { lat: lat0 - pz / mLat, lon: lon0 + px / mLon, alt: altitudEnCircuito(c, sAbs) };
   };
 }
@@ -52,7 +64,7 @@ export function generarTcx(e: Entreno, geo: Geo | null = null): string {
   const puntos = e.muestras
     .map((m) => {
       let s = `<Trackpoint><Time>${iso(m.t)}</Time>`;
-      const g = geo && m.s !== undefined ? geo(m.s) : null;
+      const g = geo && m.s !== undefined ? geo(m.s, m.t) : null;
       if (g) {
         s += `<Position><LatitudeDegrees>${g.lat.toFixed(7)}</LatitudeDegrees><LongitudeDegrees>${g.lon.toFixed(7)}</LongitudeDegrees></Position>`;
         s += `<AltitudeMeters>${g.alt.toFixed(1)}</AltitudeMeters>`;
