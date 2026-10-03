@@ -12,6 +12,7 @@ redistribuir sin atribución obligatoria. Aun así, se agradece a sus autores:
 | Hierba `sparse_grass` (`texturas/sparse_grass_*`) | Poly Haven | CC0 | https://polyhaven.com/a/sparse_grass |
 | Grava de los arcenes `gravel_floor_02` (`texturas/gravel_floor_02_*`) | Poly Haven | CC0 | https://polyhaven.com/a/gravel_floor_02 |
 | Cielo `kloofendal_48d_partly_cloudy_puresky` (`texturas/*.hdr`) | Poly Haven | CC0 | https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky |
+| Cielos de mañana, tarde y atardecer `citrus_orchard_road_puresky`, `evening_road_01_puresky`, `belfast_sunset_puresky` (`texturas/*_2k.hdr`) | Poly Haven | CC0 | https://polyhaven.com/hdris/skies |
 
 Cambios realizados: los modelos escaneados de Poly Haven se han simplificado (de hasta 100.000 triángulos a unos pocos miles) con gltf-transform, conservando sus texturas de 512-1024 px. texturas convertidas a JPG (piel y normales del ciclista a 2048 px,
 cortezas a 1024 px, asfalto, hierba y grava a 2048 px; el cielo a 2k y 4k). En la vegetación

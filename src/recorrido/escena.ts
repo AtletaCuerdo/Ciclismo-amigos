@@ -23,6 +23,7 @@ import {
 } from './recursos';
 import { crestas, datosRuidoPeriodico, fbm } from './ruido';
 import { trazadoDe, type Trazado } from './trazado';
+import { cieloActual } from './cielos';
 
 /** Luminancia media (lineal) de la textura de hierba: sirve para usarla como detalle sin oscurecer. */
 const LUMINANCIA_HIERBA = 0.05;
@@ -426,6 +427,7 @@ export class EscenaRecorrido {
   /** Dirección del sol (se ajusta a la del cielo fotográfico cuando carga). */
   private dirSol = SOL.clone();
   private sprintYo = false;
+  private ambiente = new THREE.HemisphereLight(0xcfe6ff, 0x55683a, 0.5);
   private destruida = false;
   private materialTerreno: THREE.MeshStandardMaterial | null = null;
   private materialGrava: THREE.MeshStandardMaterial | null = null;
@@ -491,7 +493,7 @@ export class EscenaRecorrido {
     this.sol.shadow.bias = -0.0004;
     this.sol.shadow.normalBias = 0.03;
     this.escena.add(this.sol, this.sol.target);
-    this.escena.add(new THREE.HemisphereLight(0xcfe6ff, 0x55683a, 0.5));
+    this.escena.add(this.ambiente);
 
     this.indice = new IndiceCarretera(this.tr);
     if (CIRCUITO.paisaje === 'sierra') {
@@ -543,11 +545,14 @@ export class EscenaRecorrido {
 
   /** Cielo fotográfico, asfalto y detalle de hierba reales (si fallan, se queda lo generado por código). */
   private async cargarCieloYTexturas() {
+    // Cielo según la hora (o el elegido en Ajustes), con su luz
+    const def = cieloActual();
+    const cielo4k = def.con4k && this.calidad === 'alta' && !this.movil;
     try {
       const [cielo, asfalto, asfaltoNormal, asfaltoRugosidad, hierba, hierbaNormal, grava, gravaNormal, gravaRugosidad] =
         await Promise.all([
           // El de 4k ocupa más de 100 MB mientras se descomprime: solo en ordenador
-          cargarCielo(this.calidad === 'alta' && !this.movil ? '4k' : '2k'),
+          cargarCielo(cielo4k ? '4k' : '2k', def.archivo),
           cargarTextura('asphalt_02_diff_2k.jpg', true),
           cargarTextura('asphalt_02_nor_gl_2k.jpg', false),
           cargarTextura('asphalt_02_rough_1k.jpg', false),
@@ -568,7 +573,14 @@ export class EscenaRecorrido {
       this.escena.environmentIntensity = 0.6;
       pmrem.dispose();
       this.dirSol.copy(direccionSolDelCielo(cielo));
-      if (this.dirSol.y < 0.25) this.dirSol.setY(0.25).normalize(); // que las sombras no sean eternas
+      // Que las sombras no sean eternas (al atardecer se permiten más largas)
+      if (this.dirSol.y < def.solMinimo) this.dirSol.setY(def.solMinimo).normalize();
+      this.sol.color.set(def.sol);
+      this.sol.intensity = def.intensidad;
+      this.renderer.toneMappingExposure = def.exposicion;
+      (this.escena.fog as THREE.Fog).color.set(def.niebla);
+      this.ambiente.color.set(def.ambiente);
+      this.ambiente.intensity = def.intensidadAmbiente;
       this.cielo.removeFromParent();
 
       // Asfalto: 2 × 2 m por repetición (las líneas van aparte)

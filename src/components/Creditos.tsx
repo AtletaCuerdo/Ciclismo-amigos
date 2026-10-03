@@ -41,6 +41,12 @@ const RECURSOS: Recurso[] = [
     licencia: 'CC0',
     enlace: 'https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky',
   },
+  {
+    que: 'Cielos de mañana, tarde y atardecer: «Citrus Orchard Road», «Evening Road 01» y «Belfast Sunset» (Pure Sky)',
+    autor: 'Poly Haven',
+    licencia: 'CC0',
+    enlace: 'https://polyhaven.com/hdris/skies',
+  },
 ];
 
 const SOFTWARE = [

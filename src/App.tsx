@@ -65,6 +65,13 @@ import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, ty
 import { mantenerPantallaEncendida, soltarPantalla } from './pantallaEncendida';
 import { CIRCUITO, LONGITUD_VUELTA_M, pendiente as pendienteRuta, usarCircuito } from './recorrido/perfil';
 import { CIRCUITOS, circuitoPorId, longitudDe } from './recorrido/circuitos';
+import {
+  CIELOS,
+  cieloSegunHora,
+  guardarEleccionCielo,
+  leerEleccionCielo,
+  type EleccionCielo,
+} from './recorrido/cielos';
 
 // El recorrido 3D y la vista previa del ciclista (Three.js) se descargan solo al usarlos
 const VistaRecorrido = lazy(() => import('./components/VistaRecorrido'));
@@ -196,6 +203,7 @@ type FtpSugerido = { w: number; texto: string };
 
 export default function App() {
   const [pantalla, setPantalla] = useState<Pantalla>('inicio');
+  const [eleccionCielo, setEleccionCielo] = useState<EleccionCielo>(leerEleccionCielo);
   const [datos, setDatos] = useState<Datos>(DATOS_VACIOS);
   const [conexiones, setConexiones] = useState<Record<Fuente, InfoConexion>>({
     ftms: CONEXION_INICIAL,
@@ -1430,6 +1438,24 @@ export default function App() {
               <select value={calidad} onChange={(e) => cambiarCalidad(e.target.value as Calidad)}>
                 <option value="alta">Alta (ordenador)</option>
                 <option value="media">Media (tablets y móviles)</option>
+              </select>
+            </label>
+            <label className="selector-calidad">
+              Cielo y luz
+              <select
+                value={eleccionCielo}
+                onChange={(e) => {
+                  const v = e.target.value as EleccionCielo;
+                  setEleccionCielo(v);
+                  guardarEleccionCielo(v);
+                }}
+              >
+                <option value="auto">Según la hora ({CIELOS.find((c) => c.id === cieloSegunHora())?.nombre.toLowerCase()} ahora)</option>
+                {CIELOS.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                  </option>
+                ))}
               </select>
             </label>
           </section>

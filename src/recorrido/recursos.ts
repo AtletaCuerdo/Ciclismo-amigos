@@ -191,17 +191,21 @@ export function cargarTextura(archivo: string, esColor: boolean): Promise<THREE.
   return p;
 }
 
-/** Cielo fotográfico (HDR equirectangular): 4k en calidad alta, 2k en media. */
-export function cargarCielo(resolucion: '2k' | '4k' = '2k'): Promise<THREE.DataTexture> {
-  let p = cacheCielo.get(resolucion);
+/** Cielo fotográfico (HDR equirectangular): 4k en calidad alta (si existe), 2k en media. */
+export function cargarCielo(
+  resolucion: '2k' | '4k' = '2k',
+  archivo = 'kloofendal_48d_partly_cloudy_puresky',
+): Promise<THREE.DataTexture> {
+  const clave = `${archivo}_${resolucion}`;
+  let p = cacheCielo.get(clave);
   if (!p) {
     p = new HDRLoader()
-      .loadAsync(rutaPublica(`texturas/kloofendal_48d_partly_cloudy_puresky_${resolucion}.hdr`))
+      .loadAsync(rutaPublica(`texturas/${clave}.hdr`))
       .then((t) => {
         t.mapping = THREE.EquirectangularReflectionMapping;
         return t;
       });
-    cacheCielo.set(resolucion, p);
+    cacheCielo.set(clave, p);
   }
   return p;
 }
