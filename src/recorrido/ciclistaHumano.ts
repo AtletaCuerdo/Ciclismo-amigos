@@ -279,6 +279,9 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
     uTextoY: { value: md.textoY },
     uTextoTam: { value: md.textoTam },
     uDorsal: { value: null as THREE.Texture | null },
+    uCascoCentro: { value: new THREE.Vector3() },
+    uCascoBorde: { value: new THREE.Vector3() },
+    uCascoActivo: { value: 0 },
     uConDorsal: { value: 0 },
   };
   m.userData.uniformes = uniformes;
@@ -304,6 +307,8 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
         uniform vec4 uTextoTam;
         uniform sampler2D uDorsal;
         uniform float uConDorsal;
+        uniform vec3 uCascoCentro, uCascoBorde;
+        uniform float uCascoActivo;
         float cE( float x, float e, float w ) { return smoothstep( e - w, e + w, x ); }
         float bE( float x, float a, float b, float w ) { return cE( x, a, w ) * ( 1.0 - cE( x, b, w ) ); }
         float letra( vec2 uv ) {
@@ -316,7 +321,9 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
         `#include <map_fragment>
         float lum = dot( diffuseColor.rgb, vec3( 0.2126, 0.7152, 0.0722 ) );
         // Los pliegues pintados en la textura se conservan un poco en la ropa
-        float pliegue = clamp( lum / 0.42, 0.86, 1.06 );
+        float pliegue = clamp( lum / 0.42, 0.93, 1.04 );
+        // Arrugas de la tela (relieve, se aplica en la normal más abajo)
+        float zArruga = 0.0;
         vec3 pielC = diffuseColor.rgb * uTono;
 
         // Segmento (hueso) más cercano en reposo
@@ -382,6 +389,8 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
           vec3 ropaC = mix( c, m, cE( vRest.y, uBajo, wY ) );
           col = mix( pielC, ropaC * pliegue, ropa );
           zTela = ropa;
+          float cintura = bE( vRest.y, uBajo - 0.06, uBajo + 0.2, 0.04 );
+          zArruga = ropa * cintura * 0.00035 * ( 0.4 + 0.6 * sin( vRest.x * 23.0 + vRest.z * 17.0 ) ) * sin( vRest.y * 135.0 + sin( vRest.x * 31.0 ) * 2.5 + nR.z * 2.0 );
           zRug = mix( -1.0, 0.62, ropa );
           if ( crem > 0.5 ) zRug = 0.3;
         } else if ( seg == 3 || seg == 4 ) {
@@ -390,6 +399,7 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
           vec3 m = mix( uMaillot, uFranja, bE( tS, 0.42, 0.5, wT ) );
           col = mix( pielC, m * pliegue, manga );
           zTela = manga;
+          zArruga = manga * ( 1.0 - cE( tS, 0.28, 0.06 ) ) * 0.00025 * ( 0.5 + 0.5 * sin( vRest.x * 60.0 ) ) * sin( tS * 45.0 + vRest.z * 35.0 );
           zRug = mix( -1.0, 0.62, manga );
         } else if ( seg == 5 || seg == 6 ) {
           // Antebrazo: piel; el guante empieza en la muñeca
@@ -410,6 +420,7 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
           cul = mix( cul, uFranja, bE( tS, 0.645, 0.7, wT ) );
           col = mix( pielC, cul * pliegue, c );
           zTela = c;
+          zArruga = c * ( 1.0 - cE( tS, 0.2, 0.06 ) ) * 0.0003 * ( 0.5 + 0.5 * sin( vRest.z * 50.0 ) ) * sin( tS * 60.0 + vRest.x * 30.0 );
           zRug = mix( -1.0, 0.62, c );
         } else if ( seg == 11 || seg == 12 ) {
           // Calcetín con una raya
@@ -427,6 +438,17 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
           col = mix( z, uCalcetin * pliegue, calcetin );
           zRug = mix( mix( 0.28, 0.8, suela ), 0.8, calcetin );
         }
+        // Dentro del casco: el acolchado interior (por las rejillas no se ve la cabeza)
+        if ( uCascoActivo > 0.5 && seg >= 1 && seg <= 2 ) {
+          vec3 dC = normalize( vRest - uCascoCentro );
+          float azC = atan( dC.x, dC.z );
+          float kC = ( 1.0 - cos( azC ) ) * 0.5;
+          float bordeC = uCascoBorde.x * 2.0 * ( kC - 0.5 ) * ( kC - 1.0 ) - uCascoBorde.y * 4.0 * kC * ( kC - 1.0 ) + uCascoBorde.z * 2.0 * kC * ( kC - 0.5 );
+          if ( vRest.y > uCascoCentro.y - 0.02 && acos( clamp( dC.y, -1.0, 1.0 ) ) < bordeC - 0.05 ) {
+            col = vec3( 0.035, 0.037, 0.042 );
+            zRug = 0.95;
+          }
+        }
         diffuseColor.rgb = col;`,
       )
       .replace(
@@ -437,7 +459,19 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
       .replace(
         '#include <normal_fragment_maps>',
         `#include <normal_fragment_maps>
-        normal = normalize( mix( nonPerturbedNormal, normal, 1.0 - 0.5 * zTela ) );`,
+        normal = normalize( mix( nonPerturbedNormal, normal, 1.0 - 0.8 * zTela ) );
+        {
+          // Relieve de las arrugas (como un mapa de relieve calculado aquí mismo)
+          vec3 dpx = dFdx( -vViewPosition );
+          vec3 dpy = dFdy( -vViewPosition );
+          float hx = dFdx( zArruga );
+          float hy = dFdy( zArruga );
+          vec3 r1 = cross( dpy, normal );
+          vec3 r2 = cross( normal, dpx );
+          float det = dot( dpx, r1 );
+          vec3 grad = sign( det ) * ( hx * r1 + hy * r2 );
+          normal = normalize( abs( det ) * normal - grad );
+        }`,
       )
       .replace(
         '#include <lights_physical_fragment>',
@@ -447,7 +481,7 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
         #endif`,
       );
   };
-  m.customProgramCacheKey = () => 'equipacion-ciclista-2';
+  m.customProgramCacheKey = () => 'equipacion-ciclista-4';
   return m;
 }
 
@@ -545,6 +579,8 @@ export interface PosturaBici {
 }
 
 const ESCALA = 1.03;
+/** Grosor de los brazos respecto al modelo base. */
+const BRAZO = 0.84;
 /** Cuánto se mueve la pelvis al ponerse de pie (coordenadas de la bici: +X delante, +Y arriba). */
 const DE_PIE = new THREE.Vector3(0.23, 0.1, 0);
 const HUESOS = [
@@ -601,6 +637,11 @@ export class JineteHumano {
       casco: avatar.casco,
       acento: avatar.franja,
     });
+    // Por las rejillas del casco se ve su acolchado, no la cabeza
+    const uc = this.material.userData.uniformes;
+    uc.uCascoCentro.value.copy(this.equipo.recorte.centro);
+    uc.uCascoBorde.value.copy(this.equipo.recorte.borde);
+    uc.uCascoActivo.value = 1;
 
     // Cejas del color del pelo
     this.raiz.traverse((o) => {
@@ -626,6 +667,13 @@ export class JineteHumano {
       this.reposo.set(h, h.quaternion.clone());
     }
     const H = this.huesos;
+    // Complexión de ciclista: el modelo base tiene brazos de gimnasio. Se adelgazan escalando el
+    // grosor de los huesos (su eje Y va a lo largo del hueso, así que no cambia la longitud) y las
+    // manos recuperan su tamaño.
+    for (const lado of ['l', 'r'] as const) {
+      H[`upperarm_${lado}`].scale.set(BRAZO, 1, BRAZO);
+      H[`hand_${lado}`].scale.set(1 / BRAZO, 1, 1 / BRAZO);
+    }
     const d = (a: THREE.Object3D, b: THREE.Object3D) =>
       a.getWorldPosition(new THREE.Vector3()).distanceTo(b.getWorldPosition(new THREE.Vector3())) * ESCALA;
     this.largos = {
