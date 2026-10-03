@@ -515,6 +515,9 @@ export class EscenaRecorrido {
     this.crearQuitamiedosYVallas();
     this.crearVegetacion();
     this.crearCasas();
+    this.crearMurosPiedra();
+    this.crearEspectadores();
+    this.crearPajaros();
     this.crearMolinos();
     this.crearAgua();
     this.crearMontanas();
@@ -1635,68 +1638,347 @@ export class EscenaRecorrido {
     this.proximaRevisionZonas = 0; // aplicar la visibilidad en la próxima imagen
   }
 
+  /** ¿Terreno casi llano alrededor de (x, z)? (para poder poner una casa) */
+  private llano(x: number, z: number, margen = 8, tolerancia = 5) {
+    return (
+      Math.abs(this.alturaTerreno(x + margen, z) - this.alturaTerreno(x - margen, z)) +
+        Math.abs(this.alturaTerreno(x, z + margen) - this.alturaTerreno(x, z - margen)) <=
+      tolerancia
+    );
+  }
+
+  /** Una casa de pueblo (en la sierra, de piedra con tejado de pizarra). */
+  private casa(x: number, z: number, rumbo: number, rnd: () => number, materiales: ReturnType<EscenaRecorrido['materialesCasa']>) {
+    const casa = new THREE.Group();
+    const w = 8 + rnd() * 6;
+    const d = 6 + rnd() * 3;
+    const alto = 3.2 + (rnd() < 0.4 ? 2.8 : 0);
+    const matPared = materiales.paredes[Math.floor(rnd() * materiales.paredes.length)];
+    const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(w, alto + 2, d), matPared);
+    cuerpo.position.y = alto / 2 - 1; // se hunde 2 m por si el suelo no es plano
+    // Tejado a dos aguas: prisma triangular
+    const forma = new THREE.Shape();
+    forma.moveTo(-d / 2 - 0.4, 0);
+    forma.lineTo(d / 2 + 0.4, 0);
+    forma.lineTo(0, 2.2);
+    forma.closePath();
+    const tejado = new THREE.Mesh(new THREE.ExtrudeGeometry(forma, { depth: w + 0.8, bevelEnabled: false }), materiales.tejado);
+    tejado.rotation.y = Math.PI / 2;
+    tejado.position.set(-(w + 0.8) / 2, alto, 0);
+    const chimenea = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.8, 0.7), matPared);
+    chimenea.position.set(w * 0.25, alto + 1.6, d * 0.15);
+    casa.add(cuerpo, tejado, chimenea);
+    // Ventanas y puerta
+    for (const cara of [-1, 1]) {
+      for (let k = 0; k < 3; k++) {
+        const v = new THREE.Mesh(new THREE.BoxGeometry(1, 1.1, 0.1), materiales.ventana);
+        v.position.set(-w / 2 + (w / 4) * (k + 1), alto * 0.55, (d / 2) * cara + 0.02 * cara);
+        casa.add(v);
+      }
+    }
+    const puerta = new THREE.Mesh(new THREE.BoxGeometry(1.1, 2.1, 0.1), materiales.madera);
+    puerta.position.set(0, 1.05, d / 2 + 0.03);
+    casa.add(puerta);
+    casa.position.set(x, this.alturaTerreno(x, z), z);
+    casa.rotation.y = rumbo;
+    casa.traverse((o) => {
+      if (o instanceof THREE.Mesh) {
+        o.castShadow = true;
+        o.receiveShadow = true;
+      }
+    });
+    this.escena.add(casa);
+  }
+
+  private materialesCasa() {
+    const sierra = CIRCUITO.paisaje === 'sierra';
+    const paredes = (sierra ? [0x9a9286, 0x8c8478, 0xa79f92, 0xb3a996] : [0xefe6d6, 0xe8dcc2, 0xf3efe6, 0xd9c6a5]).map(
+      (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 }),
+    );
+    return {
+      paredes,
+      tejado: new THREE.MeshStandardMaterial({ color: sierra ? 0x3c3f45 : 0xa2482b, roughness: 0.8, flatShading: true }),
+      ventana: new THREE.MeshStandardMaterial({ color: 0x2b3442, roughness: 0.2, metalness: 0.4 }),
+      madera: new THREE.MeshStandardMaterial({ color: 0x6b4a30, roughness: 0.9 }),
+    };
+  }
+
   private crearCasas() {
     const rnd = aleatorio(99);
-    const paredes = [0xefe6d6, 0xe8dcc2, 0xf3efe6, 0xd9c6a5];
-    const matTejado = new THREE.MeshStandardMaterial({ color: 0xa2482b, roughness: 0.8, flatShading: true });
-    const matVentana = new THREE.MeshStandardMaterial({ color: 0x2b3442, roughness: 0.2, metalness: 0.4 });
-    const matMadera = new THREE.MeshStandardMaterial({ color: 0x6b4a30, roughness: 0.9 });
+    const materiales = this.materialesCasa();
+    // Casas sueltas
     let colocadas = 0;
-    for (let intento = 0; intento < 400 && colocadas < 18; intento++) {
+    for (let intento = 0; intento < 400 && colocadas < 12; intento++) {
       const i = Math.floor(rnd() * this.tr.n);
       const lado = rnd() < 0.5 ? -1 : 1;
       const sep = 40 + rnd() * 320;
       const x = this.tr.x[i] - this.tr.dz[i] * lado * sep;
       const z = this.tr.z[i] + this.tr.dx[i] * lado * sep;
       const cerca = this.indice.cercano(x, z);
-      if (cerca.distancia < 32 || this.enLago(x, z, 40)) continue;
-      // Terreno bastante llano
-      const h = this.alturaTerreno(x, z, cerca);
-      const pendienteLocal = Math.abs(this.alturaTerreno(x + 8, z) - this.alturaTerreno(x - 8, z)) +
-        Math.abs(this.alturaTerreno(x, z + 8) - this.alturaTerreno(x, z - 8));
-      if (pendienteLocal > 5) continue;
-
-      const casa = new THREE.Group();
-      const w = 8 + rnd() * 6;
-      const d = 6 + rnd() * 3;
-      const alto = 3.2 + (rnd() < 0.4 ? 2.8 : 0);
-      const matPared = new THREE.MeshStandardMaterial({ color: paredes[Math.floor(rnd() * paredes.length)], roughness: 0.9 });
-      const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(w, alto + 2, d), matPared);
-      cuerpo.position.y = alto / 2 - 1; // se hunde 2 m por si el suelo no es plano
-      // Tejado a dos aguas: prisma triangular
-      const forma = new THREE.Shape();
-      forma.moveTo(-d / 2 - 0.4, 0);
-      forma.lineTo(d / 2 + 0.4, 0);
-      forma.lineTo(0, 2.2);
-      forma.closePath();
-      const tejado = new THREE.Mesh(new THREE.ExtrudeGeometry(forma, { depth: w + 0.8, bevelEnabled: false }), matTejado);
-      tejado.rotation.y = Math.PI / 2;
-      tejado.position.set(-(w + 0.8) / 2, alto, 0);
-      const chimenea = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.8, 0.7), matPared);
-      chimenea.position.set(w * 0.25, alto + 1.6, d * 0.15);
-      casa.add(cuerpo, tejado, chimenea);
-      // Ventanas y puerta
-      for (const cara of [-1, 1]) {
-        for (let k = 0; k < 3; k++) {
-          const v = new THREE.Mesh(new THREE.BoxGeometry(1, 1.1, 0.1), matVentana);
-          v.position.set(-w / 2 + (w / 4) * (k + 1), alto * 0.55, (d / 2) * cara + 0.02 * cara);
-          casa.add(v);
-        }
-      }
-      const puerta = new THREE.Mesh(new THREE.BoxGeometry(1.1, 2.1, 0.1), matMadera);
-      puerta.position.set(0, 1.05, d / 2 + 0.03);
-      casa.add(puerta);
-      casa.position.set(x, h, z);
-      casa.rotation.y = Math.atan2(-this.tr.dz[i], this.tr.dx[i]) + (rnd() < 0.5 ? 0 : Math.PI / 2);
-      casa.traverse((o) => {
-        if (o instanceof THREE.Mesh) {
-          o.castShadow = true;
-          o.receiveShadow = true;
-        }
-      });
-      this.escena.add(casa);
+      if (cerca.distancia < 32 || this.enLago(x, z, 40) || !this.llano(x, z)) continue;
+      this.casa(x, z, Math.atan2(-this.tr.dz[i], this.tr.dx[i]) + (rnd() < 0.5 ? 0 : Math.PI / 2), rnd, materiales);
       colocadas++;
     }
+    // Caseríos: grupos de 3 a 6 casas a la vista de la carretera; el primero con campanario
+    let caserios = 0;
+    for (let intento = 0; intento < 300 && caserios < 4; intento++) {
+      const i = Math.floor(rnd() * this.tr.n);
+      const lado = rnd() < 0.5 ? -1 : 1;
+      const sep = 90 + rnd() * 220;
+      const cx = this.tr.x[i] - this.tr.dz[i] * lado * sep;
+      const cz = this.tr.z[i] + this.tr.dx[i] * lado * sep;
+      if (this.indice.cercano(cx, cz).distancia < 70 || this.enLago(cx, cz, 80) || !this.llano(cx, cz, 25, 9)) continue;
+      const rumbo = Math.atan2(-this.tr.dz[i], this.tr.dx[i]);
+      const n = 3 + Math.floor(rnd() * 4);
+      let puestas = 0;
+      for (let k = 0; k < n * 4 && puestas < n; k++) {
+        const a = rnd() * Math.PI * 2;
+        const r = 12 + rnd() * 34;
+        const x = cx + Math.cos(a) * r;
+        const z = cz + Math.sin(a) * r;
+        if (this.indice.cercano(x, z).distancia < 30 || this.enLago(x, z, 30)) continue;
+        this.casa(x, z, rumbo + (rnd() < 0.5 ? 0 : Math.PI / 2) + (rnd() - 0.5) * 0.3, rnd, materiales);
+        puestas++;
+      }
+      if (caserios === 0) this.campanario(cx, cz, rumbo, materiales);
+      caserios++;
+    }
+  }
+
+  /** Torre de iglesia con tejado a cuatro aguas, en el centro de un caserío. */
+  private campanario(x: number, z: number, rumbo: number, materiales: ReturnType<EscenaRecorrido['materialesCasa']>) {
+    const torre = new THREE.Group();
+    const piedra = materiales.paredes[0];
+    const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(4.2, 16, 4.2), piedra);
+    cuerpo.position.y = 7;
+    const tejado = new THREE.Mesh(new THREE.ConeGeometry(3.4, 4, 4), materiales.tejado);
+    tejado.position.y = 17;
+    tejado.rotation.y = Math.PI / 4;
+    torre.add(cuerpo, tejado);
+    // Huecos de las campanas
+    for (let k = 0; k < 4; k++) {
+      const hueco = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2, 0.2), materiales.ventana);
+      const a = (k * Math.PI) / 2;
+      hueco.position.set(Math.sin(a) * 2.12, 12.5, Math.cos(a) * 2.12);
+      hueco.rotation.y = a;
+      torre.add(hueco);
+    }
+    torre.position.set(x, this.alturaTerreno(x, z), z);
+    torre.rotation.y = rumbo;
+    torre.traverse((o) => {
+      if (o instanceof THREE.Mesh) o.castShadow = true;
+    });
+    this.escena.add(torre);
+  }
+
+  /**
+   * Muros bajos de piedra seca junto a la carretera, a tramos (más en la sierra). Cada piedra es
+   * una instancia: miles de piedras cuestan como una sola malla.
+   */
+  private crearMurosPiedra() {
+    const rnd = aleatorio(321);
+    const sierra = CIRCUITO.paisaje === 'sierra';
+    const tramos = sierra ? 16 : 9;
+    const geo = new THREE.DodecahedronGeometry(0.5, 0);
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: true });
+    const matrices: THREE.Matrix4[] = [];
+    const colores: THREE.Color[] = [];
+    const q = new THREE.Quaternion();
+    const e = new THREE.Euler();
+    for (let t = 0; t < tramos; t++) {
+      const s0 = rnd() * LONGITUD_VUELTA_M;
+      // No en los llanos con vallas de madera (salvo en la sierra, que no las tiene)
+      if (!sierra && Math.abs(pendiente(s0)) < 1.2) continue;
+      const largo = 80 + rnd() * 200;
+      const lado = rnd() < 0.5 ? -1 : 1;
+      const lateral = lado * (11 + rnd() * 5);
+      for (let d = 0; d < largo; d += 0.9) {
+        const k = Math.round(enVuelta(s0 + d) / PASO_M) % this.tr.n;
+        for (const fila of [0, 1]) {
+          const lat = lateral + lado * fila * 0.05 + (rnd() - 0.5) * 0.15;
+          const x = this.tr.x[k] - this.tr.dz[k] * lat;
+          const z = this.tr.z[k] + this.tr.dx[k] * lat;
+          if (this.enLago(x, z, 5)) continue;
+          const y = this.alturaTerreno(x, z) + 0.15 + fila * 0.45;
+          e.set(rnd() * Math.PI, rnd() * Math.PI, rnd() * Math.PI);
+          q.setFromEuler(e);
+          const esc = 0.75 + rnd() * 0.5;
+          matrices.push(new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(esc * 1.1, esc * 0.7, esc * 0.9)));
+          const g = 0.5 + rnd() * 0.18;
+          colores.push(new THREE.Color(g * 1.02, g, g * 0.94));
+        }
+      }
+    }
+    if (!matrices.length) return;
+    const muro = new THREE.InstancedMesh(geo, mat, matrices.length);
+    matrices.forEach((m, i) => {
+      muro.setMatrixAt(i, m);
+      muro.setColorAt(i, colores[i]);
+    });
+    muro.castShadow = this.calidad === 'alta';
+    muro.receiveShadow = true;
+    this.escena.add(muro);
+  }
+
+  // ---- Espectadores animando en las cimas y en la meta ----
+  private espectadores: {
+    cuerpo: THREE.InstancedMesh;
+    piernas: THREE.InstancedMesh;
+    brazos: THREE.InstancedMesh;
+    cabeza: THREE.InstancedMesh;
+    lista: { pos: THREE.Vector3; rumbo: number; fase: number; ritmo: number; s: number }[];
+  } | null = null;
+
+  private crearEspectadores() {
+    const rnd = aleatorio(555);
+    // Zonas: lo alto de cada subida de verdad y la meta
+    const zonas: [number, number][] = [[-60, 40]];
+    for (const t of SUBIDAS) if (t.desnivel >= 18) zonas.push([t.fin - 220, t.fin + 30]);
+    const lista: NonNullable<EscenaRecorrido['espectadores']>['lista'] = [];
+    for (const [a, b] of zonas) {
+      for (let sv = a; sv < b; sv += rnd() < 0.15 ? 6 + rnd() * 10 : 0.8 + rnd() * 1.6) {
+        const lado = rnd() < 0.5 ? -1 : 1;
+        const k = Math.round(enVuelta(sv) / PASO_M) % this.tr.n;
+        const lat = lado * (6 + rnd() * 2.5);
+        const x = this.tr.x[k] - this.tr.dz[k] * lat;
+        const z = this.tr.z[k] + this.tr.dx[k] * lat;
+        // Miran hacia la carretera
+        const rumbo = Math.atan2(-this.tr.dz[k], this.tr.dx[k]) + (lado > 0 ? Math.PI : 0);
+        lista.push({ pos: new THREE.Vector3(x, this.alturaTerreno(x, z), z), rumbo, fase: rnd() * 10, ritmo: 4 + rnd() * 4, s: enVuelta(sv) });
+      }
+    }
+    if (!lista.length) return;
+    // Cuerpo (piernas + tronco), cabeza y brazos levantados (estos se animan)
+    // Pantalón (dos piernas), tronco con la camiseta, cabeza y brazos en V (animados)
+    const piernasGeo = mergeGeometries([
+      new THREE.CylinderGeometry(0.085, 0.07, 0.86, 6).translate(0.11, 0.43, 0),
+      new THREE.CylinderGeometry(0.085, 0.07, 0.86, 6).translate(-0.11, 0.43, 0),
+    ])!;
+    const cuerpoGeo = new THREE.CylinderGeometry(0.21, 0.24, 0.64, 9).translate(0, 1.18, 0);
+    const brazosGeo = mergeGeometries([
+      new THREE.CylinderGeometry(0.055, 0.05, 0.6, 6).translate(0, 0.3, 0).rotateZ(-0.45).translate(0.2, 0, 0),
+      new THREE.CylinderGeometry(0.055, 0.05, 0.6, 6).translate(0, 0.3, 0).rotateZ(0.45).translate(-0.2, 0, 0),
+    ])!;
+    const cabezaGeo = new THREE.SphereGeometry(0.15, 12, 10).translate(0, 1.68, 0);
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
+    const cuerpo = new THREE.InstancedMesh(cuerpoGeo, mat, lista.length);
+    const piernas = new THREE.InstancedMesh(piernasGeo, mat, lista.length);
+    const brazos = new THREE.InstancedMesh(brazosGeo, mat, lista.length);
+    const cabeza = new THREE.InstancedMesh(cabezaGeo, mat, lista.length);
+    const camisetas = [0xd62828, 0x1e5bd8, 0xf5d90a, 0x2fa84f, 0xff6a1a, 0xffffff, 0x111111, 0xff4fa3, 0x12b5b0];
+    const pieles = [0xf3d2b3, 0xe0ac85, 0xc68642, 0x8d5524];
+    const pantalones = [0x1d2433, 0x2b2b2b, 0x3a4f7a, 0x8a7a5c, 0x4a4a4a];
+    const c = new THREE.Color();
+    lista.forEach((_, i) => {
+      const camiseta = camisetas[Math.floor(rnd() * camisetas.length)];
+      const piel = pieles[Math.floor(rnd() * pieles.length)];
+      cuerpo.setColorAt(i, c.set(camiseta));
+      piernas.setColorAt(i, c.set(pantalones[Math.floor(rnd() * pantalones.length)]));
+      brazos.setColorAt(i, c.set(piel));
+      cabeza.setColorAt(i, c.set(piel));
+    });
+    for (const m of [cuerpo, piernas, brazos, cabeza]) {
+      m.castShadow = this.calidad === 'alta';
+      m.frustumCulled = false;
+      this.escena.add(m);
+    }
+    this.espectadores = { cuerpo, piernas, brazos, cabeza, lista };
+    this.animarEspectadores(0, true);
+  }
+
+  /** Saltan y agitan los brazos (solo los que están cerca del ciclista; los demás, quietos). */
+  private animarEspectadores(t: number, todos = false) {
+    const E = this.espectadores;
+    if (!E) return;
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const brazo = new THREE.Quaternion();
+    const eje = new THREE.Vector3(0, 1, 0);
+    const p = new THREE.Vector3();
+    const uno = new THREE.Vector3(1, 1, 1);
+    const yo = enVuelta(this.sYo);
+    let cambio = false;
+    E.lista.forEach((e, i) => {
+      let h = e.s - yo;
+      if (h > LONGITUD_VUELTA_M / 2) h -= LONGITUD_VUELTA_M;
+      if (h < -LONGITUD_VUELTA_M / 2) h += LONGITUD_VUELTA_M;
+      const cerca = h > -60 && h < 300;
+      if (!cerca && !todos) return;
+      const fase = t * e.ritmo + e.fase;
+      const salto = cerca ? Math.max(0, Math.sin(fase)) * 0.12 : 0;
+      q.setFromAxisAngle(eje, e.rumbo);
+      p.copy(e.pos).setY(e.pos.y + salto);
+      m.compose(p, q, uno);
+      E.cuerpo.setMatrixAt(i, m);
+      E.piernas.setMatrixAt(i, m);
+      E.cabeza.setMatrixAt(i, m);
+      // Brazos: de los hombros, arriba y abajo
+      brazo.setFromAxisAngle(new THREE.Vector3(1, 0, 0), cerca ? Math.sin(fase * 1.3) * 0.35 : 0);
+      const hombro = p.clone().setY(p.y + 1.42);
+      m.compose(hombro, q.clone().multiply(brazo), uno);
+      E.brazos.setMatrixAt(i, m);
+      cambio = true;
+    });
+    if (cambio) {
+      E.cuerpo.instanceMatrix.needsUpdate = true;
+      E.piernas.instanceMatrix.needsUpdate = true;
+      E.cabeza.instanceMatrix.needsUpdate = true;
+      E.brazos.instanceMatrix.needsUpdate = true;
+    }
+  }
+
+  // ---- Pájaros: bandadas volando en círculo sobre el paisaje ----
+  private pajaros: { malla: THREE.InstancedMesh; bandadas: { c: THREE.Vector3; r: number; v: number; n: number }[] } | null = null;
+
+  private crearPajaros() {
+    const rnd = aleatorio(777);
+    // Un pájaro: dos alas en V (se baten escalando en vertical)
+    const ala = new THREE.BufferGeometry();
+    ala.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute([0, 0, 0, -0.45, 0.12, -0.15, -0.45, 0.12, 0.15, 0, 0, 0, 0.45, 0.12, 0.15, 0.45, 0.12, -0.15], 3),
+    );
+    ala.computeVertexNormals();
+    const bandadas: { c: THREE.Vector3; r: number; v: number; n: number }[] = [];
+    let total = 0;
+    for (let b = 0; b < 7; b++) {
+      const k = Math.floor(rnd() * this.tr.n);
+      const lado = rnd() < 0.5 ? -1 : 1;
+      const sep = 60 + rnd() * 200;
+      const x = this.tr.x[k] - this.tr.dz[k] * lado * sep;
+      const z = this.tr.z[k] + this.tr.dx[k] * lado * sep;
+      const n = 5 + Math.floor(rnd() * 6);
+      bandadas.push({ c: new THREE.Vector3(x, this.alturaTerreno(x, z) + 35 + rnd() * 30, z), r: 25 + rnd() * 35, v: (0.15 + rnd() * 0.15) * (rnd() < 0.5 ? -1 : 1), n });
+      total += n;
+    }
+    const malla = new THREE.InstancedMesh(ala, new THREE.MeshBasicMaterial({ color: 0x1d1f22, side: THREE.DoubleSide }), total);
+    malla.frustumCulled = false;
+    this.escena.add(malla);
+    this.pajaros = { malla, bandadas };
+  }
+
+  private animarPajaros(t: number) {
+    const P = this.pajaros;
+    if (!P) return;
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const p = new THREE.Vector3();
+    const esc = new THREE.Vector3();
+    const eje = new THREE.Vector3(0, 1, 0);
+    let i = 0;
+    for (const b of P.bandadas) {
+      for (let k = 0; k < b.n; k++) {
+        // Cada pájaro algo desplazado en el círculo y en altura, batiendo las alas a su ritmo
+        const a = t * b.v + k * 0.22;
+        const r = b.r + Math.sin(k * 1.7) * 6;
+        p.set(b.c.x + Math.cos(a) * r, b.c.y + Math.sin(k * 2.3 + t * 0.7) * 2, b.c.z + Math.sin(a) * r);
+        q.setFromAxisAngle(eje, -a + (b.v > 0 ? 0 : Math.PI));
+        const aleteo = 0.35 + 0.65 * Math.abs(Math.sin(t * 9 + k));
+        m.compose(p, q, esc.set(1.4, aleteo * 1.4, 1.4));
+        P.malla.setMatrixAt(i++, m);
+      }
+    }
+    P.malla.instanceMatrix.needsUpdate = true;
   }
 
   private crearMolinos() {
@@ -2333,8 +2615,10 @@ export class EscenaRecorrido {
     this.revisarZonas(miX, miZ, ahora);
     this.resolucionDinamica(dt, ahora);
 
-    // Molinos y nubes
+    // Molinos, nubes, espectadores y pájaros
     for (const r of this.rotores) r.g.rotation.x += r.vel * dt;
+    this.animarEspectadores(ahora / 1000);
+    this.animarPajaros(ahora / 1000);
     for (const n of this.nubes) n.position.x += 3 * dt;
 
     // Sol y sombras siguiendo al ciclista
