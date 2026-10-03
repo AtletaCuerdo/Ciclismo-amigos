@@ -94,6 +94,8 @@ interface Props {
   onUnirseSalida: () => void;
   /** Ponerse en el punto `s` del circuito (junto a un amigo). */
   onJuntoA: (s: number) => void;
+  /** Mi nombre (para el dorsal). */
+  miNombre?: string;
   /** Emojis rápidos (solo en la salida): el mío, si lo acabo de lanzar, y cómo lanzar uno. */
   emojis: { mio: string | null; onEnviar: (e: string) => void } | null;
   /** Chat del grupo (solo en la salida). */
@@ -222,6 +224,7 @@ export default function VistaRecorrido({
   onJuntoA,
   chat,
   emojis,
+  miNombre,
   rodilloControlado,
   demo,
   marcha,
@@ -306,6 +309,7 @@ export default function VistaRecorrido({
   useEffect(() => escena.current?.cambiarMiAvatar(avatar), [avatar]);
   useEffect(() => escena.current?.actualizarOtros(otros), [otros, cargando]);
   useEffect(() => escena.current?.ponerMiEmoji(emojis?.mio ?? null), [emojis?.mio, cargando]);
+  useEffect(() => escena.current?.ponerMiDorsal(miNombre || null), [miNombre, cargando]);
   const [menuEmojis, setMenuEmojis] = useState(false);
 
   // Perfil de altitud de la vuelta (se calcula una vez)

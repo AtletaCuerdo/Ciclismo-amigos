@@ -149,6 +149,15 @@ export class Ciclista3D {
   /** 0 sentado … 1 de pie (cambia suave) y lo que se quiere ahora. */
   private dePie = 0;
   private quiereDePie = false;
+  /** Nombre del dorsal (null: solo número). */
+  private dorsal: string | null = null;
+  private semillaDorsal = Math.random().toString(36);
+
+  /** Dorsal en la espalda: el nombre si es de una persona; los bots, solo número. */
+  ponerDorsal(nombre: string | null) {
+    this.dorsal = nombre && /^\p{L}/u.test(nombre) ? nombre : null;
+    this.humano?.ponerDorsal(this.dorsal, this.semillaDorsal);
+  }
 
   /** De pie sobre los pedales (rampas duras, sprints) o sentado. */
   ponerDePie(si: boolean) {
@@ -236,6 +245,7 @@ export class Ciclista3D {
           c,
         );
         this.humano.actualizarColores(this.avatar);
+        this.humano.ponerDorsal(this.dorsal, this.semillaDorsal);
         this.pedalear(0, 0, 0);
         return;
       } catch (e) {
@@ -326,6 +336,7 @@ export class Ciclista3D {
     }
     this.etiqueta = etiquetaNombre(nombre);
     this.raiz.add(this.etiqueta);
+    this.ponerDorsal(nombre);
   }
 
   cambiarAvatar(avatar: Avatar) {

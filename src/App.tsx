@@ -1537,6 +1537,7 @@ export default function App() {
             onUnirseSalida={unirseDesdeRecorrido}
             onJuntoA={ponerEnPunto}
             emojis={{ mio: miEmoji, onEnviar: lanzarEmoji }}
+            miNombre={nombreVisible}
             chat={{
               mensajes: salida.mensajes,
               miUid: salida.miUid,

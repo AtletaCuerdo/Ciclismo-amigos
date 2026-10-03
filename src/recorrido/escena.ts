@@ -1875,7 +1875,9 @@ export class EscenaRecorrido {
     const roca = new THREE.Color(0x7a746b);
     const rocaOscura = new THREE.Color(0x57534d);
     const nieve = new THREE.Color(0xf2f5f8);
-    const lejos = new THREE.Color(0x9fb4c8);
+    // Perspectiva aérea: lo lejano se funde con la bruma del cielo que toca (azulada a mediodía,
+    // cálida al atardecer)
+    const lejos = new THREE.Color(0x9fb4c8).lerp(new THREE.Color(cieloActual().niebla), 0.3);
     const c = new THREE.Color();
     for (let v = 0; v < pos.length / 3; v++) {
       const x = pos[v * 3];
@@ -1888,7 +1890,9 @@ export class EscenaRecorrido {
       const lineaNieve = 950 + 180 * (fbm(x / 600, z / 600, 3, 33) - 0.5) + 400 * pend;
       c.lerp(nieve, suavizado(lineaNieve, lineaNieve + 90, y));
       const d = Math.hypot(x - cx, z - cz);
-      c.lerp(lejos, 0.15 + 0.55 * suavizado(inicioEn[v % (nA + 1)], r1, d));
+      // Más bruma abajo (en los valles) que en las cumbres
+      const bajo = 1 - suavizado(ALTITUD_MIN + 60, ALTITUD_MIN + 700, y);
+      c.lerp(lejos, Math.min(0.85, 0.15 + 0.55 * suavizado(inicioEn[v % (nA + 1)], r1, d) + 0.2 * bajo));
       col.set([c.r, c.g, c.b], v * 3);
     }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -2160,6 +2164,11 @@ export class EscenaRecorrido {
         this.otros.delete(uid);
       }
     }
+  }
+
+  /** Mi dorsal (con mi nombre en la salida en grupo). */
+  ponerMiDorsal(nombre: string | null) {
+    this.yo.ponerDorsal(nombre);
   }
 
   /** Mi emoji (o null para quitarlo). */

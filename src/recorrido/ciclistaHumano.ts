@@ -217,6 +217,47 @@ function rotulacion() {
   return texturaTexto;
 }
 
+/** Número de dorsal fijo para cada nombre (1-199). */
+function numeroDorsal(texto: string) {
+  let h = 7;
+  for (const c of texto) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return 1 + (h % 199);
+}
+
+/**
+ * Dorsal de papel: número grande y, debajo, el nombre (sin nombre, solo el número).
+ * Cuatro imperdibles en las esquinas, como en una carrera.
+ */
+function texturaDorsal(nombre: string | null, semilla: string) {
+  const lienzo = document.createElement('canvas');
+  lienzo.width = 256;
+  lienzo.height = 160;
+  const ctx = lienzo.getContext('2d')!;
+  ctx.fillStyle = '#f7f6f1';
+  ctx.fillRect(0, 0, 256, 160);
+  ctx.fillStyle = '#d62828';
+  ctx.fillRect(0, 0, 256, 14);
+  ctx.fillStyle = '#111111';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '900 88px "Arial Black", Impact, system-ui, sans-serif';
+  ctx.fillText(String(numeroDorsal(nombre ?? semilla)), 128, nombre ? 70 : 86, 230);
+  if (nombre) {
+    ctx.font = 'bold 30px system-ui, "Segoe UI", sans-serif';
+    ctx.fillText(nombre.toUpperCase().slice(0, 14), 128, 132, 236);
+  }
+  ctx.fillStyle = '#9a9a9a';
+  for (const [x, y] of [[10, 22], [246, 22], [10, 150], [246, 150]]) {
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const t = new THREE.CanvasTexture(lienzo);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
 function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
   const m = base.clone();
   const md = base.userData.medidas;
@@ -236,6 +277,8 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
     uTexto: { value: rotulacion() },
     uTextoY: { value: md.textoY },
     uTextoTam: { value: md.textoTam },
+    uDorsal: { value: null as THREE.Texture | null },
+    uConDorsal: { value: 0 },
   };
   m.userData.uniformes = uniformes;
   m.onBeforeCompile = (s) => {
@@ -258,6 +301,8 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
         uniform sampler2D uTexto;
         uniform vec2 uTextoY;
         uniform vec4 uTextoTam;
+        uniform sampler2D uDorsal;
+        uniform float uConDorsal;
         float cE( float x, float e, float w ) { return smoothstep( e - w, e + w, x ); }
         float bE( float x, float a, float b, float w ) { return cE( x, a, w ) * ( 1.0 - cE( x, b, w ) ); }
         float letra( vec2 uv ) {
@@ -321,6 +366,11 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
           float bolsillo = bE( vRest.y, uBajo + 0.086, uBajo + 0.092, wY )
             + bE( abs( abs( vRest.x ) - 0.052 ), -0.0025, 0.0025, wX ) * bE( vRest.y, uBajo, uBajo + 0.09, wY );
           m *= 1.0 - 0.4 * clamp( bolsillo, 0.0, 1.0 ) * espalda;
+          // Dorsal de papel sobre los bolsillos
+          vec2 uvD = vec2( 0.5 - vRest.x / 0.2, ( vRest.y - uBajo - 0.012 ) / 0.11 );
+          float enDorsal = uConDorsal * step( 0.0, uvD.x ) * step( uvD.x, 1.0 ) * step( 0.0, uvD.y ) * step( uvD.y, 1.0 )
+            * ( 1.0 - cE( nR.z, -0.35, 0.05 ) );
+          m = mix( m, texture2D( uDorsal, clamp( uvD, 0.0, 1.0 ) ).rgb, enDorsal );
           // Cremallera
           float crem = frente * ( 1.0 - cE( abs( vRest.x ), 0.0035, wX ) ) * cE( vRest.y, uBajo + 0.01, wY );
           m = mix( m, vec3( 0.16 ), crem );
@@ -752,6 +802,14 @@ export class JineteHumano {
     return g.addScaledVector(palma, -0.022).addScaledVector(dedos, -0.056);
   }
 
+  /** Dorsal con el nombre (o solo el número si no hay nombre; `semilla` lo fija). */
+  ponerDorsal(nombre: string | null, semilla: string) {
+    const u = this.material.userData.uniformes;
+    (u.uDorsal.value as THREE.Texture | null)?.dispose();
+    u.uDorsal.value = texturaDorsal(nombre, semilla);
+    u.uConDorsal.value = 1;
+  }
+
   actualizarColores(a: Avatar) {
     const u = this.material.userData.uniformes;
     u.uMaillot.value.set(a.maillot);
@@ -841,6 +899,7 @@ export class JineteHumano {
   }
 
   destruir() {
+    (this.material.userData.uniformes.uDorsal.value as THREE.Texture | null)?.dispose();
     this.materiales.forEach((m) => m.dispose());
     this.equipo.destruir();
     this.raiz.removeFromParent();
