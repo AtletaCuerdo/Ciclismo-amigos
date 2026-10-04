@@ -20,7 +20,7 @@ export interface ValoresActuales {
   potenciaEsEstimada: boolean;
 }
 
-interface Interno {
+export interface Interno {
   corriendo: boolean;
   inicio: number | null;
   acumuladoMs: number; // tiempo en marcha de los tramos ya cerrados
@@ -169,6 +169,20 @@ export function useGrabacion(
     refrescar();
   };
 
+  /** Copia de lo grabado hasta ahora, en pausa (para el guardado automático). */
+  const instantanea = (): Interno | null => {
+    const x = g.current;
+    if (x.muestras.length === 0) return null;
+    const enMarcha = x.tramoDesde !== null ? Date.now() - x.tramoDesde : 0;
+    return { ...x, corriendo: false, tramoDesde: null, ultimoTick: null, acumuladoMs: x.acumuladoMs + enMarcha };
+  };
+
+  /** Vuelve a cargar una grabación guardada (queda en pausa: se sigue con «Seguir»). */
+  const restaurar = (x: Interno) => {
+    g.current = { ...vacio(), ...x, corriendo: false, tramoDesde: null, ultimoTick: null };
+    refrescar();
+  };
+
   return {
     corriendo: s.corriendo,
     hayDatos: s.muestras.length > 0,
@@ -185,5 +199,7 @@ export function useGrabacion(
     pausar,
     finalizar,
     descartar,
+    instantanea,
+    restaurar,
   };
 }

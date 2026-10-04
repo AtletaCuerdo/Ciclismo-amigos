@@ -306,6 +306,33 @@ export interface OtroCiclista {
   emoji?: string;
 }
 
+/** Una persona del público. */
+interface Persona {
+  pos: THREE.Vector3;
+  rumbo: number;
+  giro: number;
+  fase: number;
+  ritmo: number;
+  s: number;
+  gesto: number;
+  talla: number;
+  ancho: number;
+}
+
+/** El público de una zona (meta o cima): mallas instanciadas que se dibujan solo de cerca. */
+interface ZonaPublico {
+  grupo: THREE.Group;
+  gente: Persona[];
+  piernas: THREE.InstancedMesh;
+  zapatos: THREE.InstancedMesh;
+  cuerpo: THREE.InstancedMesh;
+  cabeza: THREE.InstancedMesh;
+  peinados: THREE.InstancedMesh[];
+  peinado: number[];
+  mangas: THREE.InstancedMesh;
+  antebrazos: THREE.InstancedMesh;
+}
+
 export interface DatosYo {
   distancia: number; // m (autoritativa, viene de la grabación, 1 vez/s)
   velocidad: number; // km/h
@@ -1821,110 +1848,235 @@ export class EscenaRecorrido {
   }
 
   // ---- Espectadores animando en las cimas y en la meta ----
-  private espectadores: {
-    cuerpo: THREE.InstancedMesh;
-    piernas: THREE.InstancedMesh;
-    brazos: THREE.InstancedMesh;
-    cabeza: THREE.InstancedMesh;
-    lista: { pos: THREE.Vector3; rumbo: number; fase: number; ritmo: number; s: number }[];
-  } | null = null;
+  // Cada zona (la meta y lo alto de cada subida) es un grupo aparte: solo se dibujan las cercanas.
+  private espectadores: ZonaPublico[] = [];
 
   private crearEspectadores() {
     const rnd = aleatorio(555);
-    // Zonas: lo alto de cada subida de verdad y la meta
     const zonas: [number, number][] = [[-60, 40]];
     for (const t of SUBIDAS) if (t.desnivel >= 18) zonas.push([t.fin - 220, t.fin + 30]);
-    const lista: NonNullable<EscenaRecorrido['espectadores']>['lista'] = [];
+
+    // ---- Piezas (en metros, mirando hacia +Z) ----
+    const torno = (puntos: [number, number][], seg: number) =>
+      new THREE.LatheGeometry(puntos.map(([r, y]) => new THREE.Vector2(r, y)), seg);
+    const pierna = (x: number) => new THREE.CylinderGeometry(0.078, 0.056, 0.84, 7).translate(x, 0.5, 0);
+    const piernasGeo = mergeGeometries([
+      pierna(0.09),
+      pierna(-0.09),
+      // Cadera
+      new THREE.SphereGeometry(0.17, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2).scale(1.05, 0.55, 0.78).rotateX(Math.PI).translate(0, 0.93, 0),
+    ])!;
+    const zapato = (x: number) => new THREE.BoxGeometry(0.105, 0.075, 0.25).translate(x, 0.04, 0.04);
+    const zapatosGeo = mergeGeometries([zapato(0.09), zapato(-0.09)])!;
+    // Tronco con cintura, pecho y hombros redondeados (más ancho que profundo)
+    const cuerpoGeo = torno(
+      [
+        [0.001, 0.9],
+        [0.17, 0.92],
+        [0.155, 1.05],
+        [0.18, 1.22],
+        [0.195, 1.36],
+        [0.18, 1.44],
+        [0.1, 1.5],
+        [0.001, 1.51],
+      ],
+      10,
+    ).scale(1.18, 1, 0.72);
+    // Cabeza: cuello, cráneo algo alargado, nariz y orejas
+    const cabezaGeo = mergeGeometries([
+      new THREE.CylinderGeometry(0.052, 0.06, 0.13, 7).translate(0, 1.54, 0),
+      new THREE.SphereGeometry(0.108, 10, 8).scale(0.9, 1.12, 1).translate(0, 1.69, 0.005),
+      new THREE.ConeGeometry(0.022, 0.05, 5).rotateX(Math.PI / 2).translate(0, 1.67, 0.11),
+      new THREE.SphereGeometry(0.025, 5, 4).scale(0.5, 1, 1).translate(0.098, 1.68, 0),
+      new THREE.SphereGeometry(0.025, 5, 4).scale(0.5, 1, 1).translate(-0.098, 1.68, 0),
+    ])!;
+    // Peinados: corto, melena y gorra con visera (cada persona lleva uno)
+    const casquete = (r: number, abajo: number) =>
+      new THREE.SphereGeometry(r, 10, 6, 0, Math.PI * 2, 0, abajo).scale(0.92, 1.12, 1.02).translate(0, 1.7, -0.008);
+    const cortoGeo = casquete(0.116, Math.PI * 0.5);
+    const melenaGeo = mergeGeometries([
+      casquete(0.118, Math.PI * 0.55),
+      // Pelo largo por detrás, hasta los hombros
+      new THREE.CylinderGeometry(0.1, 0.12, 0.24, 8, 1, true, Math.PI * 0.6, Math.PI * 0.8).translate(0, 1.6, -0.01),
+    ])!;
+    const gorraGeo = mergeGeometries([
+      casquete(0.118, Math.PI * 0.45),
+      new THREE.CylinderGeometry(0.1, 0.1, 0.012, 10, 1, false, -Math.PI * 0.5, Math.PI).scale(1, 1, 0.9).translate(0, 1.73, 0.06),
+    ])!;
+    // Brazos (uno por instancia): cuelgan del hombro; manga y antebrazo con la mano
+    const mangaGeo = new THREE.CylinderGeometry(0.062, 0.055, 0.28, 6).translate(0, -0.13, 0);
+    const antebrazoGeo = mergeGeometries([
+      new THREE.CylinderGeometry(0.045, 0.038, 0.3, 6).translate(0, -0.42, 0),
+      new THREE.SphereGeometry(0.048, 6, 4).scale(0.8, 1.15, 0.6).translate(0, -0.6, 0),
+    ])!;
+
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 });
+    const camisetas = [
+      0xd62828, 0x1e5bd8, 0xf5d90a, 0x2fa84f, 0xff6a1a, 0xf4f4f4, 0x161616, 0xff4fa3, 0x12b5b0, 0x7a3fbf, 0x8fb8de,
+      0xc9b28f, 0x5b6b3a, 0xb0413e,
+    ];
+    const pieles = [0xf3d2b3, 0xeac0a0, 0xe0ac85, 0xc68642, 0xa86b3c, 0x8d5524, 0x5e3a1f];
+    const pantalones = [0x1d2433, 0x2b2b2b, 0x3a4f7a, 0x8a7a5c, 0x4a4a4a, 0x5d6f8e, 0xd8cfbf];
+    const pelos = [0x1b1410, 0x2e1f14, 0x4a2f1b, 0x7a5232, 0xb08a52, 0xd8c08a, 0x9a9a9a, 0xe5e5e5];
+    const gorras = [0xd62828, 0xf4f4f4, 0x1e5bd8, 0xf5d90a, 0x161616, 0xff6a1a];
+    const zapatillas = [0x222222, 0xf2f2f2, 0x3b3b3b, 0x8a5a2b, 0x1e5bd8];
+    const elegir = <T,>(l: T[]) => l[Math.floor(rnd() * l.length)];
+    const c = new THREE.Color();
+    const cero = new THREE.Matrix4().makeScale(0, 0, 0);
+
     for (const [a, b] of zonas) {
+      const gente: Persona[] = [];
       for (let sv = a; sv < b; sv += rnd() < 0.15 ? 6 + rnd() * 10 : 0.8 + rnd() * 1.6) {
         const lado = rnd() < 0.5 ? -1 : 1;
         const k = Math.round(enVuelta(sv) / PASO_M) % this.tr.n;
         const lat = lado * (6 + rnd() * 2.5);
         const x = this.tr.x[k] - this.tr.dz[k] * lat;
         const z = this.tr.z[k] + this.tr.dx[k] * lat;
-        // Miran hacia la carretera
+        // Miran hacia la carretera (+Z local hacia el asfalto)
         const rumbo = Math.atan2(-this.tr.dz[k], this.tr.dx[k]) + (lado > 0 ? Math.PI : 0);
-        lista.push({ pos: new THREE.Vector3(x, this.alturaTerreno(x, z), z), rumbo, fase: rnd() * 10, ritmo: 4 + rnd() * 4, s: enVuelta(sv) });
+        const r = rnd();
+        gente.push({
+          pos: new THREE.Vector3(x, this.alturaTerreno(x, z), z),
+          rumbo,
+          giro: rumbo,
+          fase: rnd() * 10,
+          ritmo: 4 + rnd() * 4,
+          s: enVuelta(sv),
+          // 0: brazos arriba agitando; 1: aplaudiendo; 2: un puño arriba; 3: mirando, brazos abajo
+          gesto: r < 0.35 ? 0 : r < 0.65 ? 1 : r < 0.85 ? 2 : 3,
+          talla: 0.88 + rnd() * 0.2,
+          ancho: 0.9 + rnd() * 0.25,
+        });
       }
+      if (!gente.length) continue;
+      const n = gente.length;
+      const grupo = new THREE.Group();
+      const malla = (geo: THREE.BufferGeometry, cuantos = n) => {
+        const m = new THREE.InstancedMesh(geo, mat, cuantos);
+        m.castShadow = this.calidad === 'alta';
+        grupo.add(m);
+        return m;
+      };
+      const zona: ZonaPublico = {
+        grupo,
+        gente,
+        piernas: malla(piernasGeo),
+        zapatos: malla(zapatosGeo),
+        cuerpo: malla(cuerpoGeo),
+        cabeza: malla(cabezaGeo),
+        peinados: [malla(cortoGeo), malla(melenaGeo), malla(gorraGeo)],
+        peinado: [],
+        mangas: malla(mangaGeo, n * 2),
+        antebrazos: malla(antebrazoGeo, n * 2),
+      };
+      for (let i = 0; i < n; i++) {
+        const camiseta = elegir(camisetas);
+        const piel = elegir(pieles);
+        // De vez en cuando, chaqueta: la manga llega hasta la muñeca
+        const chaqueta = rnd() < 0.2;
+        zona.cuerpo.setColorAt(i, c.set(camiseta));
+        zona.piernas.setColorAt(i, c.set(elegir(pantalones)));
+        zona.zapatos.setColorAt(i, c.set(elegir(zapatillas)));
+        zona.cabeza.setColorAt(i, c.set(piel));
+        const tipoPelo = rnd() < 0.3 ? 2 : rnd() < 0.4 ? 1 : 0;
+        zona.peinado.push(tipoPelo);
+        zona.peinados.forEach((m, j) => {
+          m.setColorAt(i, c.set(j === 2 ? elegir(gorras) : elegir(pelos)));
+          if (j !== tipoPelo) m.setMatrixAt(i, cero);
+        });
+        for (let lado = 0; lado < 2; lado++) {
+          zona.mangas.setColorAt(i * 2 + lado, c.set(camiseta));
+          zona.antebrazos.setColorAt(i * 2 + lado, c.set(chaqueta ? camiseta : piel));
+        }
+      }
+      this.escena.add(grupo);
+      this.espectadores.push(zona);
+      this.colocarPublico(zona, 0, true);
+      for (const m of grupo.children as THREE.InstancedMesh[]) m.computeBoundingSphere();
     }
-    if (!lista.length) return;
-    // Cuerpo (piernas + tronco), cabeza y brazos levantados (estos se animan)
-    // Pantalón (dos piernas), tronco con la camiseta, cabeza y brazos en V (animados)
-    const piernasGeo = mergeGeometries([
-      new THREE.CylinderGeometry(0.085, 0.07, 0.86, 6).translate(0.11, 0.43, 0),
-      new THREE.CylinderGeometry(0.085, 0.07, 0.86, 6).translate(-0.11, 0.43, 0),
-    ])!;
-    const cuerpoGeo = new THREE.CylinderGeometry(0.21, 0.24, 0.64, 9).translate(0, 1.18, 0);
-    const brazosGeo = mergeGeometries([
-      new THREE.CylinderGeometry(0.055, 0.05, 0.6, 6).translate(0, 0.3, 0).rotateZ(-0.45).translate(0.2, 0, 0),
-      new THREE.CylinderGeometry(0.055, 0.05, 0.6, 6).translate(0, 0.3, 0).rotateZ(0.45).translate(-0.2, 0, 0),
-    ])!;
-    const cabezaGeo = new THREE.SphereGeometry(0.15, 12, 10).translate(0, 1.68, 0);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
-    const cuerpo = new THREE.InstancedMesh(cuerpoGeo, mat, lista.length);
-    const piernas = new THREE.InstancedMesh(piernasGeo, mat, lista.length);
-    const brazos = new THREE.InstancedMesh(brazosGeo, mat, lista.length);
-    const cabeza = new THREE.InstancedMesh(cabezaGeo, mat, lista.length);
-    const camisetas = [0xd62828, 0x1e5bd8, 0xf5d90a, 0x2fa84f, 0xff6a1a, 0xffffff, 0x111111, 0xff4fa3, 0x12b5b0];
-    const pieles = [0xf3d2b3, 0xe0ac85, 0xc68642, 0x8d5524];
-    const pantalones = [0x1d2433, 0x2b2b2b, 0x3a4f7a, 0x8a7a5c, 0x4a4a4a];
-    const c = new THREE.Color();
-    lista.forEach((_, i) => {
-      const camiseta = camisetas[Math.floor(rnd() * camisetas.length)];
-      const piel = pieles[Math.floor(rnd() * pieles.length)];
-      cuerpo.setColorAt(i, c.set(camiseta));
-      piernas.setColorAt(i, c.set(pantalones[Math.floor(rnd() * pantalones.length)]));
-      brazos.setColorAt(i, c.set(piel));
-      cabeza.setColorAt(i, c.set(piel));
-    });
-    for (const m of [cuerpo, piernas, brazos, cabeza]) {
-      m.castShadow = this.calidad === 'alta';
-      m.frustumCulled = false;
-      this.escena.add(m);
-    }
-    this.espectadores = { cuerpo, piernas, brazos, cabeza, lista };
-    this.animarEspectadores(0, true);
   }
 
-  /** Saltan y agitan los brazos (solo los que están cerca del ciclista; los demás, quietos). */
-  private animarEspectadores(t: number, todos = false) {
-    const E = this.espectadores;
-    if (!E) return;
-    const m = new THREE.Matrix4();
-    const q = new THREE.Quaternion();
-    const brazo = new THREE.Quaternion();
-    const eje = new THREE.Vector3(0, 1, 0);
-    const p = new THREE.Vector3();
-    const uno = new THREE.Vector3(1, 1, 1);
+  /** Mueve a la gente de las zonas cercanas (las lejanas ni se dibujan). */
+  private animarEspectadores(t: number) {
     const yo = enVuelta(this.sYo);
+    for (const z of this.espectadores) {
+      let h = z.gente[0].s - yo;
+      if (h > LONGITUD_VUELTA_M / 2) h -= LONGITUD_VUELTA_M;
+      if (h < -LONGITUD_VUELTA_M / 2) h += LONGITUD_VUELTA_M;
+      z.grupo.visible = h > -500 && h < 1500;
+      if (z.grupo.visible) this.colocarPublico(z, t, false);
+    }
+  }
+
+  /** Coloca a cada persona: se giran para verte pasar, saltan y mueven los brazos según su gesto. */
+  private colocarPublico(z: ZonaPublico, t: number, todos: boolean) {
+    const yo = enVuelta(this.sYo);
+    const k = Math.round(yo / PASO_M) % this.tr.n;
+    const rx = this.tr.x[k];
+    const rz = this.tr.z[k];
+    const m = new THREE.Matrix4();
+    const rot = new THREE.Matrix4();
+    const cuerpo = new THREE.Matrix4();
+    const brazo = new THREE.Matrix4();
+    const tmp = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const p = new THREE.Vector3();
+    const esc = new THREE.Vector3();
+    const Y = new THREE.Vector3(0, 1, 0);
     let cambio = false;
-    E.lista.forEach((e, i) => {
+    z.gente.forEach((e, i) => {
       let h = e.s - yo;
       if (h > LONGITUD_VUELTA_M / 2) h -= LONGITUD_VUELTA_M;
       if (h < -LONGITUD_VUELTA_M / 2) h += LONGITUD_VUELTA_M;
       const cerca = h > -60 && h < 300;
       if (!cerca && !todos) return;
       const fase = t * e.ritmo + e.fase;
-      const salto = cerca ? Math.max(0, Math.sin(fase)) * 0.12 : 0;
-      q.setFromAxisAngle(eje, e.rumbo);
+      // Se giran hacia ti (sin darse la vuelta del todo)
+      if (cerca) {
+        let d = Math.atan2(rx - e.pos.x, rz - e.pos.z) - e.rumbo;
+        d = Math.atan2(Math.sin(d), Math.cos(d));
+        const objetivo = e.rumbo + Math.max(-1.1, Math.min(1.1, d));
+        let g = objetivo - e.giro;
+        g = Math.atan2(Math.sin(g), Math.cos(g));
+        e.giro += g * 0.08;
+      } else e.giro = e.rumbo;
+      const salta = cerca && (e.gesto === 0 || e.gesto === 2);
+      const salto = salta ? Math.max(0, Math.sin(fase)) * 0.1 : 0;
+      q.setFromAxisAngle(Y, e.giro);
       p.copy(e.pos).setY(e.pos.y + salto);
-      m.compose(p, q, uno);
-      E.cuerpo.setMatrixAt(i, m);
-      E.piernas.setMatrixAt(i, m);
-      E.cabeza.setMatrixAt(i, m);
-      // Brazos: de los hombros, arriba y abajo
-      brazo.setFromAxisAngle(new THREE.Vector3(1, 0, 0), cerca ? Math.sin(fase * 1.3) * 0.35 : 0);
-      const hombro = p.clone().setY(p.y + 1.42);
-      m.compose(hombro, q.clone().multiply(brazo), uno);
-      E.brazos.setMatrixAt(i, m);
+      esc.set(e.talla * e.ancho, e.talla, e.talla * e.ancho);
+      cuerpo.compose(p, q, esc);
+      z.piernas.setMatrixAt(i, cuerpo);
+      z.zapatos.setMatrixAt(i, cuerpo);
+      z.cuerpo.setMatrixAt(i, cuerpo);
+      z.cabeza.setMatrixAt(i, cuerpo);
+      z.peinados[z.peinado[i]].setMatrixAt(i, cuerpo);
+      // Brazos: desde cada hombro, según el gesto
+      const mueve = cerca ? 1 : 0;
+      for (let lado = 0; lado < 2; lado++) {
+        const sg = lado === 0 ? 1 : -1;
+        if (e.gesto === 0) {
+          // Los dos arriba, en V, agitándolos
+          tmp.makeRotationZ(sg * (2.55 + Math.sin(fase * 1.3 + lado) * 0.3 * mueve));
+        } else if (e.gesto === 1) {
+          // Aplaudiendo: brazos hacia delante y las manos se juntan
+          const junta = 0.25 + (Math.sin(fase * 2.2) * 0.5 + 0.5) * 0.3 * mueve;
+          tmp.makeRotationY(-sg * junta).multiply(rot.makeRotationX(-1.15));
+        } else if (e.gesto === 2) {
+          // Un puño arriba (el derecho) y el otro abajo
+          tmp.makeRotationZ(lado === 0 ? 2.7 + Math.sin(fase * 1.6) * 0.25 * mueve : -0.12);
+        } else {
+          // Mirando: brazos abajo, algo separados
+          tmp.makeRotationZ(sg * 0.12);
+        }
+        brazo.makeTranslation(sg * 0.215, 1.42, 0).multiply(tmp);
+        m.multiplyMatrices(cuerpo, brazo);
+        z.mangas.setMatrixAt(i * 2 + lado, m);
+        z.antebrazos.setMatrixAt(i * 2 + lado, m);
+      }
       cambio = true;
     });
-    if (cambio) {
-      E.cuerpo.instanceMatrix.needsUpdate = true;
-      E.piernas.instanceMatrix.needsUpdate = true;
-      E.cabeza.instanceMatrix.needsUpdate = true;
-      E.brazos.instanceMatrix.needsUpdate = true;
-    }
+    if (cambio) for (const m of z.grupo.children as THREE.InstancedMesh[]) m.instanceMatrix.needsUpdate = true;
   }
 
   // ---- Pájaros: bandadas volando en círculo sobre el paisaje ----

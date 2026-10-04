@@ -1285,14 +1285,40 @@ p {
   letter-spacing: 0;
 }
 
+/* Botones en dos filas (rejilla de 4 columnas): dejan más ancho a los datos */
 .hud-botones {
   margin-left: auto;
-  display: flex;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.hud-botones > *,
+.hud-botones > .menu-bots-ancla > button {
+  width: 100%;
 }
 
 .hud-botones button {
-  min-height: 48px;
+  min-height: 38px;
+  padding: 4px 10px;
+  font-size: 14px;
+}
+
+/* Los datos en dos niveles: la fila principal y debajo los acumulados, más juntos */
+.hud-fila {
+  flex-wrap: nowrap;
+}
+.hud-fila-2 {
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  font-size: 11px;
+}
+.hud-fila-2 b {
+  font-size: 15px;
+}
+.hud-fila-2 > span {
+  white-space: nowrap;
 }
 
 .recorrido .boton-secundario {
@@ -1532,7 +1558,16 @@ p {
   .hud-botones {
     order: -1;
     width: 100%;
+    display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
+  }
+  .hud-botones > * {
+    width: auto;
+  }
+  .hud-fila,
+  .hud-fila-2 {
+    flex-wrap: wrap;
   }
   .hud-botones button {
     min-height: 40px;
@@ -3340,4 +3375,39 @@ p {
   color: #fff;
   font-size: 14px;
   white-space: nowrap;
+}
+
+.aviso-cambio-circuito .aviso-anular {
+  padding: 2px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* ---------- Retomar una sesión sin terminar ---------- */
+
+.aviso-retomar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  border: 2px solid var(--acento);
+  border-radius: 14px;
+  background: var(--acento-suave);
+}
+
+.aviso-retomar strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.aviso-retomar-botones {
+  display: flex;
+  gap: 8px;
 }

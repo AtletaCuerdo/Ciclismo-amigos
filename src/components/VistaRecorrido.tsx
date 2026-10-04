@@ -351,6 +351,9 @@ export default function VistaRecorrido({
   useEffect(() => escena.current?.ponerMiDorsal(miNombre || null), [miNombre, cargando]);
   const [menuEmojis, setMenuEmojis] = useState(false);
   const [menuCircuito, setMenuCircuito] = useState(false);
+  // El aviso del próximo circuito se puede cerrar sin anular el cambio (vuelve si se elige otro)
+  const [avisoCircuitoCerrado, setAvisoCircuitoCerrado] = useState(false);
+  useEffect(() => setAvisoCircuitoCerrado(false), [circuito.siguiente]);
 
   // Perfil de altitud de la vuelta (se calcula una vez)
   const trazoPerfil = useMemo(() => {
@@ -512,11 +515,11 @@ export default function VistaRecorrido({
             <span>
               <b>{km(grabacion.distanciaM, 2)} km</b>
               <span className="hud-vuelta">
-                {' '}· vuelta {vuelta} ({km(enVuelta(yo.distancia))}/{LONGITUD_VUELTA_M / 1000})
+                {' '}· v{vuelta} ({km(enVuelta(yo.distancia))}/{LONGITUD_VUELTA_M / 1000})
               </span>
             </span>
             <span>
-              <b>{Math.round(grabacion.desnivelM)} m</b> desnivel +
+              <b>{Math.round(grabacion.desnivelM)} m</b> ↑
             </span>
             {yo.segundosRueda >= 1 && (
               <span className="hud-media">
@@ -524,16 +527,16 @@ export default function VistaRecorrido({
               </span>
             )}
             <span className="hud-media">
-              <b>{grabacion.potenciaMedia !== undefined ? Math.round(grabacion.potenciaMedia) : '--'} W</b> media
+              <b>{grabacion.potenciaMedia !== undefined ? Math.round(grabacion.potenciaMedia) : '--'} W</b> med.
             </span>
             {grabacion.cadenciaMedia !== undefined && (
               <span className="hud-media">
-                <b>{Math.round(grabacion.cadenciaMedia)} rpm</b> media
+                <b>{Math.round(grabacion.cadenciaMedia)} rpm</b> med.
               </span>
             )}
             {grabacion.pulsoMedio !== undefined && (
               <span className="hud-media">
-                <b>{Math.round(grabacion.pulsoMedio)} ppm</b> media
+                <b>{Math.round(grabacion.pulsoMedio)} ppm</b> med.
               </span>
             )}
             {grabacion.kilojulios >= 1 && (
@@ -546,7 +549,7 @@ export default function VistaRecorrido({
                 {grabacion.velocidadMedia !== undefined ? grabacion.velocidadMedia.toFixed(1).replace('.', ',') : '--'}{' '}
                 km/h
               </b>{' '}
-              media
+              med.
             </span>
           </div>
         </div>
@@ -761,14 +764,17 @@ export default function VistaRecorrido({
         />
       )}
 
-      {circuito.siguiente && (
+      {circuito.siguiente && !avisoCircuitoCerrado && (
         <div className="aviso-cambio-circuito">
           🗺️ Al cruzar la meta: <strong>{circuitoPorId(circuito.siguiente).nombre}</strong> · quedan{' '}
           {((LONGITUD_VUELTA_M - (((yo.distancia % LONGITUD_VUELTA_M) + LONGITUD_VUELTA_M) % LONGITUD_VUELTA_M)) / 1000)
             .toFixed(1)
             .replace('.', ',')}{' '}
           km
-          <button className="chat-cerrar" onClick={() => circuito.onElegir(null)} aria-label="Seguir en este circuito">
+          <button className="aviso-anular" onClick={() => circuito.onElegir(null)} title="Seguir en este circuito">
+            Anular
+          </button>
+          <button className="chat-cerrar" onClick={() => setAvisoCircuitoCerrado(true)} aria-label="Cerrar el aviso (el cambio sigue)">
             ✕
           </button>
         </div>
@@ -945,7 +951,10 @@ function PanelGrupo({
       <strong className="hud-grupo-titulo">👥 Grupo</strong>
       {lista.length === 0 && <span className="hud-grupo-vacio">Aún no rueda nadie más</span>}
       {lista.map((o) => {
-        const d = o.distancia - yo;
+        // En el mismo punto del circuito aunque vaya otra vuelta (como el rebufo)
+        let d = (o.distancia - yo) % LONGITUD_VUELTA_M;
+        if (d > LONGITUD_VUELTA_M / 2) d -= LONGITUD_VUELTA_M;
+        if (d < -LONGITUD_VUELTA_M / 2) d += LONGITUD_VUELTA_M;
         const cerca = Math.abs(d) < 60;
         return (
           <div key={o.uid} className="hud-grupo-fila">

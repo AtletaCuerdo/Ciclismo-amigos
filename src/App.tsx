@@ -27,6 +27,7 @@ import { TarjetaConexion, type InfoConexion } from './components/TarjetaConexion
 import { guardarEntreno, listarEntrenos } from './entrenamiento/almacen';
 import { tituloRueda, type Entreno } from './entrenamiento/tipos';
 import { useGrabacion, type ValoresActuales } from './entrenamiento/useGrabacion';
+import { borrarSesionEnCurso, guardarSesionEnCurso, leerSesionEnCurso, type SesionEnCurso } from './entrenamiento/sesionEnCurso';
 import { CATALOGO } from './entrenamientos/catalogo';
 import { cargarPropios, guardarPropios } from './entrenamientos/propios';
 import { useCompartidos } from './entrenamientos/compartidos';
@@ -111,6 +112,8 @@ export interface ResultadoSegmento {
 const CLAVE_CAMBIOS = 'rodillos.cambiosVirtuales';
 const CLAVE_CIRCUITO = 'rodillos.circuito';
 const CLAVE_GRUPETAS = 'rodillos.grupetas';
+/** Grupetas compartidas de hace más de 4 h: de otra salida, no se usan. */
+const GRUPETAS_CADUCAN_MS = 4 * 3600 * 1000;
 /** Todas las salas (una por circuito), para ver a los amigos estén donde estén. */
 const SALAS = CIRCUITOS.map((c) => c.sala);
 const CLAVE_MARCHA = 'rodillos.marcha';
@@ -553,6 +556,7 @@ export default function App() {
   /** Ahorro de aire actual por ir a rueda (0 … 0,3) y segundos acumulados a rueda. */
   const rebufoRef = useRef(0);
   const segundosRuedaRef = useRef(0);
+  const ruedaAlEntrarRef = useRef(0);
   // Bots a vatios fijos (solo en esta pantalla): se mueven en el mismo bucle que tu física
   const botsRef = useRef<Bot[]>([]);
   const [, setVersionBots] = useState(0);
@@ -592,7 +596,8 @@ export default function App() {
   useEffect(() => {
     if (!enRecorrido) return;
     rebufoRef.current = 0;
-    segundosRuedaRef.current = 0;
+    segundosRuedaRef.current = ruedaAlEntrarRef.current;
+    ruedaAlEntrarRef.current = 0;
     let anterior = performance.now();
     let rebufoEnviado = 0;
     let marchaEnviada = 0;
@@ -892,6 +897,8 @@ export default function App() {
   // ---- Grupetas compartidas en la salida en grupo ----
   // El primero que entra con la casilla marcada las crea con su FTP; los demás ven las mismas.
   const decididoGrupetasRef = useRef(false);
+  const fichaSala = salida.grupetas.ficha;
+  const ficha = fichaSala && Date.now() + salida.desfaseServidor - fichaSala.t0 < GRUPETAS_CADUCAN_MS ? fichaSala : null;
   useEffect(() => {
     if (!enRecorrido) decididoGrupetasRef.current = false;
   }, [enRecorrido]);
@@ -902,7 +909,7 @@ export default function App() {
     decididoGrupetasRef.current = true;
     const hayMasGente = otrosCiclistas.length > 0;
     // Solo en la salida, o sin grupetas creadas: las creo yo si tengo la casilla marcada
-    if ((!hayMasGente || !salida.grupetas.ficha) && grupetasAlEmpezar) {
+    if ((!hayMasGente || !ficha) && grupetasAlEmpezar) {
       const inicio = posicionAhora();
       const lista = RITMOS_GRUPETA.map(({ pct }, i) => ({
         vatios: vatiosGrupeta(perfil.ftp, pct),
@@ -922,7 +929,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enRecorrido, salida.estado, salida.grupetas.leida, salida.ciclistas, salida.miUid]);
   // Cada vez que cambia la ficha de la salida, todos ponen las mismas grupetas
-  const ficha = salida.grupetas.ficha;
   useEffect(() => {
     if (!enRecorrido || salida.estado !== 'dentro') return;
     const sinCompartidas = botsRef.current.filter((b) => !b.sim && !b.lider?.sim);
@@ -1038,7 +1044,12 @@ export default function App() {
     setAdelanto(sobra - grabacion.distanciaM);
     cronoRef.current.cancelar();
     setTramosActivos([]);
-    botsRef.current = [];
+    botsRef.current =
+      grupetasAlEmpezar && salida.estado === 'fuera'
+        ? RITMOS_GRUPETA.flatMap(({ pct }, i) =>
+            crearGrupeta(vatiosGrupeta(perfil.ftp, pct), sobra + LONGITUD_VUELTA_M * (0.2 + 0.3 * i), 0),
+          )
+        : [];
     setVersionBots((v) => v + 1);
     decididoGrupetasRef.current = false;
     setFantasmaActivo(false);
@@ -1113,6 +1124,7 @@ export default function App() {
     const sesion = sesionRef.current;
     sesionRef.current = { nombres: [] };
     const entreno = grabacion.finalizar();
+    borrarSesionEnCurso();
     if (entreno) {
       entreno.resumen.circuito = circuitoId;
       if (cambiosCircuitoRef.current.length > 1) entreno.resumen.circuitos = cambiosCircuitoRef.current;
@@ -1153,10 +1165,77 @@ export default function App() {
     }
   };
 
+  // ---- Guardado automático: si la web se cierra a mitad de sesión, se puede retomar ----
+  const [sesionPendiente, setSesionPendiente] = useState<SesionEnCurso | null>(leerSesionEnCurso);
+  const guardarSesionRef = useRef(() => {});
+  guardarSesionRef.current = () => {
+    const g = grabacion.instantanea();
+    if (!g) return;
+    const activo = entrenoActivoRef.current;
+    guardarSesionEnCurso({
+      guardada: Date.now(),
+      grabacion: g,
+      circuito: circuitoId,
+      adelanto: adelantoRef.current,
+      cortes: cortesRef.current,
+      cambiosCircuito: cambiosCircuitoRef.current,
+      nombres: sesionRef.current.nombres,
+      companeros: [...companerosRef.current],
+      segundosRueda: segundosRuedaRef.current,
+      entreno: activo ? { entreno: activo.entreno, inicioS: activo.inicioS, intensidad } : undefined,
+    });
+  };
+  useEffect(() => {
+    if (!enRecorrido) return;
+    const guardar = () => guardarSesionRef.current();
+    // Cada 10 s y, sobre todo, en cuanto la web pasa a segundo plano (notificación, otra app…)
+    const id = setInterval(guardar, 10000);
+    const alOcultar = () => {
+      if (document.visibilityState === 'hidden') guardar();
+    };
+    document.addEventListener('visibilitychange', alOcultar);
+    window.addEventListener('pagehide', guardar);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', alOcultar);
+      window.removeEventListener('pagehide', guardar);
+    };
+  }, [enRecorrido]);
+
+  /** Vuelve al recorrido con la sesión guardada, en pausa, donde se quedó. */
+  const retomarSesion = () => {
+    const p = sesionPendiente;
+    if (!p) return;
+    setSesionPendiente(null);
+    mantenerPantallaEncendida();
+    elegirCircuito(p.circuito);
+    grabacion.restaurar(p.grabacion);
+    setAdelanto(p.adelanto);
+    cortesRef.current = p.cortes ?? [];
+    cambiosCircuitoRef.current = p.cambiosCircuito?.length ? p.cambiosCircuito : [[Date.now(), p.circuito]];
+    sesionRef.current = { nombres: p.nombres ?? [] };
+    companerosRef.current = new Set(p.companeros ?? []);
+    ruedaAlEntrarRef.current = p.segundosRueda ?? 0;
+    setCircuitoSiguiente(null);
+    if (p.entreno) {
+      const tramos = desplegar(p.entreno.entreno.bloques);
+      setEntrenoActivo({ entreno: p.entreno.entreno, tramos, total: duracionTotal(tramos), inicioS: p.entreno.inicioS });
+      setIntensidad(p.entreno.intensidad ?? 100);
+    } else setEntrenoActivo(null);
+    setTerminado(null);
+    setEnRecorrido(true);
+  };
+  const descartarSesionPendiente = () => {
+    if (!window.confirm('¿Borrar la sesión sin terminar? Se perderá lo grabado.')) return;
+    borrarSesionEnCurso();
+    setSesionPendiente(null);
+  };
+
   /** Sale del recorrido; si hay algo grabado, pregunta antes de descartarlo. */
   const salirRecorrido = () => {
     if (grabacion.hayDatos && !window.confirm('¿Salir sin guardar? Se perderá lo que llevas grabado.')) return;
     grabacion.descartar();
+    borrarSesionEnCurso();
     soltarPantalla();
     setEnRecorrido(false);
     setEntrenoActivo(null);
@@ -1217,6 +1296,25 @@ export default function App() {
       {/* ================= INICIO ================= */}
       {pantalla === 'inicio' && (
         <>
+          {sesionPendiente && !enRecorrido && (
+            <section className="aviso-retomar">
+              <span>
+                <strong>⏯️ Tienes un entrenamiento sin terminar</strong>
+                {formatearTiempo(Math.round(sesionPendiente.grabacion.acumuladoMs / 1000))} ·{' '}
+                {(sesionPendiente.grabacion.distancia / 1000).toFixed(1).replace('.', ',')} km
+                {sesionPendiente.entreno ? ` · ${sesionPendiente.entreno.entreno.nombre}` : ''}. Conecta el rodillo y
+                retómalo donde lo dejaste.
+              </span>
+              <div className="aviso-retomar-botones">
+                <button className="boton-principal" onClick={retomarSesion}>
+                  Retomar
+                </button>
+                <button className="boton-secundario" onClick={descartarSesionPendiente}>
+                  Descartar
+                </button>
+              </div>
+            </section>
+          )}
           {terminado && (
             <ResumenEntreno
               entreno={terminado.entreno}
