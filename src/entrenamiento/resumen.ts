@@ -40,3 +40,29 @@ export function calcularResumen(
     kilojulios: potencias.reduce((a, b) => a + b, 0) / 1000,
   };
 }
+
+/**
+ * Pasa los cortes de los intervalos (segundos en marcha de la grabación) a números de muestra.
+ * No son lo mismo: el temporizador del navegador tarda algo más de 1 s entre muestras, y en media
+ * hora se acumulan decenas de segundos (las vueltas de Strava acababan desplazadas). Se cuenta el
+ * tiempo real entre muestras, sin las pausas, y se descartan los cortes a menos de 10 s del anterior.
+ */
+export function muestrasDeCortes(muestras: Muestra[], cortesS: number[]): number[] {
+  const enMarcha: number[] = [];
+  let s = 0;
+  for (let i = 0; i < muestras.length; i++) {
+    const dt = i === 0 ? 1 : (muestras[i].t - muestras[i - 1].t) / 1000;
+    s += dt > 0 && dt <= 5 ? dt : 1; // un hueco largo es una pausa: cuenta como un segundo
+    enMarcha.push(s);
+  }
+  const indices: number[] = [];
+  let i = 0;
+  for (const c of [...new Set(cortesS)].sort((a, b) => a - b)) {
+    while (i < enMarcha.length && enMarcha[i] <= c) i++;
+    if (i <= 0 || i >= muestras.length) continue;
+    const anterior = indices.length ? indices[indices.length - 1] : 0;
+    if (enMarcha[i] - enMarcha[anterior] < 10) continue;
+    indices.push(i);
+  }
+  return indices;
+}

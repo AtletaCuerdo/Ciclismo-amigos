@@ -11,6 +11,8 @@ import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { esDispositivoIos, type Avatar, type Calidad } from './avatar';
 import { Ciclista3D } from './ciclista3d';
+import { plantillasHumanas } from './ciclistaHumano';
+import { PublicoHumano, peinadosDe, type PersonaCercana } from './publicoHumano';
 import { ALTITUD_MAX, ALTITUD_MIN, CIRCUITO, LONGITUD_VUELTA_M, SUBIDAS, altitud, enVuelta, pendiente } from './perfil';
 import {
   cargarCielo,
@@ -306,6 +308,8 @@ export interface OtroCiclista {
   emoji?: string;
 }
 
+const CERO = new THREE.Matrix4().makeScale(0, 0, 0);
+
 /** Una persona del público. */
 interface Persona {
   pos: THREE.Vector3;
@@ -317,6 +321,13 @@ interface Persona {
   gesto: number;
   talla: number;
   ancho: number;
+  /** De cerca se dibuja con cuerpo humano (y la figura sencilla se oculta). */
+  humano: boolean;
+  sexo: 'hombre' | 'mujer';
+  peinado: number;
+  barba: boolean;
+  corto: boolean;
+  colores: { camiseta: THREE.Color; pantalon: THREE.Color; zapatillas: THREE.Color; piel: THREE.Color; pelo: THREE.Color };
 }
 
 /** El público de una zona (meta o cima): mallas instanciadas que se dibujan solo de cerca. */
@@ -404,6 +415,11 @@ export class EscenaRecorrido {
   /** Río del circuito: lado (+1/−1 respecto a la carretera), distancia, ancho, nivel del agua y tramo (m). */
   private rio: { lado: number; distancia: number; ancho: number; nivel: number; desde: number; hasta: number } | null =
     null;
+  /**
+   * Costa (circuito de costa): el mar está hacia la dirección (dx, dz) y la orilla es una curva
+   * u = orilla(v), con u la distancia hacia el mar y v a lo largo de la costa (tabla cada 40 m).
+   */
+  private costa: { dx: number; dz: number; v0: number; paso: number; orilla: Float32Array } | null = null;
   private yo: Ciclista3D;
   private sYo = 0;
   private vYo = 0;
@@ -536,6 +552,7 @@ export class EscenaRecorrido {
     }
     this.lago = this.situarLago();
     this.rio = this.situarRio();
+    this.costa = this.situarCosta();
 
     this.crearTerreno();
     this.crearCarretera();
@@ -548,6 +565,7 @@ export class EscenaRecorrido {
     this.crearMolinos();
     this.crearAgua();
     this.crearMontanas();
+    if (this.costa) this.crearFaro();
     this.crearNubes();
     this.crearSalidaYMarcas();
     this.crearTaludes();
@@ -695,6 +713,88 @@ export class EscenaRecorrido {
     return { lado: haciaCentro > 0 ? -1 : 1, distancia: rio.distancia, ancho: rio.ancho, nivel: minimo - 1.5, desde, hasta };
   }
 
+  /**
+   * Costa: el mar queda del lado de la carretera que va junto a él (`CIRCUITO.mar`: del km
+   * `desde` al `hasta`). La orilla sigue a la carretera por fuera, a 40-75 m, con calas, y más
+   * allá de los extremos del trazado se retira poco a poco (el circuito está en un cabo).
+   */
+  private situarCosta() {
+    const mar = CIRCUITO.mar;
+    if (!mar) return null;
+    // Dirección del mar: del centro de la vuelta hacia el tramo de costa
+    let mx = 0;
+    let mz = 0;
+    let n = 0;
+    for (let km = mar.desde; km <= mar.hasta; km += 0.25) {
+      const i = Math.round((km * 1000) / PASO_M) % this.tr.n;
+      mx += this.tr.x[i];
+      mz += this.tr.z[i];
+      n++;
+    }
+    let dx = mx / n - this.tr.centroX;
+    let dz = mz / n - this.tr.centroZ;
+    const l = Math.hypot(dx, dz) || 1;
+    dx /= l;
+    dz /= l;
+    // Lo más hacia el mar de la carretera, por franjas de 40 m a lo largo de la costa
+    const paso = 40;
+    let vMin = Infinity;
+    let vMax = -Infinity;
+    for (let i = 0; i < this.tr.n; i++) {
+      const v = -this.tr.x[i] * dz + this.tr.z[i] * dx;
+      vMin = Math.min(vMin, v);
+      vMax = Math.max(vMax, v);
+    }
+    const v0 = vMin - 6000;
+    const nb = Math.ceil((vMax + 6000 - v0) / paso) + 1;
+    const env = new Float32Array(nb).fill(-Infinity);
+    for (let i = 0; i < this.tr.n; i++) {
+      const u = this.tr.x[i] * dx + this.tr.z[i] * dz;
+      const b = Math.round((-this.tr.x[i] * dz + this.tr.z[i] * dx - v0) / paso);
+      env[b] = Math.max(env[b], u);
+    }
+    // Máximo en ±160 m y media en ±200 m: una orilla suave que nunca pisa la carretera
+    const maxV = new Float32Array(nb).fill(-Infinity);
+    for (let b = 0; b < nb; b++) for (let k = -4; k <= 4; k++) if (env[b + k] !== undefined) maxV[b] = Math.max(maxV[b], env[b + k]);
+    let primero = -1;
+    let ultimo = -1;
+    for (let b = 0; b < nb; b++)
+      if (maxV[b] > -Infinity) {
+        if (primero < 0) primero = b;
+        ultimo = b;
+      }
+    // Más allá de los extremos, la costa se retira (el cabo)
+    for (let b = 0; b < nb; b++) {
+      if (b < primero) maxV[b] = maxV[primero] - 0.35 * (primero - b) * paso;
+      if (b > ultimo) maxV[b] = maxV[ultimo] - 0.35 * (b - ultimo) * paso;
+    }
+    const orilla = new Float32Array(nb);
+    for (let b = 0; b < nb; b++) {
+      let suma = 0;
+      let cuenta = 0;
+      for (let k = -5; k <= 5; k++) {
+        const v = maxV[b + k];
+        if (v === undefined) continue;
+        suma += v;
+        cuenta++;
+      }
+      const v = v0 + b * paso;
+      // Calas: la orilla entra y sale (siempre por fuera de la carretera)
+      orilla[b] = Math.max(maxV[b] + 30, suma / cuenta + 38) + 22 * (0.5 + 0.5 * Math.sin(v / 170)) + 10 * (0.5 + 0.5 * Math.sin(v / 61 + 2));
+    }
+    return { dx, dz, v0, paso, orilla };
+  }
+
+  /** Distancia con signo a la orilla: positiva mar adentro, negativa tierra adentro (−∞ sin costa). */
+  private mar(x: number, z: number) {
+    const c = this.costa;
+    if (!c) return -Infinity;
+    const u = x * c.dx + z * c.dz;
+    const t = Math.min(c.orilla.length - 1.001, Math.max(0, (-x * c.dz + z * c.dx - c.v0) / c.paso));
+    const b = Math.floor(t);
+    return u - (c.orilla[b] + (c.orilla[b + 1] - c.orilla[b]) * (t - b));
+  }
+
   /** ¿Está el metro s de la vuelta en el tramo con río? */
   private tramoConRio(s: number) {
     const r = this.rio;
@@ -745,11 +845,23 @@ export class EscenaRecorrido {
       const mitad = this.rio.ancho / 2;
       if (dr < mitad + 34) h = THREE.MathUtils.lerp(this.rio.nivel - 2.5, h, suavizado(mitad - 4, mitad + 34, dr));
     }
+    if (this.costa) {
+      const d = this.mar(x, z);
+      if (d > -220) {
+        // Hacia la orilla el terreno baja hasta la playa (o cae en acantilado si la carretera va alta);
+        // mar adentro, el fondo
+        const costa = d < 0 ? THREE.MathUtils.lerp(h, 0.5, suavizado(-200, 0, d) ** 1.6) : 0.5 - Math.min(30, 3 + d * 0.1);
+        h = THREE.MathUtils.lerp(h, costa, suavizado(ZONA_LLANA_M, ZONA_LLANA_M + 18, cercano.distancia));
+      }
+      if (d < -6) h = Math.max(h, 0.8); // tierra adentro, nunca bajo el nivel del mar
+    }
     return h;
   }
 
   private enLago(x: number, z: number, margen = 15) {
     if (Math.hypot(x - this.lago.x, z - this.lago.z) < this.lago.r + margen) return true;
+    // Ni en el mar ni en la playa
+    if (this.costa && this.mar(x, z) > -margen - 25) return true;
     return !!this.rio && this.distanciaRio(x, z) < this.rio.ancho / 2 + margen;
   }
 
@@ -757,14 +869,20 @@ export class EscenaRecorrido {
   private colorTerreno(x: number, z: number, distancia: number, h: number, c: THREE.Color) {
     const ribera = CIRCUITO.paisaje === 'ribera';
     const sierra = CIRCUITO.paisaje === 'sierra';
-    const praderas = ribera
+    const costa = CIRCUITO.paisaje === 'costa';
+    const praderas = costa
+      ? [0x7b8a45, 0x86904c, 0x6f8240]
+      : ribera
       ? [0x6b8f3e, 0x7a9444, 0x668a3a]
       : sierra
         ? [0x4f7634, 0x5a7d38, 0x4a6b31]
         : [0x5d8a3c, 0x557f37, 0x68904a];
     // En la ribera, casi todo cereal (dorado y paja) con alguna parcela verde o de tierra;
     // en la sierra, pinar, matorral, prados de altura y pedregales
-    const campos = ribera
+    // En la costa: olivares y viñas sobre tierra rojiza, monte bajo y pinar
+    const campos = costa
+      ? [0xb59a62, 0xa4874f, 0x8c8a4a, 0x9a7b55, 0x6f7f3e, 0xc8ad70, 0x5d7038]
+      : ribera
       ? [0xd8c25a, 0xcdb44e, 0xe0cc6a, 0xc2a843, 0xd2c23d, 0x9fae52, 0x9c7f55, 0xe3d27a]
       : sierra
         ? [0x34502a, 0x2f4a26, 0x55693a, 0x6b7444, 0x7c9248, 0x7d6f52, 0x868276, 0x3a5a2c]
@@ -794,6 +912,16 @@ export class EscenaRecorrido {
     }
     // Cuneta de tierra y grava junto al asfalto
     if (distancia < 9) c.lerp(new THREE.Color(0x8c7f63), 1 - distancia / 9);
+    if (this.costa) {
+      const d = this.mar(x, z);
+      if (d > -60) {
+        // Playa de arena donde llega bajo; roca en los acantilados (donde la orilla queda alta)
+        const playa = suavizado(-75, -30, d);
+        const roca = suavizado(4, 14, h) * suavizado(-60, -25, d);
+        c.lerp(new THREE.Color(h < 6 ? 0xdcc9a0 : 0x8f8577), Math.max(playa * (h < 6 ? 1 : 0.85), roca));
+        if (d > -12) c.lerp(new THREE.Color(0xb9ab88), 0.6); // arena mojada
+      }
+    }
     // Orilla del lago
     const dl = Math.hypot(x - this.lago.x, z - this.lago.z);
     if (dl < this.lago.r + 30) c.lerp(new THREE.Color(0xb8a98a), 1 - suavizado(this.lago.r - 10, this.lago.r + 30, dl));
@@ -811,7 +939,8 @@ export class EscenaRecorrido {
     const margen = 2600;
     const ancho = maxX - minX + margen * 2;
     const fondo = maxZ - minZ + margen * 2;
-    const seg = this.calidad === 'alta' ? 256 : 200;
+    // En la costa, más fino: la orilla y la playa necesitan detalle
+    const seg = (this.calidad === 'alta' ? 256 : 200) * (this.costa ? 1.4 : 1);
     const geo = new THREE.PlaneGeometry(ancho, fondo, seg, seg);
     geo.rotateX(-Math.PI / 2);
     geo.translate((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
@@ -1719,7 +1848,10 @@ export class EscenaRecorrido {
 
   private materialesCasa() {
     const sierra = CIRCUITO.paisaje === 'sierra';
-    const paredes = (sierra ? [0x9a9286, 0x8c8478, 0xa79f92, 0xb3a996] : [0xefe6d6, 0xe8dcc2, 0xf3efe6, 0xd9c6a5]).map(
+    const costa = CIRCUITO.paisaje === 'costa';
+    const paredes = (
+      sierra ? [0x9a9286, 0x8c8478, 0xa79f92, 0xb3a996] : costa ? [0xf7f6f1, 0xf4f1e8, 0xfbfaf6, 0xefe9da] : [0xefe6d6, 0xe8dcc2, 0xf3efe6, 0xd9c6a5]
+    ).map(
       (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 }),
     );
     return {
@@ -1850,6 +1982,9 @@ export class EscenaRecorrido {
   // ---- Espectadores animando en las cimas y en la meta ----
   // Cada zona (la meta y lo alto de cada subida) es un grupo aparte: solo se dibujan las cercanas.
   private espectadores: ZonaPublico[] = [];
+  /** Público de cerca con cuerpos humanos (cuando ya están cargados los modelos del ciclista). */
+  private publicoHumano: PublicoHumano | null = null;
+  private publicoHumanoFallido = false;
 
   private crearEspectadores() {
     const rnd = aleatorio(555);
@@ -1946,6 +2081,18 @@ export class EscenaRecorrido {
           gesto: r < 0.35 ? 0 : r < 0.65 ? 1 : r < 0.85 ? 2 : 3,
           talla: 0.88 + rnd() * 0.2,
           ancho: 0.9 + rnd() * 0.25,
+          humano: false,
+          sexo: 'hombre',
+          peinado: 0,
+          barba: false,
+          corto: false,
+          colores: {
+            camiseta: new THREE.Color(),
+            pantalon: new THREE.Color(),
+            zapatillas: new THREE.Color(),
+            piel: new THREE.Color(),
+            pelo: new THREE.Color(),
+          },
         });
       }
       if (!gente.length) continue;
@@ -1972,18 +2119,32 @@ export class EscenaRecorrido {
       for (let i = 0; i < n; i++) {
         const camiseta = elegir(camisetas);
         const piel = elegir(pieles);
+        const pantalon = elegir(pantalones);
+        const zapas = elegir(zapatillas);
+        const colorPelo = elegir(pelos);
         // De vez en cuando, chaqueta: la manga llega hasta la muñeca
         const chaqueta = rnd() < 0.2;
         zona.cuerpo.setColorAt(i, c.set(camiseta));
-        zona.piernas.setColorAt(i, c.set(elegir(pantalones)));
-        zona.zapatos.setColorAt(i, c.set(elegir(zapatillas)));
+        zona.piernas.setColorAt(i, c.set(pantalon));
+        zona.zapatos.setColorAt(i, c.set(zapas));
         zona.cabeza.setColorAt(i, c.set(piel));
         const tipoPelo = rnd() < 0.3 ? 2 : rnd() < 0.4 ? 1 : 0;
         zona.peinado.push(tipoPelo);
         zona.peinados.forEach((m, j) => {
-          m.setColorAt(i, c.set(j === 2 ? elegir(gorras) : elegir(pelos)));
+          m.setColorAt(i, c.set(j === 2 ? elegir(gorras) : colorPelo));
           if (j !== tipoPelo) m.setMatrixAt(i, cero);
         });
+        // Su versión humana (de cerca)
+        const p = gente[i];
+        p.sexo = tipoPelo === 1 || rnd() < 0.3 ? 'mujer' : 'hombre';
+        p.peinado = Math.floor(rnd() * peinadosDe(p.sexo));
+        p.barba = p.sexo === 'hombre' && rnd() < 0.35;
+        p.corto = rnd() < 0.35;
+        p.colores.camiseta.set(camiseta);
+        p.colores.pantalon.set(pantalon);
+        p.colores.zapatillas.set(zapas);
+        p.colores.piel.set(piel);
+        p.colores.pelo.set(colorPelo);
         for (let lado = 0; lado < 2; lado++) {
           zona.mangas.setColorAt(i * 2 + lado, c.set(camiseta));
           zona.antebrazos.setColorAt(i * 2 + lado, c.set(chaqueta ? camiseta : piel));
@@ -1999,13 +2160,55 @@ export class EscenaRecorrido {
   /** Mueve a la gente de las zonas cercanas (las lejanas ni se dibujan). */
   private animarEspectadores(t: number) {
     const yo = enVuelta(this.sYo);
-    for (const z of this.espectadores) {
-      let h = z.gente[0].s - yo;
+    const relativa = (s: number) => {
+      let h = s - yo;
       if (h > LONGITUD_VUELTA_M / 2) h -= LONGITUD_VUELTA_M;
       if (h < -LONGITUD_VUELTA_M / 2) h += LONGITUD_VUELTA_M;
+      return h;
+    };
+    // Los más cercanos (sobre todo los de delante) se dibujan con cuerpo humano
+    const humano = this.prepararPublicoHumano();
+    const candidatos: { e: Persona; d: number }[] = [];
+    for (const z of this.espectadores) {
+      const h = relativa(z.gente[0].s);
       z.grupo.visible = h > -500 && h < 1500;
-      if (z.grupo.visible) this.colocarPublico(z, t, false);
+      if (!z.grupo.visible) continue;
+      for (const e of z.gente) {
+        const he = relativa(e.s);
+        e.humano = false;
+        if (humano && he > -40 && he < 160) candidatos.push({ e, d: Math.abs(he - 25) });
+      }
     }
+    if (humano) {
+      candidatos.sort((a, b) => a.d - b.d);
+      for (const c of candidatos.slice(0, humano.maximo)) c.e.humano = true;
+    }
+    this.cercanos.length = 0;
+    for (const z of this.espectadores) if (z.grupo.visible) this.colocarPublico(z, t, false);
+    if (humano) {
+      this.cercanos.sort((a, b) => a.d - b.d);
+      humano.actualizar(
+        this.cercanos.map((c) => c.p),
+        t,
+      );
+    }
+  }
+
+  private cercanos: { p: PersonaCercana; d: number }[] = [];
+
+  /** Crea el público humano en cuanto están los modelos del ciclista (menos personas en el iPad). */
+  private prepararPublicoHumano() {
+    if (this.publicoHumano || this.publicoHumanoFallido) return this.publicoHumano;
+    const p = plantillasHumanas();
+    if (!p) return null;
+    try {
+      this.publicoHumano = new PublicoHumano(p, this.calidad === 'alta' && !esDispositivoIos() ? 44 : 26, this.calidad === 'alta');
+      this.escena.add(this.publicoHumano.grupo);
+    } catch (e) {
+      console.warn('No se pudo crear el público humano', e);
+      this.publicoHumanoFallido = true;
+    }
+    return this.publicoHumano;
   }
 
   /** Coloca a cada persona: se giran para verte pasar, saltan y mueven los brazos según su gesto. */
@@ -2044,6 +2247,31 @@ export class EscenaRecorrido {
       const salto = salta ? Math.max(0, Math.sin(fase)) * 0.1 : 0;
       q.setFromAxisAngle(Y, e.giro);
       p.copy(e.pos).setY(e.pos.y + salto);
+      if (e.humano) {
+        // Con cuerpo humano: la figura sencilla desaparece
+        const gesto = e.gesto === 1 ? 1 : e.gesto === 3 ? 2 : 0;
+        this.cercanos.push({
+          d: Math.abs(h - 25),
+          p: {
+            matriz: new THREE.Matrix4().compose(p, q, esc.set(e.talla * 0.9, e.talla * 0.97, e.talla * 0.94)),
+            sexo: e.sexo,
+            gesto,
+            peinado: e.peinado,
+            barba: e.barba,
+            fase: e.fase,
+            ritmo: gesto === 2 ? 0 : gesto === 1 ? e.ritmo * 1.5 : e.ritmo * 0.7,
+            corto: e.corto,
+            ...e.colores,
+          },
+        });
+        for (const malla of [z.piernas, z.zapatos, z.cuerpo, z.cabeza, z.peinados[z.peinado[i]]]) malla.setMatrixAt(i, CERO);
+        z.mangas.setMatrixAt(i * 2, CERO);
+        z.mangas.setMatrixAt(i * 2 + 1, CERO);
+        z.antebrazos.setMatrixAt(i * 2, CERO);
+        z.antebrazos.setMatrixAt(i * 2 + 1, CERO);
+        cambio = true;
+        return;
+      }
       esc.set(e.talla * e.ancho, e.talla, e.talla * e.ancho);
       cuerpo.compose(p, q, esc);
       z.piernas.setMatrixAt(i, cuerpo);
@@ -2171,6 +2399,7 @@ export class EscenaRecorrido {
 
   private crearAgua() {
     if (this.rio) this.crearRio();
+    if (this.costa) this.crearMar();
     if (this.lago.r <= 0) return;
     const agua = new THREE.Mesh(
       new THREE.CircleGeometry(this.lago.r + 35, 64),
@@ -2186,6 +2415,105 @@ export class EscenaRecorrido {
     agua.rotation.x = -Math.PI / 2;
     agua.position.set(this.lago.x, this.lago.nivel, this.lago.z);
     this.escena.add(agua);
+  }
+
+  /** El mar: un plano enorme a nivel 0 (tierra adentro lo tapa el terreno) y unos veleros. */
+  private crearMar() {
+    const mar = new THREE.Mesh(
+      new THREE.CircleGeometry(16000, 96),
+      new THREE.MeshStandardMaterial({ color: 0x0f5675, roughness: 0.22, metalness: 0.05, envMapIntensity: 0.55 }),
+    );
+    mar.rotation.x = -Math.PI / 2;
+    mar.position.set(this.tr.centroX, 0, this.tr.centroZ);
+    mar.receiveShadow = true;
+    this.escena.add(mar);
+
+    // Veleros fondeados o navegando despacio (casco blanco y vela)
+    const rnd = aleatorio(808);
+    const casco = new THREE.BoxGeometry(2.4, 0.9, 7).translate(0, 0.25, 0);
+    const vela = new THREE.BufferGeometry();
+    vela.setAttribute('position', new THREE.Float32BufferAttribute([0, 1, -2.2, 0, 9.5, -0.4, 0, 1, 1.8], 3));
+    vela.computeVertexNormals();
+    const matCasco = new THREE.MeshStandardMaterial({ color: 0xf2f2ee, roughness: 0.5 });
+    const matVela = new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.8, side: THREE.DoubleSide });
+    const c = this.costa!;
+    for (let k = 0; k < 14; k++) {
+      const i = Math.floor(rnd() * this.tr.n);
+      const x0 = this.tr.x[i];
+      const z0 = this.tr.z[i];
+      const dentro = 250 + rnd() * 2200;
+      // Mar adentro desde este punto de la carretera
+      const x = x0 + c.dx * dentro;
+      const z = z0 + c.dz * dentro;
+      if (this.mar(x, z) < 120) continue;
+      const barco = new THREE.Group();
+      barco.add(new THREE.Mesh(casco, matCasco), new THREE.Mesh(vela, matVela));
+      barco.position.set(x, 0, z);
+      barco.rotation.y = rnd() * Math.PI * 2;
+      barco.scale.setScalar(0.8 + rnd() * 0.6);
+      this.escena.add(barco);
+    }
+  }
+
+  /** Faro en lo alto del cabo: junto al punto más alto de la vuelta, del lado del mar. */
+  private crearFaro() {
+    let sMax = 0;
+    for (let s = 0; s < LONGITUD_VUELTA_M; s += 50) if (altitud(s) > altitud(sMax)) sMax = s;
+    const k = Math.round(sMax / PASO_M) % this.tr.n;
+    let mejor: { x: number; z: number } | null = null;
+    let dMejor = -Infinity;
+    // Del lado del mar, en el rellano junto a la carretera (más allá el terreno cae en acantilado)
+    let ladoMar = 1;
+    for (const lado of [-1, 1]) {
+      const d = this.mar(this.tr.x[k] - this.tr.dz[k] * lado * 60, this.tr.z[k] + this.tr.dx[k] * lado * 60);
+      if (d > dMejor) {
+        dMejor = d;
+        ladoMar = lado;
+      }
+    }
+    const lat = 20;
+    const x0 = this.tr.x[k] - this.tr.dz[k] * ladoMar * lat;
+    const z0 = this.tr.z[k] + this.tr.dx[k] * ladoMar * lat;
+    if (this.mar(x0, z0) < -8) mejor = { x: x0, z: z0 };
+    if (!mejor) return;
+    const y = this.alturaTerreno(mejor.x, mejor.z);
+    const faro = new THREE.Group();
+    const blanco = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.7 });
+    const rojo = new THREE.MeshStandardMaterial({ color: 0xb8302a, roughness: 0.6 });
+    const gris = new THREE.MeshStandardMaterial({ color: 0x3a3d42, roughness: 0.5, metalness: 0.4 });
+    const cristal = new THREE.MeshStandardMaterial({ color: 0xfff3c4, emissive: 0xffe08a, emissiveIntensity: 0.8, roughness: 0.1 });
+    const pieza = (g: THREE.BufferGeometry, m: THREE.Material) => {
+      const o = new THREE.Mesh(g, m);
+      o.castShadow = true;
+      o.receiveShadow = true;
+      faro.add(o);
+      return o;
+    };
+    // Torre troncocónica con franjas rojas
+    const alto = 20;
+    const franjas = 5;
+    for (let i = 0; i < franjas; i++) {
+      const y0 = (i / franjas) * alto;
+      const y1 = ((i + 1) / franjas) * alto;
+      const r = (yy: number) => 2.6 - (yy / alto) * 0.9;
+      pieza(new THREE.CylinderGeometry(r(y1), r(y0), y1 - y0, 20).translate(0, (y0 + y1) / 2, 0), i % 2 ? rojo : blanco);
+    }
+    pieza(new THREE.CylinderGeometry(2.6, 2.6, 0.35, 20).translate(0, alto + 0.17, 0), gris); // galería
+    pieza(new THREE.CylinderGeometry(1.15, 1.15, 2.2, 12).translate(0, alto + 1.45, 0), cristal); // linterna
+    pieza(new THREE.ConeGeometry(1.4, 1.4, 12).translate(0, alto + 3.25, 0), rojo); // cúpula
+    // Barandilla de la galería
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      pieza(new THREE.CylinderGeometry(0.04, 0.04, 1, 4).translate(Math.cos(a) * 2.45, alto + 0.85, Math.sin(a) * 2.45), gris);
+    }
+    pieza(new THREE.TorusGeometry(2.45, 0.05, 4, 32).rotateX(Math.PI / 2).translate(0, alto + 1.35, 0), gris);
+    // Casa del farero al pie
+    pieza(new THREE.BoxGeometry(6, 3.2, 4.5).translate(4.5, 1.6, 0), blanco);
+    pieza(new THREE.ConeGeometry(4.3, 1.6, 4).rotateY(Math.PI / 4).scale(1, 1, 0.75).translate(4.5, 4, 0), rojo);
+    faro.position.set(mejor.x, y - 0.3, mejor.z);
+    // La casa del farero, hacia el mar (no hacia la carretera)
+    faro.rotation.y = Math.atan2(-this.tr.dx[k] * ladoMar, -this.tr.dz[k] * ladoMar);
+    this.escena.add(faro);
   }
 
   /** Cinta de agua a lo largo del tramo con río (un poco más ancha que el cauce, que la tapa). */
@@ -2271,7 +2599,9 @@ export class EscenaRecorrido {
       const e = suavizado(r0, r0 + 1700, r);
       const macizo = 0.45 + 0.9 * fbm(x / 7000 + 3, z / 7000 - 2, 3, 5);
       const h = 120 + 1150 * crestas(x / 2300, z / 2300, 7, 11) ** 1.25 * macizo;
-      return this.fondo(x, z) - 4 + e * h;
+      const monte = this.fondo(x, z) - 4 + e * h;
+      // Hacia el mar, la cordillera se hunde bajo el agua
+      return this.costa ? THREE.MathUtils.lerp(monte, -40, suavizado(-1500, -150, this.mar(x, z))) : monte;
     };
     const pos = new Float32Array((nA + 1) * (nR + 1) * 3);
     const col = new Float32Array((nA + 1) * (nR + 1) * 3);
@@ -2807,6 +3137,7 @@ export class EscenaRecorrido {
   };
 
   destruir() {
+    this.publicoHumano?.liberar();
     this.destruida = true; // las cargas pendientes ya no añadirán nada
     cancelAnimationFrame(this.animacion);
     this.observador.disconnect();

@@ -27,6 +27,7 @@ import { TarjetaConexion, type InfoConexion } from './components/TarjetaConexion
 import { guardarEntreno, listarEntrenos } from './entrenamiento/almacen';
 import { tituloRueda, type Entreno } from './entrenamiento/tipos';
 import { useGrabacion, type ValoresActuales } from './entrenamiento/useGrabacion';
+import { muestrasDeCortes } from './entrenamiento/resumen';
 import { borrarSesionEnCurso, guardarSesionEnCurso, leerSesionEnCurso, type SesionEnCurso } from './entrenamiento/sesionEnCurso';
 import { CATALOGO } from './entrenamientos/catalogo';
 import { cargarPropios, guardarPropios } from './entrenamientos/propios';
@@ -1128,7 +1129,7 @@ export default function App() {
     if (entreno) {
       entreno.resumen.circuito = circuitoId;
       if (cambiosCircuitoRef.current.length > 1) entreno.resumen.circuitos = cambiosCircuitoRef.current;
-      const vueltas = [...new Set(cortesRef.current)].filter((k) => k > 0 && k < entreno.muestras.length).sort((a, b) => a - b);
+      const vueltas = muestrasDeCortes(entreno.muestras, cortesRef.current);
       if (vueltas.length) entreno.resumen.vueltas = vueltas;
       if (companerosRef.current.size) entreno.resumen.companeros = [...companerosRef.current].slice(0, 20);
     }

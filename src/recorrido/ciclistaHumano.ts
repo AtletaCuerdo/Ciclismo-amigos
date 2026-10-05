@@ -32,7 +32,7 @@ const ARCHIVOS_PELO: Record<Exclude<Peinado, 'calvo'>, { hombre: string; mujer: 
   monos: { hombre: 'pelo_buns', mujer: 'pelo_buns' },
 };
 
-interface Plantillas {
+export interface Plantillas {
   cuerpos: Record<Sexo, THREE.Group>;
   pelos: Record<string, THREE.SkinnedMesh>;
   materialBase: Record<Sexo, THREE.MeshPhysicalMaterial>;
@@ -101,7 +101,7 @@ export function cargarPlantillasHumanas(): Promise<Plantillas> {
 }
 
 /** Malla del cuerpo (la que usa la textura de piel). */
-function mallaCuerpo(raiz: THREE.Object3D) {
+export function mallaCuerpo(raiz: THREE.Object3D) {
   let cuerpo: THREE.SkinnedMesh | null = null;
   raiz.traverse((o) => {
     if (o instanceof THREE.SkinnedMesh && /Superhero|SuperHero/i.test((o.material as THREE.Material).name + o.name)) {
@@ -195,7 +195,7 @@ function prepararCuerpo(raiz: THREE.Group, normal: THREE.Texture, rugosidad: THR
 // ---------------------------------------------------------------------------
 
 /** Tono de referencia de la textura de piel (el más claro de la paleta). */
-const PIEL_REFERENCIA = new THREE.Color('#f3d2b3');
+export const PIEL_REFERENCIA = new THREE.Color('#f3d2b3');
 
 let texturaTexto: THREE.CanvasTexture | null = null;
 
@@ -311,6 +311,7 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
         uniform float uCascoActivo;
         float cE( float x, float e, float w ) { return smoothstep( e - w, e + w, x ); }
         float bE( float x, float a, float b, float w ) { return cE( x, a, w ) * ( 1.0 - cE( x, b, w ) ); }
+        float puntada( float s ) { return 0.55 + 0.45 * step( 0.4, fract( s * 260.0 ) ); }
         float letra( vec2 uv ) {
           float dentro = step( 0.0, uv.x ) * step( uv.x, 1.0 ) * step( 0.0, uv.y ) * step( uv.y, 1.0 );
           return texture2D( uTexto, clamp( uv, 0.0, 1.0 ) ).a * dentro;
@@ -387,16 +388,26 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
           // Culotte con franja lateral
           vec3 c = mix( uCulotte, uFranja, franjaLateral );
           vec3 ropaC = mix( c, m, cE( vRest.y, uBajo, wY ) );
+          // Costuras: paneles laterales, dobladillo del maillot (doble pespunte) y hombros
+          float cost = bE( abs( nR.x ), 0.648, 0.672, wN ) * cE( vRest.y, uBajo + 0.02, wY ) * ( 1.0 - cE( vRest.y, cuelloY - 0.03, wY ) );
+          cost += bE( vRest.y, uBajo + 0.014, uBajo + 0.017, wY ) + bE( vRest.y, uBajo + 0.022, uBajo + 0.025, wY );
+          cost += bE( abs( vRest.x ), 0.105, 0.109, wX ) * cE( vRest.y, uFranjaY.y + 0.03, wY ) * ( 1.0 - cE( vRest.y, cuelloY - 0.01, wY ) );
+          cost = clamp( cost, 0.0, 1.0 ) * ( 1.0 - enDorsal );
+          ropaC *= 1.0 - 0.32 * cost * puntada( vRest.y + vRest.x );
           col = mix( pielC, ropaC * pliegue, ropa );
           zTela = ropa;
           float cintura = bE( vRest.y, uBajo - 0.06, uBajo + 0.2, 0.04 );
           zArruga = ropa * cintura * 0.00035 * ( 0.4 + 0.6 * sin( vRest.x * 23.0 + vRest.z * 17.0 ) ) * sin( vRest.y * 135.0 + sin( vRest.x * 31.0 ) * 2.5 + nR.z * 2.0 );
+          // La costura se hunde un poco en la tela
+          zArruga -= ropa * cost * 0.00012;
           zRug = mix( -1.0, 0.62, ropa );
           if ( crem > 0.5 ) zRug = 0.3;
         } else if ( seg == 3 || seg == 4 ) {
           // Manga con puño
           float manga = 1.0 - cE( tS, 0.5, wT );
           vec3 m = mix( uMaillot, uFranja, bE( tS, 0.42, 0.5, wT ) );
+          float costM = bE( tS, 0.035, 0.045, wT ) + bE( tS, 0.4, 0.408, wT );
+          m *= 1.0 - 0.3 * clamp( costM, 0.0, 1.0 ) * puntada( vRest.x + vRest.z );
           col = mix( pielC, m * pliegue, manga );
           zTela = manga;
           zArruga = manga * ( 1.0 - cE( tS, 0.28, 0.06 ) ) * 0.00025 * ( 0.5 + 0.5 * sin( vRest.x * 60.0 ) ) * sin( tS * 45.0 + vRest.z * 35.0 );
@@ -418,6 +429,8 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
           float exterior = cE( nR.x * sign( vRest.x ), 0.3, wN );
           vec3 cul = mix( uCulotte, uFranja, exterior * franjaLateral );
           cul = mix( cul, uFranja, bE( tS, 0.645, 0.7, wT ) );
+          float costC = bE( tS, 0.625, 0.633, wT ) + bE( nR.x * sign( vRest.x ), -0.64, -0.61, wN ) * ( 1.0 - cE( tS, 0.6, wT ) );
+          cul *= 1.0 - 0.3 * clamp( costC, 0.0, 1.0 ) * puntada( vRest.y + vRest.z );
           col = mix( pielC, cul * pliegue, c );
           zTela = c;
           zArruga = c * ( 1.0 - cE( tS, 0.2, 0.06 ) ) * 0.0003 * ( 0.5 + 0.5 * sin( vRest.z * 50.0 ) ) * sin( tS * 60.0 + vRest.x * 30.0 );
@@ -481,7 +494,7 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
         #endif`,
       );
   };
-  m.customProgramCacheKey = () => 'equipacion-ciclista-4';
+  m.customProgramCacheKey = () => 'equipacion-ciclista-5';
   return m;
 }
 

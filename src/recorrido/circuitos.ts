@@ -35,8 +35,13 @@ export interface DefCircuito {
    * menor, da la vuelta por la salida), a `distancia` m del eje y con `ancho` m de agua.
    */
   rio: { desde: number; hasta: number; distancia: number; ancho: number } | null;
-  /** Paisaje: colinas verdes con cultivos, ribera con cereal dorado o sierra con pinares y roca. */
-  paisaje: 'colinas' | 'ribera' | 'sierra';
+  /**
+   * Mar (circuito de costa): la carretera va junto a él del km `desde` al `hasta`; el mar queda
+   * hacia fuera de la vuelta y lo demás es un cabo con playas, calas y acantilados.
+   */
+  mar?: { desde: number; hasta: number };
+  /** Paisaje: colinas con cultivos, ribera con cereal dorado, sierra con pinares y roca o costa. */
+  paisaje: 'colinas' | 'ribera' | 'sierra' | 'costa';
   /**
    * Cómo se une el perfil entre puntos clave: con coseno (cada punto clave es un rellano) o
    * `suave` (un puerto largo sube seguido, sin rellanos). Sin indicar: coseno.
@@ -194,6 +199,55 @@ export const CIRCUITOS: DefCircuito[] = [
       ['Bajada del Puerto', 8.3, 11.4],
     ],
     metas: [0.9],
+  },
+  {
+    id: 'costa',
+    nombre: 'Vuelta del Faro',
+    descripcion: 'Costa: paseo marítimo llano, subida de 3,5 km por los acantilados hasta el faro y vuelta por el interior.',
+    sala: 'costa',
+    puntos: [
+      [0, 6],
+      [3.2, 6],
+      [3.6, 12],
+      // Subida al Faro, por los acantilados
+      [4.6, 36],
+      [5.6, 62],
+      [6.5, 86],
+      [7.1, 94],
+      // Bajada y vuelta por el interior, entre olivos y pinos
+      [7.8, 82],
+      [8.8, 50],
+      [9.8, 22],
+      [10.8, 14],
+      [11.8, 22],
+      [12.8, 38],
+      [13.5, 42],
+      [14.6, 20],
+      [16.0, 6],
+    ],
+    // Alargada a lo largo de la costa: la mitad junto al mar y la otra por el interior
+    forma: {
+      n: 14,
+      rx: 3400,
+      rz: 1300,
+      ondas: [
+        [0.08, 3, 0.9],
+        [0.05, 5, 2.2],
+      ],
+      meandros: [
+        [40, 780, 1.1],
+        [85, 2100, 0.2],
+      ],
+    },
+    lago: null,
+    rio: null,
+    mar: { desde: 0.3, hasta: 7.2 },
+    paisaje: 'costa',
+    nombrePuerto: 'Subida al Faro',
+    relieve: { base: 46, escala: 0.6 },
+    desnivelSegmento: 15,
+    extra: [['Paseo marítimo', 0.2, 3.2]],
+    metas: [1.6, 11.2],
   },
 ];
 
