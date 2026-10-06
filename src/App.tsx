@@ -425,6 +425,12 @@ export default function App() {
     };
   });
 
+  // Al abrir la web, los aparatos de siempre se reconectan solos donde el navegador lo permite
+  // (Chrome); en Bluefy hace falta un toque en «⚡ nombre»
+  useEffect(() => {
+    for (const s of Object.values(sensores)) void s.reconectarRecordado();
+  }, [sensores]);
+
   // Al cerrar la página soltamos los dispositivos
   useEffect(() => {
     return () => Object.values(sensores).forEach((s) => s.desconectar());
@@ -1443,6 +1449,8 @@ export default function App() {
                   detalle={detalle}
                   info={conexiones[fuente]}
                   deshabilitado={sinBluetooth}
+                  recordado={sensores[fuente].recordado}
+                  onConectarRecordado={() => void sensores[fuente].conectar(true)}
                   // Llamada directa en el clic: requestDevice exige gesto del usuario
                   onConectar={() => void sensores[fuente].conectar()}
                   onDesconectar={() => sensores[fuente].desconectar()}
@@ -1712,6 +1720,18 @@ export default function App() {
             }}
             rodilloControlado={hayErg}
             demo={usarDemo ? { vatios: demoVatios!, onCambiar: setDemoVatios } : null}
+            sensores={{
+              lista: tarjetas.map(({ fuente, titulo, detalle }) => ({
+                fuente,
+                titulo,
+                detalle,
+                info: conexiones[fuente],
+                recordado: sensores[fuente].recordado,
+              })),
+              deshabilitado: sinBluetooth,
+              onConectar: (f, recordado) => void sensores[f as Fuente].conectar(recordado),
+              onDesconectar: (f) => sensores[f as Fuente].desconectar(),
+            }}
             marcha={
               cambiosVirtuales
                 ? {

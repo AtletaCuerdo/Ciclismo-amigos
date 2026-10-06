@@ -18,12 +18,24 @@ interface Props {
   detalle: string;
   info: InfoConexion;
   deshabilitado: boolean;
+  /** Último aparato usado: se ofrece conectarlo con un toque (la lista sale ya filtrada). */
+  recordado?: string | null;
+  onConectarRecordado?: () => void;
   onConectar: () => void;
   onDesconectar: () => void;
 }
 
 /** Botón grande de conexión con su estado y los posibles errores. */
-export function TarjetaConexion({ titulo, detalle, info, deshabilitado, onConectar, onDesconectar }: Props) {
+export function TarjetaConexion({
+  titulo,
+  detalle,
+  info,
+  deshabilitado,
+  recordado,
+  onConectarRecordado,
+  onConectar,
+  onDesconectar,
+}: Props) {
   const ocupado = info.estado === 'conectando';
   const activo = info.estado === 'conectado' || info.estado === 'reconectando';
 
@@ -42,7 +54,12 @@ export function TarjetaConexion({ titulo, detalle, info, deshabilitado, onConect
         <span>{TEXTO_ESTADO[info.estado]}</span>
         {info.nombre && activo && <span className="nombre-dispositivo">· {info.nombre}</span>}
       </div>
-      <div className="detalle">{detalle}</div>
+      {!activo && recordado && onConectarRecordado && (
+        <button className="boton-principal boton-recordado" onClick={onConectarRecordado} disabled={deshabilitado || ocupado}>
+          ⚡ {recordado}
+        </button>
+      )}
+      <div className="detalle">{!activo && recordado ? 'O pulsa arriba para elegir otro' : detalle}</div>
       {info.error && <div className="error-conexion">{info.error}</div>}
       {activo && (
         <button className="boton-secundario" onClick={onDesconectar}>

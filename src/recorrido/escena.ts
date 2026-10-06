@@ -940,7 +940,8 @@ export class EscenaRecorrido {
     const ancho = maxX - minX + margen * 2;
     const fondo = maxZ - minZ + margen * 2;
     // En la costa, más fino: la orilla y la playa necesitan detalle
-    const seg = (this.calidad === 'alta' ? 256 : 200) * (this.costa ? 1.4 : 1);
+    // (En el iPad no: se quedaba sin memoria en el circuito de costa)
+    const seg = (this.calidad === 'alta' ? 256 : 200) * (this.costa && !esDispositivoIos() ? 1.4 : 1);
     const geo = new THREE.PlaneGeometry(ancho, fondo, seg, seg);
     geo.rotateX(-Math.PI / 2);
     geo.translate((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
@@ -2202,7 +2203,7 @@ export class EscenaRecorrido {
     const p = plantillasHumanas();
     if (!p) return null;
     try {
-      this.publicoHumano = new PublicoHumano(p, this.calidad === 'alta' && !esDispositivoIos() ? 44 : 26, this.calidad === 'alta');
+      this.publicoHumano = new PublicoHumano(p, this.calidad === 'alta' && !esDispositivoIos() ? 44 : esDispositivoIos() ? 12 : 26, this.calidad === 'alta');
       this.escena.add(this.publicoHumano.grupo);
     } catch (e) {
       console.warn('No se pudo crear el público humano', e);

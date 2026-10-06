@@ -30,6 +30,7 @@ import type { Mensaje } from '../multijugador/useSalida';
 import { GraficaEntrenamiento, colorZona } from './GraficaEntrenamiento';
 import { formatearTiempo } from './Metrica';
 import { mantenerPantallaEncendida } from '../pantallaEncendida';
+import { TarjetaConexion, type InfoConexion } from './TarjetaConexion';
 
 export interface DatosHud extends DatosYo {
   potencia?: number;
@@ -111,6 +112,13 @@ interface Props {
   rodilloControlado: boolean;
   /** Modo demostración: deslizador de vatios simulados (null si no está activo). */
   demo: { vatios: number; onCambiar: (w: number) => void } | null;
+  /** Rodillo, banda, etc.: conectar o reconectar sin salir del recorrido. */
+  sensores: {
+    lista: { fuente: string; titulo: string; detalle: string; info: InfoConexion; recordado: string | null }[];
+    deshabilitado: boolean;
+    onConectar: (fuente: string, recordado: boolean) => void;
+    onDesconectar: (fuente: string) => void;
+  };
   /** Cambios virtuales: marcha actual (1-24). `activa`: false si el ERG de un entrenamiento manda. */
   marcha: { n: number; total: number; onCambiar: (delta: number) => void; activa: boolean } | null;
   /** Elite Novo Force: posición de la palanca del manillar (1-8), para cambiarla en directo. */
@@ -264,6 +272,7 @@ export default function VistaRecorrido({
   circuito,
   rodilloControlado,
   demo,
+  sensores,
   marcha,
   palanca,
   entreno,
@@ -351,6 +360,10 @@ export default function VistaRecorrido({
   useEffect(() => escena.current?.ponerMiDorsal(miNombre || null), [miNombre, cargando]);
   const [menuEmojis, setMenuEmojis] = useState(false);
   const [menuCircuito, setMenuCircuito] = useState(false);
+  // Sin nada conectado (p. ej. al retomar una sesión tras cerrarse la web), el panel sale abierto
+  const [menuSensores, setMenuSensores] = useState(
+    () => !demo && !sensores.lista.some((x) => x.info.estado === 'conectado' || x.info.estado === 'reconectando'),
+  );
   // El aviso del próximo circuito se puede cerrar sin anular el cambio (vuelve si se elige otro)
   const [avisoCircuitoCerrado, setAvisoCircuitoCerrado] = useState(false);
   useEffect(() => setAvisoCircuitoCerrado(false), [circuito.siguiente]);
@@ -684,6 +697,13 @@ export default function VistaRecorrido({
               </div>
             )}
           </div>
+          <button
+            className={`boton-secundario ${sensores.lista.some((x) => x.info.estado === 'reconectando') ? 'aviso' : ''}`}
+            onClick={() => setMenuSensores((m) => !m)}
+            title="Conectar el rodillo, la banda de pulso u otros sensores sin salir"
+          >
+            🔌 Sensores
+          </button>
           {!entreno && (
             <button className="boton-secundario" onClick={() => setEligiendo(true)} title="Hacer un entrenamiento guiado sin salir">
               📋 Entreno
@@ -762,6 +782,38 @@ export default function VistaRecorrido({
               : undefined
           }
         />
+      )}
+
+      {menuSensores && (
+        <div className="panel-sensores-recorrido">
+          <div className="hud menu-sensores">
+            <div className="menu-bots-cabecera">
+              <strong>🔌 Sensores</strong>
+              <button className="chat-cerrar" onClick={() => setMenuSensores(false)} aria-label="Cerrar">
+                ✕
+              </button>
+            </div>
+            <div className="rejilla-conexion">
+              {sensores.lista.map((x) => (
+                <TarjetaConexion
+                  key={x.fuente}
+                  titulo={x.titulo}
+                  detalle={x.detalle}
+                  info={x.info}
+                  deshabilitado={sensores.deshabilitado}
+                  recordado={x.recordado}
+                  // Directo en el clic: el navegador exige un toque para buscar aparatos
+                  onConectarRecordado={() => sensores.onConectar(x.fuente, true)}
+                  onConectar={() => sensores.onConectar(x.fuente, false)}
+                  onDesconectar={() => sensores.onDesconectar(x.fuente)}
+                />
+              ))}
+            </div>
+            <button className="boton-principal" onClick={() => setMenuSensores(false)}>
+              Listo
+            </button>
+          </div>
+        </div>
       )}
 
       {circuito.siguiente && !avisoCircuitoCerrado && (

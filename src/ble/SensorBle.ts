@@ -4,7 +4,9 @@
  *  - pedir el dispositivo al usuario (requestDevice),
  *  - conectar y dejar que la subclase configure sus características,
  *  - reintentar la conexión automáticamente si se cae,
- *  - serializar las operaciones GATT (Bluetooth no admite dos a la vez).
+ *  - serializar las operaciones GATT (Bluetooth no admite dos a la vez),
+ *  - recordar el último aparato usado (su nombre) para volver a conectarlo con un toque
+ *    o, donde el navegador lo permite (getDevices), sin preguntar.
  */
 
 export type EstadoConexion = 'desconectado' | 'conectando' | 'conectado' | 'reconectando';
@@ -73,6 +75,50 @@ export abstract class SensorBle {
     return { filters: [{ services: [this.servicio] }] };
   }
 
+  /** Nombre del último aparato conectado de este tipo (se guarda en el navegador). */
+  get recordado(): string | null {
+    try {
+      return localStorage.getItem(`rodillos.aparato.${this.servicio}`);
+    } catch {
+      return null;
+    }
+  }
+
+  private recordar(nombre: string | undefined) {
+    if (!nombre) return;
+    try {
+      localStorage.setItem(`rodillos.aparato.${this.servicio}`, nombre);
+    } catch {
+      // sin almacenamiento: no pasa nada
+    }
+  }
+
+  /** Búsqueda que solo muestra el aparato recordado (con los mismos servicios que la normal). */
+  private busquedaRecordado(nombre: string): RequestDeviceOptions {
+    const normal = this.opcionesBusqueda() as RequestDeviceOptions & { filters?: BluetoothLEScanFilter[] };
+    const servicios = new Set<BluetoothServiceUUID>([this.servicio, ...(normal.optionalServices ?? [])]);
+    for (const f of normal.filters ?? []) for (const sv of f.services ?? []) servicios.add(sv);
+    return { filters: [{ name: nombre }], optionalServices: [...servicios] };
+  }
+
+  /**
+   * Vuelve a conectar el aparato recordado sin preguntar, si el navegador lo permite
+   * (Chrome con getDevices). Devuelve false si no se puede: entonces hace falta un toque.
+   */
+  async reconectarRecordado(): Promise<boolean> {
+    const nombre = this.recordado;
+    const bt = bluetoothDisponible() ? (navigator.bluetooth as Bluetooth & { getDevices?: () => Promise<BluetoothDevice[]> }) : null;
+    if (!nombre || !bt?.getDevices || this.conectado || this.estado === 'conectando') return false;
+    try {
+      const device = (await bt.getDevices()).find((d) => d.name === nombre);
+      if (!device) return false;
+      await this.usar(device, true);
+      return this.conectado;
+    } catch {
+      return false;
+    }
+  }
+
   /** Se llama en cada desconexión (manual o no) para limpiar estado interno. */
   protected alDesconectar(): void {}
 
@@ -84,14 +130,15 @@ export abstract class SensorBle {
    * Debe llamarse directamente desde el manejador de un clic:
    * requestDevice exige un gesto del usuario y por eso es lo primero que se hace.
    */
-  async conectar(): Promise<void> {
+  async conectar(soloRecordado = false): Promise<void> {
     if (!bluetoothDisponible()) {
       this.eventos.onError('Este navegador no soporta Web Bluetooth.');
       return;
     }
     let device: BluetoothDevice;
+    const nombre = soloRecordado ? this.recordado : null;
     try {
-      device = await navigator.bluetooth.requestDevice(this.opcionesBusqueda());
+      device = await navigator.bluetooth.requestDevice(nombre ? this.busquedaRecordado(nombre) : this.opcionesBusqueda());
     } catch (e) {
       if (esCancelacion(e)) {
         this.eventos.onLog(`${this.etiqueta}: selección cancelada`, 'info');
@@ -101,7 +148,11 @@ export abstract class SensorBle {
       }
       return;
     }
+    await this.usar(device, false);
+  }
 
+  /** Se queda con este aparato y lo conecta (en silencio si `silencioso`: sin mensajes de error). */
+  private async usar(device: BluetoothDevice, silencioso: boolean) {
     // Si ya había un dispositivo (el mismo u otro), lo soltamos sin reintentos.
     this.cancelarReintento();
     if (this.device) {
@@ -121,7 +172,7 @@ export abstract class SensorBle {
       await this.establecer();
     } catch (e) {
       const msg = mensajeError(e);
-      this.eventos.onError(`No se pudo conectar con ${device.name ?? this.etiqueta}: ${msg}`);
+      if (!silencioso) this.eventos.onError(`No se pudo conectar con ${device.name ?? this.etiqueta}: ${msg}`);
       this.eventos.onLog(`${this.etiqueta}: error al conectar · ${msg}`, 'error');
       this.desconexionManual = true; // no reintentar un primer intento fallido
       if (device.gatt?.connected) device.gatt.disconnect();
@@ -151,6 +202,7 @@ export abstract class SensorBle {
     this.cola = Promise.resolve();
     await this.configurar(server);
     this.intentos = 0;
+    this.recordar(device.name);
     this.cambiarEstado('conectado');
     this.eventos.onLog(`${this.etiqueta}: conectado a ${device.name ?? 'dispositivo'}`, 'ok');
   }

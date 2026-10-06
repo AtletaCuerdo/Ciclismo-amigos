@@ -3411,3 +3411,53 @@ p {
   display: flex;
   gap: 8px;
 }
+
+/* ---------- Sensores dentro del recorrido ---------- */
+
+.panel-sensores-recorrido {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(10, 12, 16, 0.45);
+}
+
+.menu-sensores {
+  width: min(760px, 100%);
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.menu-sensores .tarjeta-conexion {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--texto);
+}
+
+.boton-recordado {
+  width: 100%;
+  margin-top: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-botones .boton-secundario.aviso {
+  border-color: #ffc233;
+  color: #ffc233;
+}
+.menu-sensores .tarjeta-conexion .boton-secundario {
+  background: var(--panel);
+  color: var(--texto);
+  border-color: var(--borde);
+}
+.menu-sensores .linea-estado,
+.menu-sensores .detalle {
+  color: var(--texto-suave);
+}
