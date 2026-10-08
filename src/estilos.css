@@ -1248,6 +1248,8 @@ p {
   align-items: center;
   gap: 8px 18px;
   padding: 6px 14px;
+  /* Sus desplegables (Bots, Circuito) por encima del grupo y los segmentos */
+  z-index: 5;
 }
 
 .hud-filas {
@@ -2170,9 +2172,10 @@ p {
 
 /* ---------- Grupo dentro del recorrido ---------- */
 
+/* Abajo a la derecha, justo encima del perfil: deja libres los desplegables de arriba */
 .hud-grupo {
   margin-left: auto;
-  align-self: flex-start;
+  align-self: flex-end;
   display: flex;
   flex-direction: column;
   gap: 6px;
