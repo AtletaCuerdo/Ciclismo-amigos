@@ -41,7 +41,8 @@ export function mensajeError(e: unknown): string {
         return e.message || e.name;
     }
   }
-  return String(e);
+  // Algunos navegadores (Bluefy) rechazan con un número o un texto suelto, p. ej. «2»
+  return `Error de Bluetooth (${String(e)}). Apaga y enciende el dispositivo y vuelve a probar.`;
 }
 
 export function esCancelacion(e: unknown) {
@@ -93,12 +94,17 @@ export abstract class SensorBle {
     }
   }
 
-  /** Búsqueda que solo muestra el aparato recordado (con los mismos servicios que la normal). */
+  /**
+   * Búsqueda que solo muestra el aparato recordado: los mismos filtros que la normal, cada uno
+   * con el nombre añadido. (Solo con el nombre, sin servicio, Bluefy en el iPad no encuentra nada:
+   * en iOS hay que buscar por servicio.)
+   */
   private busquedaRecordado(nombre: string): RequestDeviceOptions {
     const normal = this.opcionesBusqueda() as RequestDeviceOptions & { filters?: BluetoothLEScanFilter[] };
     const servicios = new Set<BluetoothServiceUUID>([this.servicio, ...(normal.optionalServices ?? [])]);
     for (const f of normal.filters ?? []) for (const sv of f.services ?? []) servicios.add(sv);
-    return { filters: [{ name: nombre }], optionalServices: [...servicios] };
+    const filtros = normal.filters?.length ? normal.filters : [{ services: [this.servicio] }];
+    return { filters: filtros.map((f) => ({ ...f, name: nombre })), optionalServices: [...servicios] };
   }
 
   /**
@@ -138,7 +144,14 @@ export abstract class SensorBle {
     let device: BluetoothDevice;
     const nombre = soloRecordado ? this.recordado : null;
     try {
-      device = await navigator.bluetooth.requestDevice(nombre ? this.busquedaRecordado(nombre) : this.opcionesBusqueda());
+      try {
+        device = await navigator.bluetooth.requestDevice(nombre ? this.busquedaRecordado(nombre) : this.opcionesBusqueda());
+      } catch (e) {
+        // Si la búsqueda del aparato recordado falla (no por cancelar), se ofrece la lista normal
+        if (!nombre || esCancelacion(e)) throw e;
+        this.eventos.onLog(`${this.etiqueta}: búsqueda rápida fallida (${mensajeError(e)}), abro la lista normal`, 'info');
+        device = await navigator.bluetooth.requestDevice(this.opcionesBusqueda());
+      }
     } catch (e) {
       if (esCancelacion(e)) {
         this.eventos.onLog(`${this.etiqueta}: selección cancelada`, 'info');

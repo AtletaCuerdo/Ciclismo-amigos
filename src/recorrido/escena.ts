@@ -491,7 +491,9 @@ export class EscenaRecorrido {
     // corta el 3D y la página se queda en blanco). Sin suavizado de bordes por hardware, con
     // menos resolución, sombras más pequeñas y el cielo de 2k.
     this.movil = esDispositivoIos();
-    this.factor = alta ? 1 : 0.5;
+    // En el iPad, algo menos de vegetación también en calidad alta: en la Ribera (el circuito
+    // más largo y alargado) Bluefy se quedaba sin memoria y cerraba la página
+    this.factor = alta ? (this.movil ? 0.7 : 1) : 0.5;
     this.renderer = new THREE.WebGLRenderer({ antialias: alta && !this.movil, powerPreference: 'high-performance' });
     this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
       e.preventDefault();
@@ -2837,9 +2839,11 @@ export class EscenaRecorrido {
       if (t.pendienteMedia < 2.5) continue;
       const largo = ((t.fin - t.inicio) / 1000).toFixed(1).replace('.', ',');
       cartel(t.inicio - 120, `${largo} km al ${pct(t.pendienteMedia)} · +${Math.round(t.desnivel)} m`, 5.2, '#1f5a2a');
+      // Cada cartel marca la pendiente justo donde está, la misma que enseña el marcador al pasar
+      // a su altura (antes era la media de los 500 m siguientes y no coincidía con el marcador)
       for (let s = t.inicio + 500; s < t.fin - 150; s += 500) {
-        const g = (altitud(Math.min(t.fin, s + 500)) - altitud(s)) / (Math.min(t.fin, s + 500) - s) * 100;
-        cartel(s - 30, pct(g), 2.0, g >= 7 ? '#a3221b' : g >= 5 ? '#c26512' : '#1f5a2a');
+        const g = pendiente(s);
+        cartel(s, pct(g), 2.0, g >= 7 ? '#a3221b' : g >= 5 ? '#c26512' : '#1f5a2a');
       }
       // Cartel azul en lo alto del puerto, con su nombre y la altitud
       if (CIRCUITO.nombrePuerto && t.desnivel >= 60) cartel(t.fin + 15, `${CIRCUITO.nombre} · ${Math.round(altitud(t.fin))} m`, 5.2, '#1d4f91');
