@@ -208,14 +208,26 @@ export class RodilloFtms extends SensorBle {
     });
   }
 
+  /**
+   * Manda una orden y, si el rodillo la rechaza o no contesta, vuelve a pedir el control
+   * (puede haberlo perdido tras un corte) y la repite una vez.
+   */
+  private async ordenar(datos: () => ArrayBuffer, descripcion: string) {
+    if (await this.comando(datos(), descripcion)) return true;
+    if (!this.conectado) return false;
+    await this.comando(Comandos.requestControl(), 'Request Control (otra vez)');
+    await this.comando(Comandos.start(), 'Start');
+    return this.comando(datos(), descripcion);
+  }
+
   fijarPotencia(vatios: number) {
-    return this.comando(Comandos.targetPower(vatios), `Set Target Power ${Math.round(vatios)} W`);
+    return this.ordenar(() => Comandos.targetPower(vatios), `Set Target Power ${Math.round(vatios)} W`);
   }
 
   /** @param rebufo ahorro de aire yendo a rueda (0 … 0,3): el rodillo resiste menos. */
   fijarPendiente(pendiente: number, rebufo = 0) {
-    return this.comando(
-      Comandos.simulacion(pendiente, 0, 0.004, 0.51 * (1 - rebufo)),
+    return this.ordenar(
+      () => Comandos.simulacion(pendiente, 0, 0.004, 0.51 * (1 - rebufo)),
       `Simulación pendiente ${pendiente.toFixed(1)} %${rebufo > 0 ? ` · rebufo −${Math.round(rebufo * 100)} % de aire` : ''}`,
     );
   }

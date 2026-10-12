@@ -610,6 +610,8 @@ export default function App() {
     let marchaEnviada = 0;
     let pendienteEnviada: number | null = null;
     let potenciaEnviada: number | null = null;
+    // Orden en curso al rodillo: no se amontonan otras mientras tanto
+    let enVuelo = false;
     let ultimoEnvio = 0;
     const id = setInterval(() => {
       const t = performance.now();
@@ -664,17 +666,36 @@ export default function App() {
       if (eventosCrono.length) alEventosCronoRef.current(eventosCrono);
 
       const rodillo = sensores.ftms;
-      if (!rodillo.tieneControl) return;
+      if (!rodillo.tieneControl) {
+        // Sin conexión (p. ej. el iPad se quedó colgado unos segundos y el rodillo se reconectó):
+        // al volver hay que mandarle otra vez lo que toca, aunque no haya cambiado
+        potenciaEnviada = null;
+        pendienteEnviada = null;
+        return;
+      }
+      // Si el rodillo no confirma una orden, se repite en el siguiente ciclo
+      if (enVuelo) return;
+      const vigilar = (p: Promise<boolean>, deshacer: () => void) => {
+        enVuelo = true;
+        void p
+          .then((ok) => {
+            if (!ok) deshacer();
+          })
+          .finally(() => (enVuelo = false));
+      };
       const activo = entrenoActivoRef.current;
       const libre = activo ? tramoEn(activo.tramos, segundosRef.current - activo.inicioS)?.libre === true : false;
       if (activo && !libre) {
         // Entrenamiento guiado: modo ERG (potencia fija), como mucho un envío por segundo
         pendienteEnviada = null;
         const w = objetivoRef.current;
-        if (w !== undefined && w !== potenciaEnviada && t - ultimoEnvio > 1000) {
+        // Además, cada 15 s se repite la potencia por si el rodillo la perdió sin avisar
+        if (w !== undefined && (w !== potenciaEnviada || t - ultimoEnvio > 15000) && t - ultimoEnvio > 1000) {
           potenciaEnviada = w;
           ultimoEnvio = t;
-          void rodillo.fijarPotencia(w);
+          vigilar(rodillo.fijarPotencia(w), () => {
+            if (potenciaEnviada === w) potenciaEnviada = null;
+          });
         }
       } else if (cambiosRef.current && actualRef.current.cadencia !== undefined) {
         // Cambios virtuales: el rodillo pide los vatios que costaría esa marcha a esa cadencia
@@ -690,7 +711,9 @@ export default function App() {
           potenciaEnviada = w;
           marchaEnviada = marchaRef.current;
           ultimoEnvio = t;
-          void rodillo.fijarPotencia(w);
+          vigilar(rodillo.fijarPotencia(w), () => {
+            if (potenciaEnviada === w) potenciaEnviada = null;
+          });
         }
       } else {
         // Rodar libre (o tramo «a tope» de un test): el rodillo se endurece con la pendiente
@@ -702,7 +725,9 @@ export default function App() {
           pendienteEnviada = redondeada;
           rebufoEnviado = rebufo;
           ultimoEnvio = t;
-          void rodillo.fijarPendiente(redondeada, rebufo);
+          vigilar(rodillo.fijarPendiente(redondeada, rebufo), () => {
+            if (pendienteEnviada === redondeada) pendienteEnviada = null;
+          });
         }
       }
     }, 100);

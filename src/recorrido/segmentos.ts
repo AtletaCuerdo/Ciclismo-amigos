@@ -36,6 +36,11 @@ export function segmentos(): Segmento[] {
   return segmentosDe(CIRCUITO);
 }
 
+/** Nombre de la subida número `i` (0, 1…) de las cronometradas del circuito. */
+export function nombreDeSubida(c: DefCircuito, i: number, desnivel: number, inicio: number) {
+  return c.nombresSubidas?.[i] || (desnivel >= 60 ? (c.nombrePuerto ?? 'Puerto') : `Repecho del km ${km(inicio)}`);
+}
+
 /** Segmentos de un circuito cualquiera (p. ej. para ver sus récords en los rankings). */
 export function segmentosDe(c: DefCircuito): Segmento[] {
   const guardados = cache.get(c.id);
@@ -43,7 +48,7 @@ export function segmentosDe(c: DefCircuito): Segmento[] {
   const lista: Segmento[] = [
     ...subidasDe(c.puntos, c.perfil === 'suave').filter((s) => s.desnivel >= c.desnivelSegmento).map((s, i) => ({
       id: `subida-${i + 1}`,
-      nombre: s.desnivel >= 60 ? (c.nombrePuerto ?? 'Puerto') : `Repecho del km ${km(s.inicio)}`,
+      nombre: nombreDeSubida(c, i, s.desnivel, s.inicio),
       tipo: 'subida' as const,
       inicio: s.inicio,
       fin: s.fin,

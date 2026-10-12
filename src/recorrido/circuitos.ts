@@ -49,6 +49,11 @@ export interface DefCircuito {
   perfil?: 'suave';
   /** Nombre de la subida principal (la de más de 60 m). Sin indicar: «Puerto». */
   nombrePuerto?: string;
+  /**
+   * Nombres propios de las subidas cronometradas, en orden (los elige el grupo). Salen en el cartel
+   * de la cima, en los segmentos y en los rankings. Sin indicar: `nombrePuerto` o «Repecho del km…».
+   */
+  nombresSubidas?: string[];
   /** Colinas lejos de la carretera: altura media y cuánto se ondulan (1 = como el original). */
   relieve: { base: number; escala: number };
   /** Subidas con al menos este desnivel se cronometran como segmento. */
@@ -243,6 +248,8 @@ export const CIRCUITOS: DefCircuito[] = [
     rio: null,
     mar: { desde: 0.3, hasta: 7.2 },
     paisaje: 'costa',
+    // Una subida seguida hasta el faro (sin rellanos en cada punto clave)
+    perfil: 'suave',
     nombrePuerto: 'Subida al Faro',
     relieve: { base: 46, escala: 0.6 },
     desnivelSegmento: 15,

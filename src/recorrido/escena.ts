@@ -25,6 +25,7 @@ import {
 } from './recursos';
 import { crestas, datosRuidoPeriodico, fbm } from './ruido';
 import { trazadoDe, type Trazado } from './trazado';
+import { nombreDeSubida } from './segmentos';
 import { cieloActual } from './cielos';
 
 /** Luminancia media (lineal) de la textura de hierba: sirve para usarla como detalle sin oscurecer. */
@@ -2202,10 +2203,12 @@ export class EscenaRecorrido {
   /** Crea el público humano en cuanto están los modelos del ciclista (menos personas en el iPad). */
   private prepararPublicoHumano() {
     if (this.publicoHumano || this.publicoHumanoFallido) return this.publicoHumano;
+    // En el iPad, solo en calidad alta (tras quedarse sin memoria pasa a media y se quita)
+    if (esDispositivoIos() && this.calidad !== 'alta') return null;
     const p = plantillasHumanas();
     if (!p) return null;
     try {
-      this.publicoHumano = new PublicoHumano(p, this.calidad === 'alta' && !esDispositivoIos() ? 44 : esDispositivoIos() ? 12 : 26, this.calidad === 'alta');
+      this.publicoHumano = new PublicoHumano(p, this.calidad === 'alta' && !esDispositivoIos() ? 44 : esDispositivoIos() ? 10 : 26, this.calidad === 'alta');
       this.escena.add(this.publicoHumano.grupo);
     } catch (e) {
       console.warn('No se pudo crear el público humano', e);
@@ -2835,7 +2838,13 @@ export class EscenaRecorrido {
       this.escena.add(poste, placa);
     };
     const pct = (g: number) => `${g.toFixed(g < 10 ? 1 : 0).replace('.', ',')} %`;
+    let n = 0; // número de subida cronometrada (para su nombre)
     for (const t of SUBIDAS) {
+      // Cartel azul en lo alto de cada subida cronometrada, con su nombre y la altitud
+      if (t.desnivel >= CIRCUITO.desnivelSegmento) {
+        const nombre = nombreDeSubida(CIRCUITO, n++, t.desnivel, t.inicio);
+        cartel(t.fin + 15, `${nombre} · ${Math.round(altitud(t.fin))} m`, 5.2, '#1d4f91');
+      }
       if (t.pendienteMedia < 2.5) continue;
       const largo = ((t.fin - t.inicio) / 1000).toFixed(1).replace('.', ',');
       cartel(t.inicio - 120, `${largo} km al ${pct(t.pendienteMedia)} · +${Math.round(t.desnivel)} m`, 5.2, '#1f5a2a');
@@ -2845,8 +2854,6 @@ export class EscenaRecorrido {
         const g = pendiente(s);
         cartel(s, pct(g), 2.0, g >= 7 ? '#a3221b' : g >= 5 ? '#c26512' : '#1f5a2a');
       }
-      // Cartel azul en lo alto del puerto, con su nombre y la altitud
-      if (CIRCUITO.nombrePuerto && t.desnivel >= 60) cartel(t.fin + 15, `${CIRCUITO.nombre} · ${Math.round(altitud(t.fin))} m`, 5.2, '#1d4f91');
     }
   }
 
