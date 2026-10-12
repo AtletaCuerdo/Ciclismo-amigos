@@ -185,7 +185,14 @@ function texturaTexto(texto: string, fondo: string, color: string, ancho = 512, 
   ctx.fillStyle = fondo;
   ctx.fillRect(0, 0, ancho, alto);
   ctx.fillStyle = color;
-  ctx.font = `bold ${Math.round(alto * 0.55)}px system-ui, sans-serif`;
+  // Los textos largos (nombres de los puertos) se achican hasta caber
+  let tam = Math.round(alto * 0.55);
+  ctx.font = `bold ${tam}px system-ui, sans-serif`;
+  const medida = ctx.measureText(texto).width;
+  if (medida > ancho * 0.92) {
+    tam = Math.floor((tam * ancho * 0.92) / medida);
+    ctx.font = `bold ${tam}px system-ui, sans-serif`;
+  }
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(texto, ancho / 2, alto / 2 + 2);
@@ -2843,7 +2850,7 @@ export class EscenaRecorrido {
       // Cartel azul en lo alto de cada subida cronometrada, con su nombre y la altitud
       if (t.desnivel >= CIRCUITO.desnivelSegmento) {
         const nombre = nombreDeSubida(CIRCUITO, n++, t.desnivel, t.inicio);
-        cartel(t.fin + 15, `${nombre} · ${Math.round(altitud(t.fin))} m`, 5.2, '#1d4f91');
+        cartel(t.fin + 15, `${nombre} · ${Math.round(altitud(t.fin))} m`, 7, '#1d4f91');
       }
       if (t.pendienteMedia < 2.5) continue;
       const largo = ((t.fin - t.inicio) / 1000).toFixed(1).replace('.', ',');
