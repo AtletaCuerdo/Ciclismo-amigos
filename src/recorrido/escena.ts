@@ -185,20 +185,34 @@ function texturaTexto(texto: string, fondo: string, color: string, ancho = 512, 
   ctx.fillStyle = fondo;
   ctx.fillRect(0, 0, ancho, alto);
   ctx.fillStyle = color;
-  // Los textos largos (nombres de los puertos) se achican hasta caber
-  let tam = Math.round(alto * 0.55);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // Una o varias líneas (con «\n»); las que no caben se achican
+  const lineas = texto.split('\n');
+  const alto1 = alto / lineas.length;
+  let tam = Math.round(alto1 * (lineas.length > 1 ? 0.7 : 0.55));
   ctx.font = `bold ${tam}px system-ui, sans-serif`;
-  const medida = ctx.measureText(texto).width;
+  const medida = Math.max(...lineas.map((l) => ctx.measureText(l).width));
   if (medida > ancho * 0.92) {
     tam = Math.floor((tam * ancho * 0.92) / medida);
     ctx.font = `bold ${tam}px system-ui, sans-serif`;
   }
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(texto, ancho / 2, alto / 2 + 2);
+  lineas.forEach((l, i) => ctx.fillText(l, ancho / 2, alto1 * (i + 0.5) + 2));
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
+}
+
+/**
+ * Texto del cartel de una cima en dos líneas: nombre y altitud o, si el nombre es largo, el
+ * nombre partido por el espacio más centrado y la altitud al final («Juanillo no» / «tiene cabra · 70 m»).
+ */
+function textoCima(nombre: string, metros: number) {
+  if (nombre.length <= 14 || !nombre.includes(' ')) return `${nombre}\n${metros} m`;
+  const mitad = nombre.length / 2;
+  let corte = -1;
+  for (let i = 0; i < nombre.length; i++) if (nombre[i] === ' ' && (corte < 0 || Math.abs(i - mitad) < Math.abs(corte - mitad))) corte = i;
+  return `${nombre.slice(0, corte)}\n${nombre.slice(corte + 1)} · ${metros} m`;
 }
 
 /** Panel direccional de curva: chevrones blancos sobre rojo, hacia la derecha o la izquierda. */
@@ -2826,21 +2840,22 @@ export class EscenaRecorrido {
    */
   private crearCartelesPendiente() {
     const matPoste = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.5, metalness: 0.5 });
-    const cartel = (s: number, texto: string, ancho: number, fondo: string) => {
+    const cartel = (s: number, texto: string, ancho: number, fondo: string, alto = 1.15) => {
       const k = Math.round(enVuelta(s) / PASO_M) % this.tr.n;
       const sx = this.tr.dz[k];
       const sz = -this.tr.dx[k];
       const base = new THREE.Vector3(this.tr.x[k] + sx * 6.8, altitud(s), this.tr.z[k] + sz * 6.8);
-      const poste = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3.4, 6), matPoste);
-      poste.position.copy(base).add(new THREE.Vector3(0, 1.7, 0));
+      // El poste llega justo hasta la placa (antes la atravesaba y se veía por delante)
+      const poste = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.8, 6), matPoste);
+      poste.position.copy(base).add(new THREE.Vector3(0, 1.4, 0));
       const placa = new THREE.Mesh(
-        new THREE.BoxGeometry(ancho, 1.15, 0.08),
+        new THREE.BoxGeometry(ancho, alto, 0.08),
         new THREE.MeshStandardMaterial({
-          map: texturaTexto(texto, fondo, '#ffffff', Math.round(ancho * 200), 230),
+          map: texturaTexto(texto, fondo, '#ffffff', Math.round(ancho * 200), Math.round(alto * 200)),
           roughness: 0.5,
         }),
       );
-      placa.position.copy(base).add(new THREE.Vector3(0, 3.3, 0));
+      placa.position.copy(base).add(new THREE.Vector3(0, 2.75 + alto / 2, 0));
       placa.rotation.y = Math.atan2(-this.tr.dz[k], this.tr.dx[k]) + Math.PI / 2;
       this.escena.add(poste, placa);
     };
@@ -2850,7 +2865,7 @@ export class EscenaRecorrido {
       // Cartel azul en lo alto de cada subida cronometrada, con su nombre y la altitud
       if (t.desnivel >= CIRCUITO.desnivelSegmento) {
         const nombre = nombreDeSubida(CIRCUITO, n++, t.desnivel, t.inicio);
-        cartel(t.fin + 15, `${nombre} · ${Math.round(altitud(t.fin))} m`, 7, '#1d4f91');
+        cartel(t.fin + 15, textoCima(nombre, Math.round(altitud(t.fin))), 5.6, '#1d4f91', 1.9);
       }
       if (t.pendienteMedia < 2.5) continue;
       const largo = ((t.fin - t.inicio) / 1000).toFixed(1).replace('.', ',');
