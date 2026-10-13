@@ -8,7 +8,7 @@ import type { Entreno } from './tipos';
 const iso = (ms: number) => new Date(ms).toISOString();
 const entero = (n: number) => Math.round(n).toString();
 
-/** Posición GPS virtual y altitud del circuito en el punto s (m desde la salida). */
+/** Posición GPS virtual y altitud del circuito en el punto s (m desde la salida; meta común a todos). */
 export type Geo = (s: number, t?: number) => { lat: number; lon: number; alt: number };
 
 /**
@@ -38,6 +38,10 @@ export async function prepararGeo(e: Entreno): Promise<Geo | null> {
     for (const [desde, c] of cambios) if (t >= desde) actual = c;
     return circuitoPorId(actual);
   };
+  // Cada circuito tiene la meta a una altitud distinta (la Sierra a 300 m, la costa a 6 m). Para
+  // que la gráfica de desnivel no dé un salto al cambiar de circuito en meta, todas las metas se
+  // ponen a la altitud de la meta del primer circuito; luego cada uno sube y baja lo suyo.
+  const metaBase = circuitoPorId(cambios[0][1]).puntos[0][1];
   return (sAbs: number, t?: number) => {
     const c = circuitoEn(t ?? Infinity);
     let tr = trazados.get(c.id);
@@ -52,7 +56,7 @@ export async function prepararGeo(e: Entreno): Promise<Geo | null> {
     const f = x - Math.floor(x);
     const px = tr.x[i] + (tr.x[j] - tr.x[i]) * f - tr.x[0];
     const pz = tr.z[i] + (tr.z[j] - tr.z[i]) * f - tr.z[0];
-    return { lat: lat0 - pz / mLat, lon: lon0 + px / mLon, alt: altitudEnCircuito(c, sAbs) };
+    return { lat: lat0 - pz / mLat, lon: lon0 + px / mLon, alt: altitudEnCircuito(c, sAbs) - c.puntos[0][1] + metaBase };
   };
 }
 
