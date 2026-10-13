@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { listarEntrenos } from '../entrenamiento/almacen';
 import { CATEGORIAS, calcularLogros, iniciarLogrosVistos, rachaSemanas } from '../entrenamiento/logros';
+import { nivelDe, NIVEL_MAX } from '../entrenamiento/niveles';
+import { guardarMiNivel } from '../entrenamiento/nivelPublico';
 import type { EntrenoGuardado } from '../entrenamiento/tipos';
 
 interface Props {
@@ -24,6 +26,11 @@ export function ResumenAcumulado({ version, onVerHistorial }: Props) {
   const logros = calcularLogros(lista);
   const conseguidos = logros.filter((l) => l.conseguido).length;
   const racha = rachaSemanas(lista);
+  const nivel = nivelDe(lista);
+  // Para que los amigos lo vean en la salida en grupo
+  useEffect(() => {
+    if (lista.length) guardarMiNivel(nivel.nivel);
+  }, [lista, nivel.nivel]);
 
   const t = lista.reduce(
     (a, g) => ({
@@ -43,6 +50,26 @@ export function ResumenAcumulado({ version, onVerHistorial }: Props) {
           <button className="boton-secundario" onClick={onVerHistorial}>
             Ver historial
           </button>
+        </div>
+        <div className="tarjeta-nivel">
+          <span className="nivel-numero" aria-label={`Nivel ${nivel.nivel}`}>
+            {nivel.nivel}
+          </span>
+          <div className="nivel-datos">
+            <strong>Nivel {nivel.nivel}</strong>
+            {nivel.nivel < NIVEL_MAX ? (
+              <>
+                <span className="logro-barra">
+                  <span style={{ width: `${(nivel.enNivel / nivel.delNivel) * 100}%` }} />
+                </span>
+                <span className="detalle">
+                  {nivel.enNivel.toLocaleString('es-ES')} / {nivel.delNivel.toLocaleString('es-ES')} XP para el nivel {nivel.nivel + 1}
+                </span>
+              </>
+            ) : (
+              <span className="detalle">¡Nivel máximo! {nivel.xp.toLocaleString('es-ES')} XP</span>
+            )}
+          </div>
         </div>
         <div className="rejilla-totales">
           <div className="total">

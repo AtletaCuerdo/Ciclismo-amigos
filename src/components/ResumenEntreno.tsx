@@ -6,6 +6,8 @@ import { BotonStrava, textosStrava } from './Strava';
 import { leerConexion, stravaDisponible } from '../strava/strava';
 import { listarEntrenos } from '../entrenamiento/almacen';
 import { logrosNuevos, type Logro } from '../entrenamiento/logros';
+import { nivelDe, xpTotal } from '../entrenamiento/niveles';
+import { guardarMiNivel } from '../entrenamiento/nivelPublico';
 
 interface Props {
   entreno: Entreno;
@@ -56,6 +58,7 @@ export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual,
   const ref = useRef<HTMLElement>(null);
   const [ftpAceptado, setFtpAceptado] = useState(false);
   const [nuevos, setNuevos] = useState<Logro[]>([]);
+  const [xp, setXp] = useState<{ ganados: number; nivel: number; sube: boolean } | null>(null);
 
   // Logros conseguidos con esta sesión
   useEffect(() => {
@@ -65,7 +68,14 @@ export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual,
       .then((lista) => {
         const conEsta = lista.some((g) => g.id === entreno.id) ? lista : [entreno, ...lista];
         // Solo si sigue montado: logrosNuevos los marca como vistos
-        if (vivo) setNuevos(logrosNuevos(conEsta));
+        if (!vivo) return;
+        setNuevos(logrosNuevos(conEsta));
+        // XP de esta sesión (con sus logros) y si se sube de nivel
+        const sinEsta = conEsta.filter((g) => g.id !== entreno.id);
+        const antes = nivelDe(sinEsta).nivel;
+        const ahora = nivelDe(conEsta).nivel;
+        guardarMiNivel(ahora);
+        setXp({ ganados: xpTotal(conEsta) - xpTotal(sinEsta), nivel: ahora, sube: ahora > antes });
       });
     return () => {
       vivo = false;
@@ -85,6 +95,17 @@ export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual,
           Cerrar
         </button>
       </div>
+
+      {xp && (
+        <div className={`aviso-xp ${xp.sube ? 'sube' : ''}`} role="status">
+          {xp.sube ? (
+            <strong>⬆️ ¡Subes al nivel {xp.nivel}!</strong>
+          ) : (
+            <strong>Nivel {xp.nivel}</strong>
+          )}{' '}
+          · +{xp.ganados.toLocaleString('es-ES')} XP en esta sesión
+        </div>
+      )}
 
       {nuevos.length > 0 && (
         <div className="logros-nuevos" role="status">

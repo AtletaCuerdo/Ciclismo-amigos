@@ -27,6 +27,7 @@ import { crestas, datosRuidoPeriodico, fbm } from './ruido';
 import { trazadoDe, type Trazado } from './trazado';
 import { nombreDeSubida } from './segmentos';
 import { cieloActual } from './cielos';
+import { conNivel } from '../entrenamiento/nivelPublico';
 
 /** Luminancia media (lineal) de la textura de hierba: sirve para usarla como detalle sin oscurecer. */
 const LUMINANCIA_HIERBA = 0.05;
@@ -320,6 +321,8 @@ export interface OtroCiclista {
   /** Posición lateral fija (m), p. ej. para que una grupeta ruede en formación. */
   carril?: number;
   nombre: string;
+  /** Nivel del 1 al 100 (se ve en su cartel). */
+  nivel?: number;
   avatar: Avatar;
   distancia: number; // m
   velocidad: number; // km/h
@@ -2925,11 +2928,12 @@ export class EscenaRecorrido {
       vistos.add(o.uid);
       let e = this.otros.get(o.uid);
       if (!e) {
-        const c = new Ciclista3D(o.avatar, o.nombre);
+        const c = new Ciclista3D(o.avatar);
+        c.ponerNombre(o.nombre, conNivel(o.nombre, o.nivel));
         this.escena.add(c.raiz);
         e = {
           c,
-          nombre: o.nombre,
+          nombre: conNivel(o.nombre, o.nivel),
           sBase: o.distancia,
           recibido: ahora,
           vObjetivo: o.velocidad / 3.6,
@@ -2942,9 +2946,9 @@ export class EscenaRecorrido {
         if (o.fantasma) c.volverFantasma();
         this.otros.set(o.uid, e);
       }
-      if (o.nombre !== e.nombre) {
-        e.c.ponerNombre(o.nombre);
-        e.nombre = o.nombre;
+      if (conNivel(o.nombre, o.nivel) !== e.nombre) {
+        e.nombre = conNivel(o.nombre, o.nivel);
+        e.c.ponerNombre(o.nombre, e.nombre);
       }
       if (!e.fantasma) e.c.cambiarAvatar(o.avatar);
       if (o.distancia !== e.sBase) {

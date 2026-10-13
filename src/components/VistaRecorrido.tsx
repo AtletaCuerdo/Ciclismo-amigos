@@ -31,6 +31,7 @@ import { GraficaEntrenamiento, colorZona } from './GraficaEntrenamiento';
 import { formatearTiempo } from './Metrica';
 import { mantenerPantallaEncendida } from '../pantallaEncendida';
 import { TarjetaConexion, type InfoConexion } from './TarjetaConexion';
+import { conNivel } from '../entrenamiento/nivelPublico';
 
 export interface DatosHud extends DatosYo {
   potencia?: number;
@@ -1010,7 +1011,7 @@ function PanelGrupo({
         const cerca = Math.abs(d) < 60;
         return (
           <div key={o.uid} className="hud-grupo-fila">
-            <span className="hud-grupo-nombre">{o.nombre}</span>
+            <span className="hud-grupo-nombre">{conNivel(o.nombre, o.nivel)}</span>
             <span className={`hud-grupo-dif ${cerca ? 'contigo' : d > 0 ? 'delante' : 'detras'}`}>
               {cerca ? 'contigo' : diferencia(d)}
             </span>

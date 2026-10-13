@@ -28,6 +28,7 @@ import { guardarEntreno, listarEntrenos } from './entrenamiento/almacen';
 import { tituloRueda, type Entreno } from './entrenamiento/tipos';
 import { useGrabacion, type ValoresActuales } from './entrenamiento/useGrabacion';
 import { mejorHoraCadencia, muestrasDeCortes } from './entrenamiento/resumen';
+import { conNivel } from './entrenamiento/nivelPublico';
 import { borrarSesionEnCurso, guardarSesionEnCurso, leerSesionEnCurso, sesionLogrosVacia, type SesionEnCurso } from './entrenamiento/sesionEnCurso';
 import { CATALOGO } from './entrenamientos/catalogo';
 import { cargarPropios, guardarPropios } from './entrenamientos/propios';
@@ -757,6 +758,7 @@ export default function App() {
     .map((c) => ({
       uid: c.uid,
       nombre: c.nombre,
+      nivel: typeof c.nivel === 'number' ? c.nivel : undefined,
       avatar: salida.avatares[c.uid] ?? avatarPorDefecto(c.uid),
       distancia: c.distancia ?? 0,
       velocidad: c.velocidad ?? 0,
@@ -1761,7 +1763,11 @@ export default function App() {
             emojis={{ mio: miEmoji, onEnviar: lanzarEmoji }}
             miNombre={nombreVisible}
             chat={{
-              mensajes: salida.mensajes,
+              // Con el nivel de quien escribe, si está rodando y lo publica
+              mensajes: salida.mensajes.map((m) => {
+                const n = salida.ciclistas.find((c) => c.uid === m.uid)?.nivel;
+                return typeof n === 'number' ? { ...m, nombre: conNivel(m.nombre, n) } : m;
+              }),
               miUid: salida.miUid,
               rechazado: salida.chatRechazado,
               onEnviar: salida.enviarMensaje,

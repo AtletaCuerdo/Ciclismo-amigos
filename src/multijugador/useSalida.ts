@@ -2,12 +2,13 @@
  * Salida en grupo en tiempo real con Firebase Realtime Database.
  *
  * Estructura en la base de datos:
- *   salas/{sala}/ciclistas/{uid} = { nombre, vatios, velocidad, cadencia, distancia, t }
+ *   salas/{sala}/ciclistas/{uid} = { nombre, nivel, vatios, velocidad, cadencia, distancia, t }
  *   salas/{sala}/avatares/{uid}  = { maillot, franja, culotte, casco, bici, piel }
  *   salas/{sala}/chat/{id}       = { uid, nombre, texto, t }  (mensajes del grupo)
  *   salas/{sala}/emojis/{uid}    = { e, t }  (emoji rápido que se ve unos segundos sobre el ciclista)
  * El avatar va aparte: si las reglas de Firebase aún no lo permiten, falla solo
- * esa escritura y la salida en grupo sigue funcionando (con avatar por defecto).
+ * esa escritura y la salida en grupo sigue funcionando (con avatar por defecto). Lo mismo con el
+ * nivel: si las reglas aún no lo admiten, mi nodo se publica sin él.
  *
  * - Cada ciclista escribe solo su nodo (lo imponen las reglas) una vez por segundo.
  * - onDisconnect() borra el nodo si se cierra la web o se pierde la conexión.
@@ -15,6 +16,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { normalizarAvatar, type Avatar } from '../recorrido/avatar';
+import { leerMiNivel } from '../entrenamiento/nivelPublico';
 
 export const SALA_POR_DEFECTO = 'general';
 
@@ -44,6 +46,8 @@ export interface Ciclista {
   /** Sala (circuito) en la que rueda: la rellena useConectados. */
   sala?: string;
   nombre: string;
+  /** Nivel del 1 al 100 (si lo publica). */
+  nivel?: number;
   vatios?: number;
   velocidad?: number; // km/h
   cadencia?: number; // rpm
@@ -161,6 +165,8 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
       const miAvatarRef = fb.ref(fb.db, `salas/${sala}/avatares/${uid}`);
       const cancelar: (() => void)[] = [];
 
+      // Se quita el nivel si las reglas de Firebase aún no lo admiten
+      let mandarNivel = true;
       // Construye mi nodo completo (RTDB no admite undefined: se omite)
       const miNodo = () => {
         const d = leerRef.current();
@@ -172,7 +178,18 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
         if (d.vatios !== undefined) nodo.vatios = Math.round(Math.max(0, Math.min(3000, d.vatios)));
         if (d.velocidad !== undefined) nodo.velocidad = Math.round(Math.max(0, Math.min(150, d.velocidad)) * 10) / 10;
         if (d.cadencia !== undefined) nodo.cadencia = Math.round(Math.max(0, Math.min(250, d.cadencia)));
+        const nivel = leerMiNivel();
+        if (mandarNivel && nivel) nodo.nivel = nivel;
         return nodo;
+      };
+      const escribirNodo = async () => {
+        try {
+          await fb.set(miRef, miNodo());
+        } catch (e) {
+          if (!mandarNivel) throw e;
+          mandarNivel = false;
+          await fb.set(miRef, miNodo());
+        }
       };
 
       // Cada vez que (re)conecta: registrar el borrado automático y escribir el nodo
@@ -184,7 +201,7 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
           }
           try {
             await fb.onDisconnect(miRef).remove();
-            await fb.set(miRef, miNodo());
+            await escribirNodo();
             setEstado('dentro');
             try {
               await fb.onDisconnect(miAvatarRef).remove();
@@ -290,7 +307,7 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
 
       // Envío de mis datos una vez por segundo
       const temporizador = setInterval(() => {
-        fb.set(miRef, miNodo()).catch((e) => setError(mensaje(e)));
+        escribirNodo().catch((e) => setError(mensaje(e)));
       }, 1000);
 
       sesion.current = { fb, uid, sala, nombre, cancelar, temporizador };

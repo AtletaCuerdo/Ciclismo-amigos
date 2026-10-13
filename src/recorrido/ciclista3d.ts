@@ -333,13 +333,14 @@ export class Ciclista3D {
     if (this.etiqueta) this.etiqueta.visible = si;
   }
 
-  ponerNombre(nombre: string) {
+  /** `etiqueta`: el texto del cartel (p. ej. con el nivel); el dorsal lleva solo el nombre. */
+  ponerNombre(nombre: string, etiqueta = nombre) {
     if (this.etiqueta) {
       this.etiqueta.material.map?.dispose();
       this.etiqueta.material.dispose();
       this.raiz.remove(this.etiqueta);
     }
-    this.etiqueta = etiquetaNombre(nombre);
+    this.etiqueta = etiquetaNombre(etiqueta);
     this.raiz.add(this.etiqueta);
     this.ponerDorsal(nombre);
   }

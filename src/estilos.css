@@ -3027,6 +3027,53 @@ p {
   font-size: 26px;
 }
 
+/* ---------- Nivel (1-100) ---------- */
+
+.tarjeta-nivel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+
+.nivel-numero {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--acento);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.nivel-datos {
+  flex: 1;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.nivel-datos .logro-barra {
+  height: 8px;
+  border-radius: 4px;
+}
+
+.aviso-xp {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(127, 127, 127, 0.1);
+}
+
+.aviso-xp.sube {
+  background: rgba(249, 115, 22, 0.15);
+  animation: logro-aparece 0.6s ease-out;
+}
+
 .categoria-logros + .categoria-logros {
   margin-top: 14px;
 }

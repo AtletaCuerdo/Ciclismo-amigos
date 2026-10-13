@@ -36,6 +36,9 @@ tiene que llamarse dentro del propio clic.
   (`importar.ts`, categoría automática por intensidad),
   entrenamientos propios (`propios.ts`, se guardan en el navegador) y tipos.
 - `src/entrenamiento/`: grabación de la sesión, resumen, exportación TCX y almacén del historial.
+  Logros (`logros.ts`, 90 por categorías; subir `VERSION_LOGROS` al añadir más para no celebrar
+  de golpe los que ya se tenían) y niveles 1-100 (`niveles.ts`: XP del historial; `nivelPublico.ts`
+  guarda mi nivel y lo publica en `salas/{sala}/ciclistas/{uid}/nivel`, que necesita las reglas nuevas).
 - `src/multijugador/`: Firebase y el hook `useSalida` para la salida en grupo.
 - `src/cuenta/`: cuentas (Firebase Auth: Google y correo/contraseña; la anónima sigue para la salida
   en grupo) y sincronización «primero en local» en `usuarios/{uid}/…` (perfil, propios, historial,

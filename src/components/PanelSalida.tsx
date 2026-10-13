@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Ciclista } from '../multijugador/useSalida';
 import { CIRCUITOS, longitudDe } from '../recorrido/circuitos';
+import { conNivel, leerMiNivel } from '../entrenamiento/nivelPublico';
 
 interface Props {
   /** Quién está rodando ahora en el recorrido. */
@@ -52,7 +53,7 @@ export function PanelSalida({ conectados, error, nombre, onCambiarNombre, onRoda
               <button className="amigo" onClick={() => onRodarJunto(c.uid, c.sala)} title={`Aparecer junto a ${c.nombre}`}>
                 <span className="amigo-punto" aria-hidden />
                 <span className="amigo-datos">
-                  <strong>{c.nombre}</strong>
+                  <strong>{conNivel(c.nombre, typeof c.nivel === 'number' ? c.nivel : undefined)}</strong>
                   <span className="detalle">
                     {(() => {
                       const circ = CIRCUITOS.find((x) => x.sala === c.sala) ?? CIRCUITOS[0];
@@ -100,7 +101,7 @@ export function PanelSalida({ conectados, error, nombre, onCambiarNombre, onRoda
           <span className="detalle">
             {nombre ? (
               <>
-                Al rodar, tus amigos te verán como <strong>{nombre}</strong>.{' '}
+                Al rodar, tus amigos te verán como <strong>{conNivel(nombre, leerMiNivel())}</strong>.{' '}
               </>
             ) : (
               'Pon tu nombre para que tus amigos te vean al rodar. '
