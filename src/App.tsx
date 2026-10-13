@@ -27,8 +27,8 @@ import { TarjetaConexion, type InfoConexion } from './components/TarjetaConexion
 import { guardarEntreno, listarEntrenos } from './entrenamiento/almacen';
 import { tituloRueda, type Entreno } from './entrenamiento/tipos';
 import { useGrabacion, type ValoresActuales } from './entrenamiento/useGrabacion';
-import { muestrasDeCortes } from './entrenamiento/resumen';
-import { borrarSesionEnCurso, guardarSesionEnCurso, leerSesionEnCurso, type SesionEnCurso } from './entrenamiento/sesionEnCurso';
+import { mejorHoraCadencia, muestrasDeCortes } from './entrenamiento/resumen';
+import { borrarSesionEnCurso, guardarSesionEnCurso, leerSesionEnCurso, sesionLogrosVacia, type SesionEnCurso } from './entrenamiento/sesionEnCurso';
 import { CATALOGO } from './entrenamientos/catalogo';
 import { cargarPropios, guardarPropios } from './entrenamientos/propios';
 import { useCompartidos } from './entrenamientos/compartidos';
@@ -546,6 +546,14 @@ export default function App() {
   entrenoActivoRef.current = entrenoActivo;
   const segundosRef = useRef(0);
   segundosRef.current = grabacion.segundos;
+  // Lo de esta sesión que solo cuenta para los logros (va al resumen al terminar)
+  const logrosSesionRef = useRef(sesionLogrosVacia());
+  // Entrenamiento guiado hecho hasta el final
+  useEffect(() => {
+    const a = entrenoActivo;
+    if (a && grabacion.segundos - a.inicioS >= a.total && !logrosSesionRef.current.completados.includes(a.entreno.id))
+      logrosSesionRef.current.completados.push(a.entreno.id);
+  }, [grabacion.segundos, entrenoActivo]);
 
   // ---- Física del recorrido y control del rodillo (10 veces por segundo) ----
   const corriendoRef = useRef(false);
@@ -761,6 +769,7 @@ export default function App() {
   const nombresOtros = otrosCiclistas.map((o) => o.nombre).join('|');
   useEffect(() => {
     if (enRecorrido) for (const o of otrosCiclistas) if (o.nombre) companerosRef.current.add(o.nombre);
+    if (enRecorrido) logrosSesionRef.current.maxGrupo = Math.max(logrosSesionRef.current.maxGrupo, otrosCiclistas.length);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nombresOtros, enRecorrido]);
   // Mi emoji: se ve sobre mi ciclista unos segundos (al momento, sin esperar a Firebase)
@@ -817,6 +826,9 @@ export default function App() {
   const terminarSegmento = (seg: Segmento, ms: number, muestras?: [number, number][]) => {
     const anterior = apuntarMarca(seg.id, ms);
     const esRecord = anterior === undefined || ms < anterior;
+    const ls = logrosSesionRef.current;
+    if (anterior !== undefined && ms < anterior) ls.records++;
+    if (seg.tipo === 'vuelta') ls.vueltas[circuitoId] = (ls.vueltas[circuitoId] ?? 0) + 1;
     if (seg.tipo === 'vuelta' && esRecord && muestras) {
       guardarFantasma(muestras);
       setFantasmaDatos(muestras);
@@ -1039,6 +1051,7 @@ export default function App() {
     mantenerPantallaEncendida(); // dentro del clic: el navegador lo exige
     sesionRef.current = { nombres: [] };
     companerosRef.current = new Set();
+    logrosSesionRef.current = sesionLogrosVacia();
     cambiosCircuitoRef.current = [[Date.now(), CIRCUITO.id]];
     cortesRef.current = [];
     setCircuitoSiguiente(null);
@@ -1126,6 +1139,7 @@ export default function App() {
     apuntarCortes(0, tramos);
     sesionRef.current = { nombres: [] };
     companerosRef.current = new Set();
+    logrosSesionRef.current = sesionLogrosVacia();
     cambiosCircuitoRef.current = [[Date.now(), CIRCUITO.id]];
     setCircuitoSiguiente(null);
     apuntarEnSesion(e);
@@ -1163,6 +1177,13 @@ export default function App() {
       const vueltas = muestrasDeCortes(entreno.muestras, cortesRef.current);
       if (vueltas.length) entreno.resumen.vueltas = vueltas;
       if (companerosRef.current.size) entreno.resumen.companeros = [...companerosRef.current].slice(0, 20);
+      const ls = logrosSesionRef.current;
+      if (ls.completados.length) entreno.resumen.entrenosCompletados = [...ls.completados];
+      if (Object.keys(ls.vueltas).length) entreno.resumen.vueltasCircuito = { ...ls.vueltas };
+      if (ls.records) entreno.resumen.recordsMejorados = ls.records;
+      if (ls.maxGrupo) entreno.resumen.maxGrupo = ls.maxGrupo;
+      const cadencia = mejorHoraCadencia(entreno.muestras);
+      if (cadencia) entreno.resumen.mejorHoraCadencia = Math.round(cadencia * 10) / 10;
     }
     // Tiempo a rueda (rebufo): al resumen y, si voy en grupo, al chat para que lo vean todos
     const rueda = Math.round(segundosRuedaRef.current);
@@ -1214,6 +1235,7 @@ export default function App() {
       nombres: sesionRef.current.nombres,
       companeros: [...companerosRef.current],
       segundosRueda: segundosRuedaRef.current,
+      logros: logrosSesionRef.current,
       entreno: activo ? { entreno: activo.entreno, inicioS: activo.inicioS, intensidad } : undefined,
     });
   };
@@ -1247,6 +1269,7 @@ export default function App() {
     cambiosCircuitoRef.current = p.cambiosCircuito?.length ? p.cambiosCircuito : [[Date.now(), p.circuito]];
     sesionRef.current = { nombres: p.nombres ?? [] };
     companerosRef.current = new Set(p.companeros ?? []);
+    logrosSesionRef.current = { ...sesionLogrosVacia(), ...p.logros };
     ruedaAlEntrarRef.current = p.segundosRueda ?? 0;
     setCircuitoSiguiente(null);
     if (p.entreno) {

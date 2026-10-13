@@ -42,6 +42,28 @@ export function calcularResumen(
 }
 
 /**
+ * Mejor cadencia media en una hora seguida (los ratos a 0 rpm cuentan, como si se parara).
+ * undefined si la sesión no llega a la hora o no hay sensor de cadencia.
+ */
+export function mejorHoraCadencia(muestras: Muestra[]): number | undefined {
+  if (!muestras.some((m) => m.c)) return undefined;
+  const HORA_MS = 3600 * 1000;
+  let mejor: number | undefined;
+  let suma = 0;
+  let desde = 0;
+  for (let i = 0; i < muestras.length; i++) {
+    suma += muestras[i].c ?? 0;
+    // La ventana es de una hora de reloj (hay algo más de 1 s entre muestras)
+    while (muestras[i].t - muestras[desde].t > HORA_MS) suma -= muestras[desde++].c ?? 0;
+    if (muestras[i].t - muestras[desde].t >= HORA_MS - 5000) {
+      const media = suma / (i - desde + 1);
+      if (mejor === undefined || media > mejor) mejor = media;
+    }
+  }
+  return mejor;
+}
+
+/**
  * Pasa los cortes de los intervalos (segundos en marcha de la grabación) a números de muestra.
  * No son lo mismo: el temporizador del navegador tarda algo más de 1 s entre muestras, y en media
  * hora se acumulan decenas de segundos (las vueltas de Strava acababan desplazadas). Se cuenta el

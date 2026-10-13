@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { listarEntrenos } from '../entrenamiento/almacen';
-import { calcularLogros, iniciarLogrosVistos, rachaSemanas } from '../entrenamiento/logros';
+import { CATEGORIAS, calcularLogros, iniciarLogrosVistos, rachaSemanas } from '../entrenamiento/logros';
 import type { EntrenoGuardado } from '../entrenamiento/tipos';
 
 interface Props {
@@ -80,17 +80,38 @@ export function ResumenAcumulado({ version, onVerHistorial }: Props) {
         </p>
       </div>
       {verLogros && (
-        <ul className="rejilla-logros panel-logros">
-          {logros.map((l) => (
-            <li key={l.id} className={l.conseguido ? 'conseguido' : ''} title={l.descripcion}>
-              <span className="logro-icono" aria-hidden>
-                {l.icono}
-              </span>
-              <strong>{l.nombre}</strong>
-              <span className="detalle">{l.descripcion}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="panel-logros">
+          {CATEGORIAS.map(([cat, titulo]) => {
+            const deCat = logros.filter((l) => l.categoria === cat);
+            if (!deCat.length) return null;
+            return (
+              <section key={cat} className="categoria-logros">
+                <h3>
+                  {titulo} <span className="detalle">{deCat.filter((l) => l.conseguido).length} / {deCat.length}</span>
+                </h3>
+                <ul className="rejilla-logros">
+                  {deCat.map((l) => (
+                    <li key={l.id} className={l.conseguido ? 'conseguido' : ''} title={l.descripcion}>
+                      <span className="logro-icono" aria-hidden>
+                        {l.icono}
+                      </span>
+                      <strong>{l.nombre}</strong>
+                      <span className="detalle">{l.descripcion}</span>
+                      {!l.conseguido && l.progreso && l.progreso[0] > 0 && (
+                        <span className="logro-progreso">
+                          <span className="logro-barra">
+                            <span style={{ width: `${Math.min(100, (l.progreso[0] / l.progreso[1]) * 100)}%` }} />
+                          </span>
+                          {l.progreso[0].toLocaleString('es-ES')} / {l.progreso[1].toLocaleString('es-ES')} {l.progreso[2]}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
       )}
     </>
   );

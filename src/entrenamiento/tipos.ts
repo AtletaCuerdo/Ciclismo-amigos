@@ -34,6 +34,17 @@ export interface Resumen {
   companeros?: string[];
   /** Muestras en las que empieza una vuelta (un intervalo del entrenamiento), para Strava. */
   vueltas?: number[];
+  // Para los logros (solo en las sesiones grabadas desde que existen):
+  /** Entrenamientos guiados completados hasta el final (ids). */
+  entrenosCompletados?: string[];
+  /** Vueltas completas por circuito. */
+  vueltasCircuito?: Record<string, number>;
+  /** Segmentos en los que se mejoró la marca que ya se tenía. */
+  recordsMejorados?: number;
+  /** Más amigos rodando a la vez en la salida en grupo. */
+  maxGrupo?: number;
+  /** Mejor cadencia media en una hora seguida (rpm). */
+  mejorHoraCadencia?: number;
 }
 
 /** Título según el porcentaje del tiempo que se ha ido a rueda (para las risas del grupo). */

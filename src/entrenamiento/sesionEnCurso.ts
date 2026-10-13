@@ -11,6 +11,16 @@ const CLAVE = 'rodillos.sesionEnCurso';
 /** Pasado este tiempo sin tocarla ya no se ofrece retomarla. */
 const CADUCA_MS = 12 * 3600 * 1000;
 
+/** Lo de la sesión que solo sirve para los logros (pasa al resumen al terminar). */
+export interface SesionLogros {
+  completados: string[];
+  vueltas: Record<string, number>;
+  records: number;
+  maxGrupo: number;
+}
+
+export const sesionLogrosVacia = (): SesionLogros => ({ completados: [], vueltas: {}, records: 0, maxGrupo: 0 });
+
 export interface SesionEnCurso {
   guardada: number; // ms
   grabacion: Interno;
@@ -22,6 +32,7 @@ export interface SesionEnCurso {
   nombres: string[];
   companeros: string[];
   segundosRueda: number;
+  logros?: SesionLogros;
   /** Entrenamiento guiado en marcha (y el segundo de la grabación en que empezó). */
   entreno?: { entreno: Entrenamiento; inicioS: number; intensidad: number };
 }

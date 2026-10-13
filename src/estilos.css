@@ -3027,6 +3027,39 @@ p {
   font-size: 26px;
 }
 
+.categoria-logros + .categoria-logros {
+  margin-top: 14px;
+}
+
+.categoria-logros h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+/* Cuánto llevas de un logro por niveles (p. ej. «312 / 500 km») */
+.logro-progreso {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  margin-top: 4px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.logro-barra {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(127, 127, 127, 0.25);
+  overflow: hidden;
+}
+
+.logro-barra > span {
+  display: block;
+  height: 100%;
+  background: var(--acento);
+}
+
 .logros-nuevos {
   display: flex;
   flex-wrap: wrap;
