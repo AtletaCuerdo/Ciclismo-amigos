@@ -147,11 +147,54 @@ const VO2MAX: Def[] = [
   { id: 'b-vo2-20-40', nombre: 'VO2 20/40 (3×8)', categoria: 'vo2max', descripcion: 'Tres bloques de 8 × (20″ al 140 % / 40″ al 60 %): más llevadero que el 30/30.', bloques: [...calentarActivo(), ...rep(3, [s(8, 1 / 3, 140, 2 / 3, 60), c(4, 50)]), ...volverCalma()] },
 ];
 
+/**
+ * Fondo en zona 2 con cambios: calentamiento progresivo, bloque central al 66-70 % del FTP con
+ * un esfuerzo de zona 3 a 5 (1-5′) cada `cada` minutos y vuelta a la calma regresiva.
+ * Los esfuerzos se repiten en el orden de la lista hasta llenar el bloque central.
+ */
+const fondoConCambios = (total: number, cada: number, esfuerzos: [number, number][]): Bloque[] => {
+  const calentamiento = total <= 110 ? 12 : 15;
+  const calma = 10;
+  const bloques: Bloque[] = [r(calentamiento, 45, 68)];
+  let quedan = total - calentamiento - calma;
+  let i = 0;
+  while (true) {
+    const [min, pct] = esfuerzos[i % esfuerzos.length];
+    const z2 = cada - min;
+    // Al final siempre unos minutos de zona 2 antes de enfriar
+    if (quedan < z2 + min + 4) break;
+    bloques.push(c(z2, i % 2 ? 70 : 67), c(min, pct));
+    quedan -= z2 + min;
+    i++;
+  }
+  bloques.push(c(quedan, 67), r(calma, 66, 42));
+  return bloques;
+};
+
+const Z2_CAMBIOS: Def[] = [
+  { id: 'b-z2c-90', nombre: 'Zona 2 con cambios 1 h 30′', categoria: 'endurance', descripcion: 'Fondo en zona 2 con un cambio cada 8′: 3′ en zona 3, 2′ en zona 4 y 1′ en zona 5, por turnos.', bloques: fondoConCambios(90, 8, [[3, 85], [2, 97], [1, 112]]) },
+  { id: 'b-z2c-95', nombre: 'Escalera hacia abajo 1 h 35′', categoria: 'endurance', descripcion: 'Zona 2 y cada 10′ un esfuerzo más corto pero más fuerte: 5′ Z3, 4′ Z3 alta, 3′ Z4, 2′ Z4 alta y 1′ Z5.', bloques: fondoConCambios(95, 10, [[5, 82], [4, 88], [3, 96], [2, 104], [1, 115]]) },
+  { id: 'b-z2c-100', nombre: 'Escalera hacia arriba 1 h 40′', categoria: 'endurance', descripcion: 'Zona 2 con esfuerzos cada 9′ que se alargan y bajan de intensidad: de 1′ en Z5 a 5′ en Z3.', bloques: fondoConCambios(100, 9, [[1, 112], [2, 102], [3, 94], [4, 87], [5, 82]]) },
+  { id: 'b-z2c-105', nombre: 'Zona 2 con umbrales 1 h 45′', categoria: 'endurance', descripcion: 'Fondo en zona 2 con 4′ al umbral (Z4) cada 12′.', bloques: fondoConCambios(105, 12, [[4, 96]]) },
+  { id: 'b-z2c-110', nombre: 'Zona 2 con chispazos 1 h 50′', categoria: 'endurance', descripcion: 'Fondo en zona 2 con 1′ en zona 5 cada 8′ para despertar las piernas.', bloques: fondoConCambios(110, 8, [[1, 116]]) },
+  { id: 'b-z2c-115', nombre: 'Zona 2 con tempo 1 h 55′', categoria: 'endurance', descripcion: 'Fondo en zona 2 con 3′ de tempo (Z3) cada 10′.', bloques: fondoConCambios(115, 10, [[3, 87]]) },
+  { id: 'b-z2c-120', nombre: 'Fondo mixto 2 h', categoria: 'endurance', descripcion: 'Dos horas en zona 2 con cambios cada 12′: 5′ en Z3, 1′ en Z5 y 3′ en Z4.', bloques: fondoConCambios(120, 12, [[5, 85], [1, 112], [3, 95]]) },
+  { id: 'b-z2c-120-fartlek', nombre: 'Fartlek de zona 2 2 h', categoria: 'endurance', descripcion: 'Cambios frecuentes: cada 6′, 1′ en zona 4-5 o 2′ en zona 3, alternando.', bloques: fondoConCambios(120, 6, [[1, 106], [2, 85]]) },
+  { id: 'b-z2c-125', nombre: 'Zona 2 con tres ritmos 2 h 05′', categoria: 'endurance', descripcion: 'Cada 10′, 2′ fuerte: en Z4, en Z5 y en Z3 alta, por turnos.', bloques: fondoConCambios(125, 10, [[2, 100], [2, 110], [2, 90]]) },
+  { id: 'b-z2c-130', nombre: 'Fondo con bloques largos 2 h 10′', categoria: 'endurance', descripcion: 'Zona 2 con 5′ en zona 3 alta o zona 4 cada 15′.', bloques: fondoConCambios(130, 15, [[5, 92], [5, 88]]) },
+  { id: 'b-z2c-135', nombre: 'Pirámides en zona 2 2 h 15′', categoria: 'endurance', descripcion: 'Esfuerzos cada 9′ en pirámide: 1′ Z5, 2′ Z4, 3′ Z3, 2′ Z4, 1′ Z5… y vuelta a empezar.', bloques: fondoConCambios(135, 9, [[1, 110], [2, 100], [3, 88], [2, 100]]) },
+  { id: 'b-z2c-140', nombre: 'Subiendo el ritmo 2 h 20′', categoria: 'endurance', descripcion: 'Zona 2 y cada 12′ un esfuerzo más intenso que el anterior: 4′ Z3, 3′ Z4, 2′ Z4 alta, 1′ Z5.', bloques: fondoConCambios(140, 12, [[4, 85], [3, 95], [2, 104], [1, 115]]) },
+  { id: 'b-z2c-145', nombre: 'Zona 2 con cambios variados 2 h 25′', categoria: 'endurance', descripcion: 'Cada 10′: 2′ en Z4, 1′ en Z5 o 3′ en Z3, por turnos.', bloques: fondoConCambios(145, 10, [[2, 96], [1, 114], [3, 86]]) },
+  { id: 'b-z2c-150', nombre: 'Gran fondo con cambios 2 h 30′', categoria: 'endurance', descripcion: 'Dos horas y media en zona 2 con una escalera cada 12′: de 5′ en Z3 a 1′ en Z5.', bloques: fondoConCambios(150, 12, [[5, 84], [4, 90], [3, 97], [2, 104], [1, 115]]) },
+  { id: 'b-z2c-150-umbral', nombre: 'Gran fondo con umbral 2 h 30′', categoria: 'endurance', descripcion: 'Dos horas y media en zona 2 con 5′ al umbral (Z4) cada 15′.', bloques: fondoConCambios(150, 15, [[5, 95]]) },
+];
+
 export const BIBLIOTECA: Entrenamiento[] = [
   ...RECOVERY,
   ...RAPIDO,
   ...TEST,
   ...ENDURANCE,
+  ...Z2_CAMBIOS,
   ...SWEETSPOT,
   ...TAPERING,
   ...TEMPO,
