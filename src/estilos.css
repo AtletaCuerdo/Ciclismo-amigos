@@ -3449,6 +3449,7 @@ p {
   left: 50%;
   transform: translateX(-50%);
   z-index: 5;
+  pointer-events: auto; /* está dentro de .hud-capa, que no recibe toques */
   display: flex;
   align-items: center;
   gap: 8px;

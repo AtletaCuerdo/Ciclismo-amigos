@@ -339,9 +339,13 @@ export class Ciclista3D {
       this.etiqueta.material.map?.dispose();
       this.etiqueta.material.dispose();
       this.raiz.remove(this.etiqueta);
+      this.etiqueta = null;
     }
-    this.etiqueta = etiquetaNombre(etiqueta);
-    this.raiz.add(this.etiqueta);
+    // Sin nombre (los de la grupeta que no son el líder) no hay cartel: uno vacío taparía el del líder
+    if (etiqueta) {
+      this.etiqueta = etiquetaNombre(etiqueta);
+      this.raiz.add(this.etiqueta);
+    }
     this.ponerDorsal(nombre);
   }
 
