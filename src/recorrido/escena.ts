@@ -464,6 +464,14 @@ export class EscenaRecorrido {
   private ultimaMarca = 0;
   private animacion = 0;
   private observador: ResizeObserver;
+  /**
+   * Se quita al destruir: el contexto WebGL viejo sigue vivo desde la geometría compartida de los
+   * carteles de three.js y, a través del lienzo, este aviso retenía la escena entera.
+   */
+  private alPerderContexto = (e: Event) => {
+    e.preventDefault();
+    if (!this.destruida) this.onContextoPerdido?.();
+  };
   private camaraLista = false;
   private rotores: { g: THREE.Object3D; vel: number }[] = [];
   private nubes: THREE.Sprite[] = [];
@@ -520,10 +528,7 @@ export class EscenaRecorrido {
     // más largo y alargado) Bluefy se quedaba sin memoria y cerraba la página
     this.factor = alta ? (this.movil ? 0.7 : 1) : 0.5;
     this.renderer = new THREE.WebGLRenderer({ antialias: alta && !this.movil, powerPreference: 'high-performance' });
-    this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
-      e.preventDefault();
-      if (!this.destruida) this.onContextoPerdido?.();
-    });
+    this.renderer.domElement.addEventListener('webglcontextlost', this.alPerderContexto);
     prepararTexturasComprimidas(this.renderer);
     this.ratioMaximo = Math.min(window.devicePixelRatio, this.movil ? (alta ? 1.25 : 1) : alta ? 1.5 : 1);
     this.ratioPixeles = this.ratioMaximo;
@@ -3189,17 +3194,34 @@ export class EscenaRecorrido {
         mats.forEach((m) => materiales.add(m));
       }
     });
+    // Todas las texturas, no solo `map`: three.js deja en cada textura subida un aviso que apunta
+    // al renderer, y por ahí se quedaba viva la escena entera (unos 55 MB por cada cambio de
+    // circuito o corte del 3D). Las de las cachés se vuelven a subir solas si se usan otra vez.
+    const texturas = new Set<THREE.Texture>();
+    const anotar = (v: unknown) => {
+      if (v instanceof THREE.Texture) texturas.add(v);
+    };
     materiales.forEach((m) => {
-      (m as THREE.Material & { map?: THREE.Texture | null }).map?.dispose();
+      Object.values(m).forEach(anotar);
+      const uniformes = [
+        (m as THREE.ShaderMaterial).uniforms,
+        (m.userData as { uniformes?: Record<string, THREE.IUniform> }).uniformes,
+      ];
+      for (const u of uniformes) if (u) Object.values(u).forEach((x) => anotar(x?.value));
       m.dispose();
     });
+    texturas.forEach((t) => t.dispose());
     this.escena.environment?.dispose();
+    if (this.escena.background instanceof THREE.Texture) this.escena.background.dispose();
     this.texturaRuido?.dispose();
     this.atlasImpostores?.dispose();
     this.impostor?.planos.dispose();
+    this.escena.clear();
+    this.renderer.renderLists.dispose();
     this.renderer.dispose();
     // Liberar el contexto ya (si no, en iPad se acumulan hasta que el sistema corta el 3D)
     this.renderer.forceContextLoss();
+    this.renderer.domElement.removeEventListener('webglcontextlost', this.alPerderContexto);
     this.renderer.domElement.remove();
   }
 }
