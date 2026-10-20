@@ -45,6 +45,11 @@ export interface Resumen {
   maxGrupo?: number;
   /** Mejor cadencia media en una hora seguida (rpm). */
   mejorHoraCadencia?: number;
+  /**
+   * Bloques principales de los entrenamientos guiados (los de trabajo y los largos), para ver sus
+   * medias en el resumen: [inicio (s en marcha), duración (s), vatios objetivo].
+   */
+  bloques?: [number, number, number][];
 }
 
 /** Título según el porcentaje del tiempo que se ha ido a rueda (para las risas del grupo). */

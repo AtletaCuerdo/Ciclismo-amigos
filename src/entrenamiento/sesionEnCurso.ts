@@ -28,6 +28,8 @@ export interface SesionEnCurso {
   /** Punto del circuito respecto a lo grabado (m). */
   adelanto: number;
   cortes: number[];
+  /** Bloques principales de los entrenos (para sus medias en el resumen). */
+  bloques?: [number, number, number][];
   cambiosCircuito: [number, string][];
   nombres: string[];
   companeros: string[];

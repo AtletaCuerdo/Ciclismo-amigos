@@ -8,6 +8,7 @@ import { listarEntrenos } from '../entrenamiento/almacen';
 import { logrosNuevos, type Logro } from '../entrenamiento/logros';
 import { nivelDe, xpTotal } from '../entrenamiento/niveles';
 import { guardarMiNivel } from '../entrenamiento/nivelPublico';
+import { mediasDeBloques, mejoresVatios } from '../entrenamiento/resumen';
 
 interface Props {
   entreno: Entreno;
@@ -173,6 +174,8 @@ export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual,
         )}
       </div>
 
+      <MejoresYBloques entreno={entreno} />
+
       {errorGuardado ? (
         <p className="aviso">
           No se pudo guardar en el historial ({errorGuardado}). Descarga el archivo para no perderlo.
@@ -202,5 +205,62 @@ export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual,
       )}
       <BotonesTcx entreno={entreno} />
     </section>
+  );
+}
+
+const minutos = (s: number) => (s >= 60 ? `${Math.round(s / 60)}′` : `${s}″`);
+
+/** Mejores vatios de la sesión (3′ a 60′) y medias de los bloques principales del entreno. */
+function MejoresYBloques({ entreno }: { entreno: Entreno }) {
+  const mejores = mejoresVatios(entreno.muestras);
+  const bloques = entreno.resumen.bloques ? mediasDeBloques(entreno.muestras, entreno.resumen.bloques) : [];
+  if (!mejores.length && !bloques.length) return null;
+  return (
+    <>
+      {mejores.length > 0 && (
+        <>
+          <h3>Mejores vatios</h3>
+          <div className="mejores-vatios">
+            {mejores.map((m) => (
+              <div key={m.s} className="mejor-vatios">
+                <span className="mejor-duracion">{minutos(m.s)}</span>
+                <strong>{m.w} W</strong>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {bloques.length > 0 && (
+        <>
+          <h3>Bloques del entrenamiento</h3>
+          <div className="tabla-bloques-scroll">
+            <table className="tabla-bloques">
+              <thead>
+                <tr>
+                  <th>Bloque</th>
+                  <th>Objetivo</th>
+                  <th>Vatios</th>
+                  <th>Pulso</th>
+                  <th>Cadencia</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bloques.map((b, i) => (
+                  <tr key={b.inicioS}>
+                    <td>
+                      {i + 1}. {formatearTiempo(b.duracionS)}
+                    </td>
+                    <td>{b.objetivoW ? `${b.objetivoW} W` : 'libre'}</td>
+                    <td>{b.potencia !== undefined ? `${b.potencia} W` : '—'}</td>
+                    <td>{b.pulso !== undefined ? `${b.pulso} ppm` : '—'}</td>
+                    <td>{b.cadencia !== undefined ? `${b.cadencia} rpm` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </>
   );
 }

@@ -437,6 +437,65 @@ p {
   margin-top: 12px;
 }
 
+/* Mejores vatios y bloques del entreno en el resumen final */
+.mejores-vatios {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 8px;
+}
+
+.mejor-vatios {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  border-radius: 12px;
+  background: var(--panel-2);
+}
+
+.mejor-vatios strong {
+  font-size: 20px;
+}
+
+.mejor-duracion {
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.tabla-bloques-scroll {
+  overflow-x: auto;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.tabla-bloques {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabla-bloques th,
+.tabla-bloques td {
+  padding: 6px 8px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--borde);
+}
+
+.tabla-bloques th:first-child,
+.tabla-bloques td:first-child {
+  text-align: left;
+}
+
+.tabla-bloques th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  color: var(--texto-suave);
+  font-weight: 600;
+}
+
 .metrica {
   background: var(--panel-2);
   border-radius: 12px;

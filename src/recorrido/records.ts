@@ -6,6 +6,7 @@
  * Cada ciclista solo escribe su propia marca y solo cuando la mejora. El recorrido de mi mejor
  * vuelta (para el fantasma) se queda en el navegador: son unos miles de puntos.
  */
+import { circuitoPorId } from './circuitos';
 import { CIRCUITO_ID } from './segmentos';
 
 export interface MarcaGrupo {
@@ -17,6 +18,12 @@ export interface MarcaGrupo {
 
 const CLAVE_RECORDS = 'rodillos.records';
 const claveFantasma = (circuito: string) => `rodillos.fantasma.${circuito}`;
+
+/** Clave del segmento para sus récords: las subidas rehechas llevan su versión (`subida-1-v2`). */
+function clave(segmento: string, circuito: string) {
+  const v = circuitoPorId(circuito).versionSubidas;
+  return v && segmento.startsWith('subida-') ? `${segmento}-v${v}` : segmento;
+}
 
 type Records = Record<string, Record<string, { ms: number; t: number }>>;
 
@@ -39,11 +46,12 @@ function escribir(clave: string, valor: unknown) {
 
 /** Mi mejor marca en un segmento (ms), si la hay. */
 export function miRecord(segmento: string, circuito = CIRCUITO_ID): number | undefined {
-  return leer<Records>(CLAVE_RECORDS, {})[circuito]?.[segmento]?.ms;
+  return leer<Records>(CLAVE_RECORDS, {})[circuito]?.[clave(segmento, circuito)]?.ms;
 }
 
 /** Guarda la marca si es la mejor. Devuelve la anterior (undefined si era la primera). */
-export function apuntarMarca(segmento: string, ms: number, circuito = CIRCUITO_ID) {
+export function apuntarMarca(id: string, ms: number, circuito = CIRCUITO_ID) {
+  const segmento = clave(id, circuito);
   const todos = leer<Records>(CLAVE_RECORDS, {});
   const anterior = todos[circuito]?.[segmento]?.ms;
   if (anterior === undefined || ms < anterior) {
@@ -67,7 +75,7 @@ export function guardarFantasma(muestras: [number, number][], circuito = CIRCUIT
 export async function subirMarca(segmento: string, ms: number, nombre: string, circuito = CIRCUITO_ID) {
   const fb = await import('../multijugador/firebase');
   const yo = await fb.entrarAnonimo();
-  const ref = fb.ref(fb.db, `records/${circuito}/${segmento}/${yo.uid}`);
+  const ref = fb.ref(fb.db, `records/${circuito}/${clave(segmento, circuito)}/${yo.uid}`);
   const actual = await fb.get(ref);
   const previa = actual.val()?.ms;
   if (typeof previa === 'number' && previa <= ms) return false;
@@ -79,7 +87,7 @@ export async function subirMarca(segmento: string, ms: number, nombre: string, c
 export async function tablaGrupo(segmento: string, circuito = CIRCUITO_ID): Promise<{ tabla: MarcaGrupo[]; miUid: string }> {
   const fb = await import('../multijugador/firebase');
   const yo = await fb.entrarAnonimo();
-  const snap = await fb.get(fb.ref(fb.db, `records/${circuito}/${segmento}`));
+  const snap = await fb.get(fb.ref(fb.db, `records/${circuito}/${clave(segmento, circuito)}`));
   const tabla: MarcaGrupo[] = [];
   snap.forEach((hijo) => {
     const v = hijo.val();

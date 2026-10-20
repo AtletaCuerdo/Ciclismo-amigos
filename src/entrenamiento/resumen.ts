@@ -70,13 +70,7 @@ export function mejorHoraCadencia(muestras: Muestra[]): number | undefined {
  * tiempo real entre muestras, sin las pausas, y se descartan los cortes a menos de 10 s del anterior.
  */
 export function muestrasDeCortes(muestras: Muestra[], cortesS: number[]): number[] {
-  const enMarcha: number[] = [];
-  let s = 0;
-  for (let i = 0; i < muestras.length; i++) {
-    const dt = i === 0 ? 1 : (muestras[i].t - muestras[i - 1].t) / 1000;
-    s += dt > 0 && dt <= 5 ? dt : 1; // un hueco largo es una pausa: cuenta como un segundo
-    enMarcha.push(s);
-  }
+  const enMarcha = segundosEnMarcha(muestras);
   const indices: number[] = [];
   let i = 0;
   for (const c of [...new Set(cortesS)].sort((a, b) => a - b)) {
@@ -87,4 +81,67 @@ export function muestrasDeCortes(muestras: Muestra[], cortesS: number[]): number
     indices.push(i);
   }
   return indices;
+}
+
+/** Segundos en marcha al llegar a cada muestra (tiempo real entre muestras, sin las pausas). */
+function segundosEnMarcha(muestras: Muestra[]): number[] {
+  const enMarcha: number[] = [];
+  let s = 0;
+  for (let i = 0; i < muestras.length; i++) {
+    const dt = i === 0 ? 1 : (muestras[i].t - muestras[i - 1].t) / 1000;
+    s += dt > 0 && dt <= 5 ? dt : 1; // un hueco largo es una pausa: cuenta como un segundo
+    enMarcha.push(s);
+  }
+  return enMarcha;
+}
+
+/** Duraciones de los mejores vatios del resumen (s). */
+export const DURACIONES_MEJORES = [180, 300, 600, 1200, 3600];
+
+/**
+ * Mejor potencia media en cada duración (ventana de tiempo real en marcha; sin potencia cuenta
+ * como 0 W). Solo las duraciones que caben en la sesión.
+ */
+export function mejoresVatios(muestras: Muestra[]): { s: number; w: number }[] {
+  if (!muestras.some((m) => m.p !== undefined)) return [];
+  const enMarcha = segundosEnMarcha(muestras);
+  const total = enMarcha[enMarcha.length - 1] ?? 0;
+  const resultado: { s: number; w: number }[] = [];
+  for (const dur of DURACIONES_MEJORES) {
+    if (total < dur - 2) break;
+    let mejor = 0;
+    let suma = 0;
+    let desde = 0;
+    for (let i = 0; i < muestras.length; i++) {
+      suma += Math.max(0, muestras[i].p ?? 0);
+      while (enMarcha[i] - enMarcha[desde] >= dur) suma -= Math.max(0, muestras[desde++].p ?? 0);
+      if (enMarcha[i] - enMarcha[desde] >= dur - 2) mejor = Math.max(mejor, suma / (i - desde + 1));
+    }
+    if (mejor > 0) resultado.push({ s: dur, w: Math.round(mejor) });
+  }
+  return resultado;
+}
+
+/** Medias de un bloque del entrenamiento (de `inicioS` a `inicioS + duracionS` en marcha). */
+export interface MediasBloque {
+  inicioS: number;
+  duracionS: number;
+  objetivoW: number;
+  potencia?: number;
+  pulso?: number;
+  cadencia?: number;
+}
+
+export function mediasDeBloques(muestras: Muestra[], bloques: [number, number, number][]): MediasBloque[] {
+  const enMarcha = segundosEnMarcha(muestras);
+  return bloques.flatMap(([inicioS, duracionS, objetivoW]) => {
+    const dentro = muestras.filter((_, i) => enMarcha[i] > inicioS && enMarcha[i] <= inicioS + duracionS);
+    // Bloques que casi no se hicieron (se terminó antes): fuera
+    if (dentro.length < Math.min(30, duracionS / 2)) return [];
+    const potencias = dentro.flatMap((m) => (m.p !== undefined ? [Math.max(0, m.p)] : []));
+    const pulsos = dentro.flatMap((m) => (m.hr ? [m.hr] : []));
+    const cadencias = dentro.flatMap((m) => (m.c ? [m.c] : []));
+    const r = (x?: number) => (x === undefined ? undefined : Math.round(x));
+    return [{ inicioS, duracionS, objetivoW, potencia: r(media(potencias)), pulso: r(media(pulsos)), cadencia: r(media(cadencias)) }];
+  });
 }

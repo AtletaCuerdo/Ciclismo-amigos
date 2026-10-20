@@ -1056,6 +1056,7 @@ export default function App() {
     logrosSesionRef.current = sesionLogrosVacia();
     cambiosCircuitoRef.current = [[Date.now(), CIRCUITO.id]];
     cortesRef.current = [];
+    bloquesRef.current = [];
     setCircuitoSiguiente(null);
     setEntrenoActivo(null);
     setTerminado(null);
@@ -1123,6 +1124,8 @@ export default function App() {
 
   // Dónde empieza cada intervalo (segundos de la grabación): serán las vueltas en Strava
   const cortesRef = useRef<number[]>([]);
+  // Bloques principales (los de trabajo y los largos) para sus medias en el resumen
+  const bloquesRef = useRef<[number, number, number][]>([]);
   /** Desde `desde` (s) manda este entrenamiento: se quitan los cortes de lo que ya no se hará. */
   const apuntarCortes = (desde: number, tramos: Tramo[] | null) => {
     const quedan = cortesRef.current.filter((k) => k < desde);
@@ -1132,12 +1135,29 @@ export default function App() {
       quedan.push(desde + duracionTotal(tramos));
     }
     cortesRef.current = quedan;
+    // Lo que no se llegó a hacer, fuera; el bloque a medias, hasta aquí
+    const bloques = bloquesRef.current
+      .filter(([inicio]) => inicio < desde)
+      .map(([inicio, duracion, w]): [number, number, number] => [inicio, Math.min(duracion, desde - inicio), w]);
+    if (tramos) {
+      // Principales: los constantes cerca del más duro del entreno, los de 10′ o más y los
+      // libres (tests); fuera calentamiento, vuelta a la calma y recuperaciones
+      const fijos = tramos.filter((t) => t.libre || t.desde === t.hasta);
+      const maximo = Math.max(0, ...fijos.filter((t) => !t.libre).map((t) => t.desde));
+      for (const t of fijos) {
+        const principal = t.libre ? t.duracion >= 60 : t.desde >= maximo * 0.85 || t.duracion >= 600;
+        if (principal && t.duracion >= 30)
+          bloques.push([desde + t.inicio, t.duracion, t.libre ? 0 : Math.round((t.desde * perfil.ftp) / 100)]);
+      }
+    }
+    bloquesRef.current = bloques.slice(0, 60);
   };
 
   const empezarEntreno = (e: Entrenamiento) => {
     const tramos = desplegar(e.bloques);
     mantenerPantallaEncendida();
     cortesRef.current = [];
+    bloquesRef.current = [];
     apuntarCortes(0, tramos);
     sesionRef.current = { nombres: [] };
     companerosRef.current = new Set();
@@ -1178,6 +1198,7 @@ export default function App() {
       if (cambiosCircuitoRef.current.length > 1) entreno.resumen.circuitos = cambiosCircuitoRef.current;
       const vueltas = muestrasDeCortes(entreno.muestras, cortesRef.current);
       if (vueltas.length) entreno.resumen.vueltas = vueltas;
+      if (bloquesRef.current.length) entreno.resumen.bloques = bloquesRef.current;
       if (companerosRef.current.size) entreno.resumen.companeros = [...companerosRef.current].slice(0, 20);
       const ls = logrosSesionRef.current;
       if (ls.completados.length) entreno.resumen.entrenosCompletados = [...ls.completados];
@@ -1233,6 +1254,7 @@ export default function App() {
       circuito: circuitoId,
       adelanto: adelantoRef.current,
       cortes: cortesRef.current,
+      bloques: bloquesRef.current,
       cambiosCircuito: cambiosCircuitoRef.current,
       nombres: sesionRef.current.nombres,
       companeros: [...companerosRef.current],
@@ -1268,6 +1290,7 @@ export default function App() {
     grabacion.restaurar(p.grabacion);
     setAdelanto(p.adelanto);
     cortesRef.current = p.cortes ?? [];
+    bloquesRef.current = p.bloques ?? [];
     cambiosCircuitoRef.current = p.cambiosCircuito?.length ? p.cambiosCircuito : [[Date.now(), p.circuito]];
     sesionRef.current = { nombres: p.nombres ?? [] };
     companerosRef.current = new Set(p.companeros ?? []);

@@ -54,6 +54,11 @@ export interface DefCircuito {
    * de la cima, en los segmentos y en los rankings. Sin indicar: `nombrePuerto` o «Repecho del km…».
    */
   nombresSubidas?: string[];
+  /**
+   * Súbelo si cambian el inicio o el final de las subidas: sus récords empiezan de cero (los
+   * antiguos eran de otros tramos con el mismo número). La vuelta completa no se ve afectada.
+   */
+  versionSubidas?: number;
   /** Colinas lejos de la carretera: altura media y cuánto se ondulan (1 = como el original). */
   relieve: { base: number; escala: number };
   /** Subidas con al menos este desnivel se cronometran como segmento. */
@@ -257,6 +262,8 @@ export const CIRCUITOS: DefCircuito[] = [
     relieve: { base: 46, escala: 0.6 },
     desnivelSegmento: 15,
     nombresSubidas: ['Col de Lasai', 'Donde Joel'],
+    // 12-10: la subida al faro pasó a ser una sola (antes dos tramos): récords nuevos
+    versionSubidas: 2,
     extra: [['Paseo marítimo', 0.2, 3.2]],
     metas: [1.6, 11.2],
   },
