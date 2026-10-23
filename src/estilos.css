@@ -122,6 +122,13 @@ p {
   align-items: center;
   gap: 12px;
   padding-top: env(safe-area-inset-top);
+  /* Siempre a la vista (también al bajar por Ajustes o el avatar): el logo lleva al inicio */
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin: -12px -4px 0;
+  padding: calc(8px + env(safe-area-inset-top)) 4px 8px;
+  background: var(--fondo);
 }
 
 .marca {

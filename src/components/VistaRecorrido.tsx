@@ -4,7 +4,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { guardarCalidad, type Avatar, type Calidad } from '../recorrido/avatar';
-import { EscenaRecorrido, type DatosYo, type OtroCiclista } from '../recorrido/escena';
+import { EscenaRecorrido, type DatosYo, type OtroCiclista, type VistaCamara } from '../recorrido/escena';
 import {
   ALTITUD_MAX,
   ALTITUD_MIN,
@@ -73,8 +73,10 @@ interface Props {
   };
   /** Bots a vatios fijos: los que hay y cómo añadir o quitar. */
   bots: {
-    lista: { id: string; vatios: number; grupeta: boolean }[];
+    lista: { id: string; vatios: number; grupeta: boolean; acompanantes?: 'rebufo' | 'compania' }[];
     onAnadir: (vatios: number) => void;
+    /** Pone 3 acompañantes que ruedan contigo a tus vatios (con o sin rebufo). */
+    onAcompanantes: (rebufo: boolean) => void;
     onAnadirGrupeta: (vatios: number) => void;
     ritmosGrupeta: { nombre: string; vatios: number }[];
     onQuitar: (id?: string) => void;
@@ -98,7 +100,8 @@ interface Props {
   /** Ponerse en el punto `s` del circuito (junto a un amigo). */
   onJuntoA: (s: number) => void;
   /** Circuito actual y el siguiente (se cambia al cruzar la meta). */
-  circuito: { actual: string; siguiente: string | null; onElegir: (id: string | null) => void };
+  /** `alMomento`: aún no se ha grabado nada, así que el circuito cambia ya (no al cruzar la meta). */
+  circuito: { actual: string; siguiente: string | null; onElegir: (id: string | null) => void; alMomento: boolean };
   /** Mi nombre (para el dorsal). */
   miNombre?: string;
   /** Emojis rápidos (solo en la salida): el mío, si lo acabo de lanzar, y cómo lanzar uno. */
@@ -249,6 +252,12 @@ const yPerfil = (h: number) =>
   ALTO_PERFIL - 8 - ((h - ALTITUD_MIN) / (ALTITUD_MAX - ALTITUD_MIN)) * (ALTO_PERFIL - 30);
 
 const CLAVE_PERFIL = 'rodillos.perfilVuelta';
+const CLAVE_VISTA = 'rodillos.vistaCamara';
+const VISTAS: { id: VistaCamara; nombre: string }[] = [
+  { id: 'trasera', nombre: 'Detrás' },
+  { id: 'lateral', nombre: 'Lado' },
+  { id: 'cenital', nombre: 'Arriba' },
+];
 
 const km = (m: number, dec = 1) => (m / 1000).toFixed(dec).replace('.', ',');
 
@@ -326,6 +335,7 @@ export default function VistaRecorrido({
           setAviso('El iPad se quedó sin memoria gráfica y el recorrido se ha reiniciado en calidad media. A partir de ahora se usará la calidad media en este dispositivo.');
           setReinicios((n) => n + 1);
         };
+        e.vistaCamara = vistaRef.current;
         escena.current = e;
         // Solo en desarrollo: para inspeccionar la escena desde la consola
         if (import.meta.env.DEV) Object.assign(window, { __escena: e });
@@ -378,6 +388,28 @@ export default function VistaRecorrido({
     }
     return `M0,${ALTO_PERFIL} L${puntos.join(' L')} L${ANCHO_PERFIL},${ALTO_PERFIL} Z`;
   }, []);
+
+  // Vista de la cámara (se recuerda en este navegador)
+  const [vista, setVista] = useState<VistaCamara>(() => {
+    try {
+      const v = localStorage.getItem(CLAVE_VISTA);
+      return VISTAS.some((x) => x.id === v) ? (v as VistaCamara) : 'trasera';
+    } catch {
+      return 'trasera';
+    }
+  });
+  const vistaRef = useRef(vista);
+  vistaRef.current = vista;
+  const siguienteVista = () => {
+    const v = VISTAS[(VISTAS.findIndex((x) => x.id === vista) + 1) % VISTAS.length].id;
+    setVista(v);
+    if (escena.current) escena.current.vistaCamara = v;
+    try {
+      localStorage.setItem(CLAVE_VISTA, v);
+    } catch {
+      // sin almacenamiento: solo dura esta sesión
+    }
+  };
 
   // Perfil pequeño en la esquina o ampliado a lo ancho (se recuerda en este navegador)
   const [perfilGrande, setPerfilGrande] = useState(() => {
@@ -591,11 +623,35 @@ export default function VistaRecorrido({
             {menuBots && (
               <div className="hud menu-bots">
                 <div className="menu-bots-cabecera">
-                  <strong>🚴 Añadir una grupeta (5 ciclistas)</strong>
+                  <strong>🤝 Acompañantes a tu ritmo (3 ciclistas)</strong>
                   <button className="chat-cerrar" onClick={() => setMenuBots(false)} aria-label="Cerrar el menú de bots">
                     ✕
                   </button>
                 </div>
+                <div className="menu-bots-vatios grupetas">
+                  <button
+                    className="boton-secundario"
+                    onClick={() => {
+                      bots.onAcompanantes(false);
+                      setMenuBots(false);
+                    }}
+                  >
+                    Solo compañía
+                    <small>sin rebufo</small>
+                  </button>
+                  <button
+                    className="boton-secundario"
+                    onClick={() => {
+                      bots.onAcompanantes(true);
+                      setMenuBots(false);
+                    }}
+                  >
+                    Con rebufo
+                    <small>uno te tira</small>
+                  </button>
+                </div>
+                <small>Van siempre contigo a tus vatios, en rodada libre o en un entrenamiento: no se quedan ni se escapan.</small>
+                <strong>🚴 Añadir una grupeta (5 ciclistas)</strong>
                 <div className="menu-bots-vatios grupetas">
                   {bots.ritmosGrupeta.map((r) => (
                     <button
@@ -632,7 +688,9 @@ export default function VistaRecorrido({
                     <ul>
                       {bots.lista.map((b) => (
                         <li key={b.id}>
-                          {b.grupeta ? '🚴 Grupeta' : '🤖'} {b.vatios} W
+                          {b.acompanantes
+                            ? `🤝 Acompañantes (${b.acompanantes === 'rebufo' ? 'con rebufo' : 'sin rebufo'})`
+                            : `${b.grupeta ? '🚴 Grupeta' : '🤖'} ${b.vatios} W`}
                           <button className="chat-cerrar" onClick={() => bots.onQuitar(b.id)} aria-label="Quitar bot">
                             ✕
                           </button>
@@ -666,18 +724,21 @@ export default function VistaRecorrido({
                   ? 'Fantasma'
                   : `${fantasma.diferencia > 0 ? '+' : '−'}${textoTiempo(Math.abs(fantasma.diferencia))}`}
           </button>
+          <button className="boton-secundario" onClick={siguienteVista} title="Cambiar la cámara: detrás, de lado o desde arriba">
+            🎥 {VISTAS.find((x) => x.id === vista)!.nombre}
+          </button>
           <div className="menu-bots-ancla">
             <button
               className={`boton-secundario ${circuito.siguiente ? 'activo' : ''}`}
               onClick={() => setMenuCircuito((m) => !m)}
-              title="Cambiar de circuito al terminar la vuelta"
+              title={circuito.alMomento ? 'Cambiar de circuito' : 'Cambiar de circuito al terminar la vuelta'}
             >
               🗺️ Circuito
             </button>
             {menuCircuito && (
               <div className="hud menu-bots">
                 <div className="menu-bots-cabecera">
-                  <strong>Al cruzar la meta, seguir en…</strong>
+                  <strong>{circuito.alMomento ? 'Cambiar ahora a…' : 'Al cruzar la meta, seguir en…'}</strong>
                   <button className="chat-cerrar" onClick={() => setMenuCircuito(false)} aria-label="Cerrar">
                     ✕
                   </button>
@@ -694,7 +755,12 @@ export default function VistaRecorrido({
                     {c.nombre} · {longitudDe(c) / 1000} km · {desnivelDe(c)} m ↑{c.id === circuito.actual ? ' (este)' : ''}
                   </button>
                 ))}
-                <small>Lo grabado sigue en la misma actividad. Si vas en grupo, pasas a la salida de ese circuito.</small>
+                <small>
+                  {circuito.alMomento
+                    ? 'Aún no has empezado a grabar: el circuito cambia al momento.'
+                    : 'Lo grabado sigue en la misma actividad.'}{' '}
+                  Si vas en grupo, pasas a la salida de ese circuito.
+                </small>
               </div>
             )}
           </div>

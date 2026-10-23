@@ -24,6 +24,8 @@ export interface Bot {
   carril?: number;
   /** Grupeta compartida de la salida en grupo: su posición la da esta simulación, igual en todas las pantallas. */
   sim?: SimGrupeta;
+  /** Acompañante: va siempre a tu lado, a tu ritmo, a `delante` metros de ti (negativo: detrás). */
+  acompana?: { delante: number; rebufo: boolean; fase: number };
 }
 
 /** Paso fijo de la simulación compartida (s): con el mismo paso, todas las pantallas calculan lo mismo. */
@@ -139,6 +141,53 @@ export function crearBot(vatios: number, miPosicion: number, misVatios: number, 
   };
 }
 
+/** Grupo de los acompañantes (para quitarlos todos de una vez). */
+export const GRUPO_ACOMPANANTES = 'acompanantes';
+
+/**
+ * Colocación de los acompañantes: [metros delante de ti, carril]. Tu carril es el 1,5.
+ * Con rebufo, uno va 2,7 m por delante en tu carril (ahí el rebufo es pleno); sin rebufo, nadie
+ * se pone delante de ti (a tu lado o detrás), así que ruedas acompañado pero con todo el aire.
+ */
+const FORMACION_ACOMPANANTES: Record<'rebufo' | 'compania', [number, number][]> = {
+  rebufo: [
+    [2.7, 1.5],
+    [-0.8, 0.1],
+    [-3, 1.5],
+  ],
+  compania: [
+    [-0.8, 0.1],
+    [-2.8, 1.4],
+    [-3.2, 0.1],
+  ],
+};
+
+/** Crea 3 acompañantes que ruedan contigo a tus vatios, con o sin rebufo. */
+export function crearAcompanantes(rebufo: boolean, miPosicion: number, misVatios: number, miVelocidadMs: number): Bot[] {
+  return FORMACION_ACOMPANANTES[rebufo ? 'rebufo' : 'compania'].map(([delante, carril], i) => {
+    const b = crearBot(misVatios, miPosicion, misVatios, miVelocidadMs);
+    b.s = Math.max(0, miPosicion + delante);
+    b.grupo = GRUPO_ACOMPANANTES;
+    b.carril = carril;
+    b.acompana = { delante, rebufo, fase: i * 2.1 };
+    return b;
+  });
+}
+
+/**
+ * Coloca los acompañantes junto a ti. Se balancean un poco adelante y atrás (como al rodar de
+ * verdad), pero el de delante no sale nunca de la zona de rebufo pleno.
+ */
+export function colocarAcompanantes(bots: Bot[], miPosicion: number, misVatios: number, miVelocidadMs: number, t: number) {
+  for (const b of bots) {
+    if (!b.acompana) continue;
+    const vaiven = 0.25 * Math.sin(t * 0.4 + b.acompana.fase);
+    b.s = Math.max(0, miPosicion + b.acompana.delante + vaiven);
+    b.fisica.v = miVelocidadMs;
+    b.vatios = Math.round(misVatios);
+  }
+}
+
 /** Distancia de b respecto a a en el circuito (positiva: b va delante), aunque sea otra vuelta. */
 function hueco(a: number, b: number) {
   let h = (b - a) % LONGITUD_VUELTA_M;
@@ -153,8 +202,8 @@ function hueco(a: number, b: number) {
  */
 export function avanzarBots(bots: Bot[], dt: number, ciclistas: number[], ahoraServidor = Date.now()) {
   for (const bot of bots) {
-    // Los de la grupeta van en formación detrás de su líder
-    if (bot.lider) continue;
+    // Los de la grupeta van en formación detrás de su líder; los acompañantes, contigo
+    if (bot.lider || bot.acompana) continue;
     // Grupeta compartida: su posición sale de la simulación común
     if (bot.sim) {
       bot.sim.hasta(ahoraServidor);
@@ -179,5 +228,6 @@ export function avanzarBots(bots: Bot[], dt: number, ciclistas: number[], ahoraS
   }
 }
 
-/** Posiciones relativas de los bots respecto a ti (para tu rebufo). */
-export const huecosBots = (bots: Bot[], miPosicion: number) => bots.map((b) => hueco(miPosicion, b.s));
+/** Posiciones relativas de los bots respecto a ti (para tu rebufo; los acompañantes sin rebufo no cuentan). */
+export const huecosBots = (bots: Bot[], miPosicion: number) =>
+  bots.filter((b) => !b.acompana || b.acompana.rebufo).map((b) => hueco(miPosicion, b.s));

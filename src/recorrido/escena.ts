@@ -407,6 +407,8 @@ interface EstadoOtro {
 const CARRILES = [-2.6, -1.2, 0.2, 2.8, -3.2];
 const MI_CARRIL = 1.5;
 
+export type VistaCamara = 'trasera' | 'lateral' | 'cenital';
+
 function hash(texto: string) {
   let h = 0;
   for (let i = 0; i < texto.length; i++) h = (h * 31 + texto.charCodeAt(i)) | 0;
@@ -473,6 +475,8 @@ export class EscenaRecorrido {
     if (!this.destruida) this.onContextoPerdido?.();
   };
   private camaraLista = false;
+  /** Desde dónde se ve a mi ciclista: por detrás (la de siempre), de lado o desde arriba. */
+  vistaCamara: VistaCamara = 'trasera';
   private rotores: { g: THREE.Object3D; vel: number }[] = [];
   private nubes: THREE.Sprite[] = [];
   /** Grupos de vegetación pequeña que solo se dibujan cerca del ciclista. */
@@ -3154,12 +3158,26 @@ export class EscenaRecorrido {
     // Cámara en tercera persona: sobre la carretera 6 m por detrás y mirando a la carretera de
     // delante: la cámara se inclina con la carretera, así en las subidas el horizonte baja y se
     // ve la rampa por delante (y en las bajadas, la caída).
-    const atras = this.puntoEn(this.sYo - 6, this.carrilYo, this.puntoAtras);
-    this.detras.set(atras.pos.x, atras.pos.y + 2.3, atras.pos.z);
+    if (this.vistaCamara === 'lateral') {
+      // De lado: a 5 m, hacia el centro de la carretera (en la cuneta hay rocas y plantas), un poco
+      // adelantada y mirando al ciclista
+      const lado = this.puntoEn(this.sYo + 0.6, this.carrilYo - 5, this.puntoAtras);
+      this.detras.set(lado.pos.x, lado.pos.y + 1.4, lado.pos.z);
+      this.mira.set(miX, miY + 0.85, miZ);
+    } else if (this.vistaCamara === 'cenital') {
+      // Desde arriba: 13 m por encima y algo por detrás (justo encima la cámara no sabe girar)
+      const atras = this.puntoEn(this.sYo - 3.5, this.carrilYo, this.puntoAtras);
+      this.detras.set(atras.pos.x, miY + 13, atras.pos.z);
+      const delante = this.puntoEn(this.sYo + 2, this.carrilYo, this.puntoAdelante);
+      this.mira.set(delante.pos.x, delante.pos.y + 0.5, delante.pos.z);
+    } else {
+      const atras = this.puntoEn(this.sYo - 6, this.carrilYo, this.puntoAtras);
+      this.detras.set(atras.pos.x, atras.pos.y + 2.3, atras.pos.z);
+      const delante = this.puntoEn(this.sYo + 16, this.carrilYo * 0.5, this.puntoAdelante);
+      const subida = delante.pos.y - miY;
+      this.mira.set(delante.pos.x, miY + 0.9 + subida, delante.pos.z);
+    }
     this.detras.y = Math.max(this.detras.y, this.alturaTerreno(this.detras.x, this.detras.z) + 1.2);
-    const delante = this.puntoEn(this.sYo + 16, this.carrilYo * 0.5, this.puntoAdelante);
-    const subida = delante.pos.y - miY;
-    this.mira.set(delante.pos.x, miY + 0.9 + subida, delante.pos.z);
     // Sensación de velocidad: se abre un poco el campo de visión a partir de 38 km/h
     const kmh = this.vYo * 3.6;
     const fov = this.FOV_BASE + 9 * suavizado(38, 70, kmh);

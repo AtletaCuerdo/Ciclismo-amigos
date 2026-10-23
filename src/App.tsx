@@ -53,7 +53,10 @@ import { CronoSegmentos, posicionEn, textoTiempo, tiempoEn, type EventoCrono, ty
 import {
   RITMOS_GRUPETA,
   avanzarBots,
+  colocarAcompanantes,
+  crearAcompanantes,
   crearBot,
+  GRUPO_ACOMPANANTES,
   crearGrupeta,
   grupetasCompartidas,
   huecosBots,
@@ -114,6 +117,10 @@ export interface ResultadoSegmento {
 const CLAVE_CAMBIOS = 'rodillos.cambiosVirtuales';
 const CLAVE_CIRCUITO = 'rodillos.circuito';
 const CLAVE_GRUPETAS = 'rodillos.grupetas';
+/** De dónde se cogen los vatios y la cadencia cuando hay varios sensores (p. ej. D100 + pedales). */
+const CLAVE_FUENTES = 'rodillos.fuentes';
+type FuenteVatios = 'auto' | 'rodillo' | 'pedales';
+type FuenteCadencia = 'auto' | 'pedales' | 'sensor' | 'rodillo';
 /** Grupetas compartidas de hace más de 4 h: de otra salida, no se usan. */
 const GRUPETAS_CADUCAN_MS = 4 * 3600 * 1000;
 /** Todas las salas (una por circuito), para ver a los amigos estén donde estén. */
@@ -438,6 +445,14 @@ export default function App() {
   }, [sensores]);
 
   useEffect(() => guardarAjustes(ajustes), [ajustes]);
+  const [fuentes, setFuentes] = useState<{ vatios: FuenteVatios; cadencia: FuenteCadencia }>(() => {
+    try {
+      return { vatios: 'auto', cadencia: 'auto', ...JSON.parse(leerLocal(CLAVE_FUENTES) ?? '{}') };
+    } catch {
+      return { vatios: 'auto', cadencia: 'auto' };
+    }
+  });
+  useEffect(() => guardarLocal(CLAVE_FUENTES, JSON.stringify(fuentes)), [fuentes]);
 
   // ---- Valores que se muestran (con prioridad entre fuentes) ----
   const fresco = (l?: Lectura) => (l && ahora - l.t < FRESCURA_MS ? l.v : undefined);
@@ -445,21 +460,32 @@ export default function App() {
   const velocidadCsc = fresco(datos.csc.velocidad);
   const potEstimada =
     velocidadCsc !== undefined ? potenciaDeAjustes(velocidadCsc, ajustes) : undefined;
-  const potReal = primero([
-    ['Potenciómetro', fresco(datos.pm.potencia)],
-    ['Rodillo FTMS', fresco(datos.ftms.potencia)],
-  ]);
+  const vatiosPm: [string, number | undefined] = ['Potenciómetro', fresco(datos.pm.potencia)];
+  const vatiosRodillo: [string, number | undefined] = ['Rodillo FTMS', fresco(datos.ftms.potencia)];
+  const potReal = primero(
+    fuentes.vatios === 'rodillo' ? [vatiosRodillo, vatiosPm] : fuentes.vatios === 'pedales' ? [vatiosPm] : [vatiosPm, vatiosRodillo],
+  );
   const potenciaSensores = potReal.valor !== undefined ? potReal : { valor: potEstimada, fuente: 'Sensor velocidad' };
   // Modo demostración: vatios simulados cuando no hay ningún sensor de potencia
   const usarDemo = demoVatios !== null && potenciaSensores.valor === undefined;
   const potencia = usarDemo ? { valor: demoVatios ?? 0, fuente: 'Simulación' } : potenciaSensores;
   const esEstimada = !usarDemo && potReal.valor === undefined && potEstimada !== undefined;
 
-  const cadenciaSensores = primero([
-    ['Potenciómetro', fresco(datos.pm.cadencia)],
-    ['Sensor cadencia', fresco(datos.csc.cadencia)],
-    ['Rodillo FTMS', fresco(datos.ftms.cadencia)],
-  ]);
+  // Hay rodillos que no miden la cadencia (p. ej. el Van Rysel D100) y la mandan siempre a 0:
+  // si a la vez hay vatios, ese 0 no vale y se busca en los pedales o el sensor
+  const cadRodillo = fresco(datos.ftms.cadencia);
+  const cadRodilloValida = cadRodillo === 0 && (fresco(datos.ftms.potencia) ?? 0) > 30 ? undefined : cadRodillo;
+  const candidatosCadencia: Record<'pedales' | 'sensor' | 'rodillo', [string, number | undefined]> = {
+    pedales: ['Potenciómetro', fresco(datos.pm.cadencia)],
+    sensor: ['Sensor cadencia', fresco(datos.csc.cadencia)],
+    rodillo: ['Rodillo FTMS', cadRodilloValida],
+  };
+  const cadenciaSensores = primero(
+    fuentes.cadencia === 'auto'
+      ? [candidatosCadencia.pedales, candidatosCadencia.sensor, candidatosCadencia.rodillo]
+      : // La elegida primero; si no llega, las demás
+        [candidatosCadencia[fuentes.cadencia], ...Object.values(candidatosCadencia)],
+  );
   const cadencia =
     usarDemo && cadenciaSensores.valor === undefined
       ? { valor: demoVatios! > 0 ? 85 : 0, fuente: 'Simulación' }
@@ -590,6 +616,14 @@ export default function App() {
     botsRef.current = [...botsRef.current, ...crearGrupeta(vatios, s, velVirtualRef.current / 3.6)];
     setVersionBots((v) => v + 1);
   };
+  /** Pone 3 acompañantes a tu ritmo (sustituyen a los que hubiera), con o sin rebufo. */
+  const anadirAcompanantes = (rebufo: boolean) => {
+    botsRef.current = [
+      ...botsRef.current.filter((b) => !b.acompana),
+      ...crearAcompanantes(rebufo, posicionAhora(), actualRef.current.potencia ?? 0, velVirtualRef.current / 3.6),
+    ];
+    setVersionBots((v) => v + 1);
+  };
   /** Quita un bot suelto o una grupeta entera (por su id), o todos. */
   const quitarBot = (id?: string) => {
     botsRef.current = id ? botsRef.current.filter((b) => b.id !== id && b.grupo !== id) : [];
@@ -637,6 +671,7 @@ export default function App() {
         const ahoraSrv = Date.now() + desfaseRef.current;
         if (compartidas.length) avanzarBots(compartidas, dt, [], ahoraSrv);
         if (corriendoRef.current && mias.length) avanzarBots(mias, dt, [posicionAhora()], ahoraSrv);
+        colocarAcompanantes(botsRef.current, posicionAhora(), actualRef.current.potencia ?? 0, f.v, t / 1000);
       }
       if (corriendoRef.current && f.v > 2) {
         const yo = posicionAhora();
@@ -965,7 +1000,7 @@ export default function App() {
         // Sin las reglas nuevas no se puede compartir: grupetas solo para mí
         if (!ok) {
           botsRef.current = [
-            ...botsRef.current.filter((b) => !b.grupo),
+            ...botsRef.current.filter((b) => !b.grupo || b.acompana),
             ...lista.flatMap((g) => crearGrupeta(g.vatios, g.s0, 0)),
           ];
           setVersionBots((v) => v + 1);
@@ -1078,6 +1113,11 @@ export default function App() {
   const vueltaCambioRef = useRef(0);
   const elegirSiguienteCircuito = (id: string | null) => {
     vueltaCambioRef.current = Math.floor(distanciaRef.current / LONGITUD_VUELTA_M);
+    // Sin haber empezado a grabar (p. ej. te has equivocado de circuito) se cambia ya, sin esperar a la meta
+    if (!grabacion.hayDatos && id && id !== circuitoId) {
+      vueltaCambioRef.current = -1;
+      cambiosCircuitoRef.current = [];
+    }
     setCircuitoSiguiente(id === circuitoId ? null : id);
   };
   useEffect(() => {
@@ -1092,12 +1132,15 @@ export default function App() {
     setAdelanto(sobra - grabacion.distanciaM);
     cronoRef.current.cancelar();
     setTramosActivos([]);
-    botsRef.current =
-      grupetasAlEmpezar && salida.estado === 'fuera'
+    botsRef.current = [
+      // Los acompañantes se vienen contigo al circuito nuevo
+      ...botsRef.current.filter((b) => b.acompana),
+      ...(grupetasAlEmpezar && salida.estado === 'fuera'
         ? RITMOS_GRUPETA.flatMap(({ pct }, i) =>
             crearGrupeta(vatiosGrupeta(perfil.ftp, pct), sobra + LONGITUD_VUELTA_M * (0.2 + 0.3 * i), 0),
           )
-        : [];
+        : []),
+    ];
     setVersionBots((v) => v + 1);
     decididoGrupetasRef.current = false;
     setFantasmaActivo(false);
@@ -1334,6 +1377,10 @@ export default function App() {
   ];
 
   const volver = () => setPantalla('inicio');
+  // Cada pantalla se abre desde arriba (si no, al cambiar se quedaba a media página)
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pantalla]);
   const instalacion = useInstalar();
 
   return (
@@ -1707,6 +1754,36 @@ export default function App() {
           {conexiones.ftms.estado === 'conectado' && (
             <ControlesRodillo rodillo={sensores.ftms} rango={rango} onModo={(p) => (pendienteRef.current = p)} />
           )}
+          <section className="panel">
+            <h2>Vatios y cadencia</h2>
+            <p className="detalle">
+              Si tienes varios sensores a la vez (p. ej. un rodillo Van Rysel D100, que no mide la cadencia, y unos
+              pedales o bielas con potenciómetro), elige de dónde se coge cada dato.
+            </p>
+            <label className="selector-calidad">
+              Vatios
+              <select
+                value={fuentes.vatios}
+                onChange={(e) => setFuentes((f) => ({ ...f, vatios: e.target.value as FuenteVatios }))}
+              >
+                <option value="auto">Automático (pedales si están, si no el rodillo)</option>
+                <option value="rodillo">Del rodillo</option>
+                <option value="pedales">De los pedales o bielas</option>
+              </select>
+            </label>
+            <label className="selector-calidad">
+              Cadencia
+              <select
+                value={fuentes.cadencia}
+                onChange={(e) => setFuentes((f) => ({ ...f, cadencia: e.target.value as FuenteCadencia }))}
+              >
+                <option value="auto">Automático (pedales, sensor o rodillo)</option>
+                <option value="pedales">De los pedales o bielas</option>
+                <option value="sensor">Del sensor de cadencia</option>
+                <option value="rodillo">Del rodillo</option>
+              </select>
+            </label>
+          </section>
           <AjustesSensorCsc ajustes={ajustes} onCambiar={setAjustes} />
           <RegistroLog entradas={log} onLimpiar={() => setLog([])} />
           <Creditos />
@@ -1724,13 +1801,22 @@ export default function App() {
         >
           <VistaRecorrido
             key={circuitoId}
-            circuito={{ actual: circuitoId, siguiente: circuitoSiguiente, onElegir: elegirSiguienteCircuito }}
+            circuito={{
+              actual: circuitoId,
+              siguiente: circuitoSiguiente,
+              onElegir: elegirSiguienteCircuito,
+              alMomento: !grabacion.hayDatos,
+            }}
             avatar={perfil.avatar}
             calidad={calidad}
             leerYo={() => ({
               distancia: distanciaRef.current,
               velocidad: velVirtualRef.current,
-              cadencia: actualRef.current.cadencia ?? 0,
+              // Sin cadencia (rodillo que no la mide y sin sensor) se anima a una cadencia normal
+              // mientras haya vatios, para que el ciclista no ruede con las piernas quietas
+              cadencia:
+                actualRef.current.cadencia ??
+                ((actualRef.current.potencia ?? 0) > 0 && velVirtualRef.current > 3 ? 85 : 0),
               hayCadencia: actualRef.current.cadencia !== undefined,
               potencia: actualRef.current.potencia,
               potenciaEstimada: actualRef.current.potenciaEsEstimada,
@@ -1743,22 +1829,35 @@ export default function App() {
               ...otrosCiclistas,
               ...botsRef.current.map((b) => ({
                 uid: b.id,
-                nombre: b.lider ? '' : b.grupo ? `🚴 Grupeta ${b.vatios} W` : `🤖 ${b.vatios} W`,
+                nombre: b.lider || b.acompana ? '' : b.grupo ? `🚴 Grupeta ${b.vatios} W` : `🤖 ${b.vatios} W`,
                 carril: b.carril,
                 avatar: b.avatar,
                 distancia: b.s,
                 velocidad: b.fisica.v * 3.6,
-                cadencia: 88,
+                // Parados (p. ej. los acompañantes cuando haces pausa) no pedalean
+                cadencia: b.fisica.v > 1 ? 88 : 0,
                 vatios: b.vatios,
               })),
               ...(fantasma ? [fantasma] : []),
             ]}
             bots={{
               // Cada grupeta aparece una vez (por su líder), con su id de grupo
-              lista: botsRef.current
-                .filter((b) => !b.lider)
-                .map((b) => ({ id: b.grupo ?? b.id, vatios: b.vatios, grupeta: !!b.grupo })),
+              lista: [
+                ...botsRef.current
+                  .filter((b) => !b.lider && !b.acompana)
+                  .map((b) => ({ id: b.grupo ?? b.id, vatios: b.vatios, grupeta: !!b.grupo })),
+                ...botsRef.current
+                  .filter((b) => b.acompana)
+                  .slice(0, 1)
+                  .map((b) => ({
+                    id: GRUPO_ACOMPANANTES,
+                    vatios: b.vatios,
+                    grupeta: false,
+                    acompanantes: b.acompana!.rebufo ? ('rebufo' as const) : ('compania' as const),
+                  })),
+              ],
               onAnadir: anadirBot,
+              onAcompanantes: anadirAcompanantes,
               onAnadirGrupeta: anadirGrupeta,
               ritmosGrupeta: RITMOS_GRUPETA.map((r) => ({ nombre: r.nombre, vatios: vatiosGrupeta(perfil.ftp, r.pct) })),
               onQuitar: quitarBot,

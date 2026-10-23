@@ -111,6 +111,14 @@ Rebufo (`ahorroRebufo` en `fisica.ts`): hasta −30 % de aire a menos de 3 m de 
 baja el Cw que se envía al rodillo; indicador junto a los vatios y tiempo a rueda. Chat del grupo
 (`salas/{sala}/chat`, `ChatGrupo.tsx`) con mensajes rápidos; necesita las reglas nuevas pegadas.
 
+23-10: acompañantes a tu ritmo (`crearAcompanantes` en `bots.ts`: 3 ciclistas que van contigo a tus
+vatios, «solo compañía» sin nadie delante o «con rebufo» con uno a 2,7 m), cambiar de circuito al
+momento si aún no se ha grabado nada, cámara Detrás / Lado / Arriba (`vistaCamara`, clave
+`rodillos.vistaCamara`), barra superior fija (el logo siempre a mano) y cada pantalla se abre desde
+arriba. Rodillos sin cadencia (Van Rysel D100): el 0 que mandan con vatios no cuenta, el ciclista pedalea
+a 85 rpm si no hay cadencia, y en Ajustes «Vatios y cadencia» se elige la fuente (`rodillos.fuentes`).
+TrainingPeaks: pendiente de saber si dan acceso a su API.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
