@@ -71,6 +71,9 @@ export function PantallaCuenta({ usuario, cargando, sync, onRefrescar, onVolver 
               `✅ Todo sincronizado${sync.subidos ? ` · ${sync.subidos} sesiones subidas` : ''}${sync.bajados ? ` · ${sync.bajados} sesiones descargadas` : ''}`}
             {sync.tipo === 'error' && <span className="error-strava">⚠️ No se pudo sincronizar: {sync.texto}</span>}
           </p>
+          <p className="detalle">
+            Tu identificador: <code className="cuenta-uid">{usuario.uid}</code>
+          </p>
           <div className="acciones-fila">
             <button className="boton-secundario" onClick={onRefrescar} disabled={sync.tipo === 'sincronizando'}>
               Sincronizar ahora

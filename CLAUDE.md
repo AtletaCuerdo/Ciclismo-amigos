@@ -124,6 +124,11 @@ pizarra `#0b1220`, paneles `#111c30`, acento cian `#22d3ee` → azul `#3b82f6` (
 oscuro `--texto-sobre-acento`) y verde `#4ade80`. Título «RideCrew by TriCoach» (el nombre sigue siendo
 RideCrew), logotipo «Ride» cian + «Crew» blanco + «by TriCoach» verde, e icono RC nuevo en cian sobre pizarra.
 
+25-10: panel del administrador (`components/PantallaAdmin.tsx`, `cuenta/admin.ts`, botón 🛡️ en la
+cabecera): cada cuenta publica `fichas/{uid}` (nombre, correo, sesiones, metros, strava, alta, t) y solo
+quien está en `admins/{uid}: true` (puesto a mano en la consola de Firebase) las lee todas. Plazas de la
+app de Strava en `PLAZAS_STRAVA` (10). **Necesita las reglas nuevas pegadas.** El uid sale en «Tu cuenta».
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

@@ -65,6 +65,9 @@ import {
 } from './recorrido/bots';
 import { calcularTotales, publicarTotales } from './multijugador/rankings';
 import { PantallaRankings } from './components/PantallaRankings';
+import { PantallaAdmin } from './components/PantallaAdmin';
+import { esAdmin, publicarFicha } from './cuenta/admin';
+import { leerConexion } from './strava/strava';
 import { PantallaResumenes } from './components/PantallaResumenes';
 import { CircuitoElegido, PantallaCircuitos } from './components/PantallaCircuitos';
 import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
@@ -99,7 +102,8 @@ type Pantalla =
   | 'cuenta'
   | 'rankings'
   | 'circuitos'
-  | 'resumenes';
+  | 'resumenes'
+  | 'admin';
 
 /** Resultado de un segmento recién terminado (con la tabla del grupo cuando llega). */
 export interface ResultadoSegmento {
@@ -950,6 +954,28 @@ export default function App() {
     };
   }, [versionHistorial, nombreVisible, usuario?.uid]);
 
+  // ---- Ficha para el panel del administrador (solo con cuenta) ----
+  // Al volver a una pantalla también se publica, por si se acaba de conectar Strava en Ajustes
+  useEffect(() => {
+    if (!usuario) return;
+    listarEntrenos()
+      .then((lista) => {
+        const t = calcularTotales(lista);
+        return publicarFicha(usuario.uid, {
+          nombre: nombreVisible || usuario.nombre,
+          sesiones: t.sesiones,
+          metros: t.metros,
+          strava: leerConexion() !== null,
+        });
+      })
+      .catch(() => undefined); // sin las reglas nuevas: se intenta la próxima vez
+  }, [versionHistorial, nombreVisible, usuario?.uid, pantalla]);
+  const [soyAdmin, setSoyAdmin] = useState(false);
+  useEffect(() => {
+    setSoyAdmin(false);
+    if (usuario) void esAdmin(usuario.uid).then(setSoyAdmin);
+  }, [usuario?.uid]);
+
 
   // Estar en el recorrido = estar en la salida: así los amigos te ven siempre.
   // Al salir del recorrido se deja la salida y se vuelve al km 0 del circuito.
@@ -1398,6 +1424,11 @@ export default function App() {
           </span>
         </button>
         <div className="barra-acciones">
+          {soyAdmin && (
+            <button className="boton-secundario" onClick={() => setPantalla('admin')} title="Panel del administrador">
+              🛡️
+            </button>
+          )}
           <button
             className={`boton-secundario boton-cuenta ${usuario ? 'con-sesion' : ''}`}
             onClick={() => setPantalla('cuenta')}
@@ -1648,6 +1679,7 @@ export default function App() {
       )}
 
       {pantalla === 'rankings' && <PantallaRankings onVolver={volver} />}
+      {pantalla === 'admin' && soyAdmin && <PantallaAdmin onVolver={volver} />}
       {pantalla === 'resumenes' && <PantallaResumenes onVolver={volver} />}
       {pantalla === 'circuitos' && (
         <PantallaCircuitos

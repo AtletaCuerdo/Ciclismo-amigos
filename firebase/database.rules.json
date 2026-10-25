@@ -292,6 +292,44 @@
           ".validate": false
         }
       }
+    },
+    "admins": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
+    "fichas": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && auth.provider !== 'anonymous'",
+        ".validate": "newData.hasChildren(['nombre', 'correo', 'sesiones', 'metros', 'strava', 'alta', 't'])",
+        "nombre": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+        },
+        "correo": {
+          ".validate": "newData.isString() && newData.val().length <= 100"
+        },
+        "sesiones": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 100000"
+        },
+        "metros": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 100000000"
+        },
+        "strava": {
+          ".validate": "newData.isBoolean()"
+        },
+        "alta": {
+          ".validate": "newData.isNumber()"
+        },
+        "t": {
+          ".validate": "newData.isNumber() && newData.val() <= now"
+        },
+        "$otro": {
+          ".validate": false
+        }
+      }
     }
   }
 }
