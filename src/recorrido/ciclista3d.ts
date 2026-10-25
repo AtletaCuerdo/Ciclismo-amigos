@@ -85,6 +85,37 @@ function etiquetaNombre(texto: string) {
   return sprite;
 }
 
+/**
+ * Cartel en la espalda (p. ej. la distancia a la que lo llevas en el entreno de triatlón). Se ve
+ * del tamaño de una placa: se hace más pequeño al alejarse, como un objeto de verdad.
+ */
+function cartelTrasero(texto: string, color: string) {
+  const lienzo = document.createElement('canvas');
+  lienzo.width = 256;
+  lienzo.height = 112;
+  const ctx = lienzo.getContext('2d')!;
+  ctx.fillStyle = 'rgba(11,18,32,0.9)';
+  ctx.beginPath();
+  if (typeof ctx.roundRect === 'function') ctx.roundRect(6, 6, 244, 100, 18);
+  else ctx.rect(6, 6, 244, 100);
+  ctx.fill();
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = color;
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.font = 'bold 64px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(texto.slice(0, 8), 128, 60);
+  const tex = new THREE.CanvasTexture(lienzo);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  sprite.scale.set(0.9, 0.39, 1);
+  sprite.position.set(-0.75, 1.45, 0);
+  sprite.renderOrder = 9;
+  return sprite;
+}
+
 /** Emoji grande sobre el ciclista (por encima del nombre). */
 function globoEmoji(emoji: string) {
   const lienzo = document.createElement('canvas');
@@ -167,6 +198,8 @@ export class Ciclista3D {
   private etiqueta: THREE.Sprite | null = null;
   private globo: THREE.Sprite | null = null;
   private emojiActual: string | null = null;
+  private trasero: THREE.Sprite | null = null;
+  private textoTrasero = '';
   private humano: JineteHumano | null = null;
   private destruido = false;
   private pedalIzq = new THREE.Vector3();
@@ -328,6 +361,23 @@ export class Ciclista3D {
     }
   }
 
+  /** Pone (o quita, con null) el cartel de la espalda; solo se redibuja si cambia el texto o el color. */
+  ponerCartelTrasero(texto: string | null, color = '#ffffff') {
+    const clave = texto === null ? '' : `${texto}|${color}`;
+    if (clave === this.textoTrasero) return;
+    this.textoTrasero = clave;
+    if (this.trasero) {
+      this.trasero.material.map?.dispose();
+      this.trasero.material.dispose();
+      this.raiz.remove(this.trasero);
+      this.trasero = null;
+    }
+    if (texto !== null) {
+      this.trasero = cartelTrasero(texto, color);
+      this.raiz.add(this.trasero);
+    }
+  }
+
   /** Enseña u oculta el cartel con el nombre (p. ej. los bots lejanos). */
   mostrarNombre(si: boolean) {
     if (this.etiqueta) this.etiqueta.visible = si;
@@ -481,6 +531,7 @@ export class Ciclista3D {
   destruir() {
     this.destruido = true;
     this.liberarCuerpo();
+    this.ponerCartelTrasero(null);
     if (this.etiqueta) {
       this.etiqueta.material.map?.dispose();
       this.etiqueta.material.dispose();

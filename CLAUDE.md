@@ -133,6 +133,13 @@ app de Strava en `PLAZAS_STRAVA` (10). **Necesita las reglas nuevas pegadas.** E
 25-10: la web exige cuenta. Sin sesión solo se ve la pantalla para entrar o crear cuenta, y las reglas
 piden `auth.provider !== 'anonymous'` en todo. **Necesita las reglas nuevas pegadas.**
 
+25-10: bots en tres tipos. 1) Las 3 grupetas a % del FTP vienen puestas al empezar (clave nueva
+`rodillos.grupetas2`, se quitan con la casilla del circuito o con ✕ en el menú). 2) Acompañantes con o sin
+rebufo. 3) Triatlón (`crearGrupoTriatlon`): 3 bots con el último a 15 m por delante, a los vatios que elige
+el ciclista (se pueden cambiar sin moverlos), con tu CdA y tu peso y sin rebufo entre ellos; el último
+lleva un cartel trasero (`ponerCartelTrasero`) con la distancia de rueda a rueda: verde fuera y rojo dentro
+de los 12 m de rebufo, gris si van detrás. En desarrollo, `?sincuenta` salta la pantalla de cuenta.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

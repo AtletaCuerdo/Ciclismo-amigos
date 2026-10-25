@@ -331,6 +331,8 @@ export interface OtroCiclista {
   vatios?: number;
   /** Emoji que acaba de lanzar (se ve sobre su cabeza). */
   emoji?: string;
+  /** Lleva en la espalda un cartel con la distancia a la que vas de él (entreno de triatlón). */
+  cartelDistancia?: boolean;
 }
 
 const CERO = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -402,7 +404,11 @@ interface EstadoOtro {
   sRender: number;
   carril: number;
   fantasma: boolean;
+  cartelDistancia: boolean;
 }
+
+/** Por debajo de esta distancia ya hay rebufo (igual que en la física): el cartel se pone rojo. */
+const ZONA_REBUFO_M = 12;
 
 const CARRILES = [-2.6, -1.2, 0.2, 2.8, -3.2];
 const MI_CARRIL = 1.5;
@@ -2951,6 +2957,7 @@ export class EscenaRecorrido {
           sRender: o.distancia,
           carril: o.fantasma ? MI_CARRIL : (o.carril ?? CARRILES[hash(o.uid) % CARRILES.length]),
           fantasma: !!o.fantasma,
+          cartelDistancia: !!o.cartelDistancia,
         };
         if (o.fantasma) c.volverFantasma();
         this.otros.set(o.uid, e);
@@ -2967,6 +2974,7 @@ export class EscenaRecorrido {
       e.vObjetivo = o.velocidad / 3.6;
       e.cadencia = o.cadencia;
       e.vatios = o.vatios;
+      e.cartelDistancia = !!o.cartelDistancia;
       e.c.ponerEmoji(o.emoji ?? null);
     }
     for (const [uid, e] of this.otros) {
@@ -3137,6 +3145,16 @@ export class EscenaRecorrido {
         if (h < -LONGITUD_VUELTA_M / 2) h += LONGITUD_VUELTA_M;
         e.c.mostrarNombre(h > -80 && h < 220);
       }
+      if (e.cartelDistancia) {
+        // Distancia de rueda delantera a rueda delantera (así se mide en triatlón)
+        let h = (e.sRender - this.sYo) % LONGITUD_VUELTA_M;
+        if (h > LONGITUD_VUELTA_M / 2) h -= LONGITUD_VUELTA_M;
+        if (h < -LONGITUD_VUELTA_M / 2) h += LONGITUD_VUELTA_M;
+        e.c.ponerCartelTrasero(
+          h < 0 ? 'detrás' : `${Math.round(h)} m`,
+          h < 0 ? '#94a3b8' : h < ZONA_REBUFO_M ? '#f87171' : '#4ade80',
+        );
+      } else e.c.ponerCartelTrasero(null);
       if (!e.fantasma) e.c.ponerDePie(tocaDePie(pendiente(e.sRender), (e.vatios ?? 0) >= 650, e.v, ahora, (hash(uid) % 97) / 97));
       e.c.pedalear(e.v, e.cadencia, dt);
     }

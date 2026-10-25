@@ -55,6 +55,7 @@ import {
   avanzarBots,
   colocarAcompanantes,
   crearAcompanantes,
+  crearGrupoTriatlon,
   crearBot,
   GRUPO_ACOMPANANTES,
   crearGrupeta,
@@ -120,7 +121,8 @@ export interface ResultadoSegmento {
 
 const CLAVE_CAMBIOS = 'rodillos.cambiosVirtuales';
 const CLAVE_CIRCUITO = 'rodillos.circuito';
-const CLAVE_GRUPETAS = 'rodillos.grupetas';
+/** Grupetas al empezar: vienen puestas salvo que el ciclista las quite (clave nueva: antes venían quitadas). */
+const CLAVE_GRUPETAS = 'rodillos.grupetas2';
 /** De dónde se cogen los vatios y la cadencia cuando hay varios sensores (p. ej. D100 + pedales). */
 const CLAVE_FUENTES = 'rodillos.fuentes';
 type FuenteVatios = 'auto' | 'rodillo' | 'pedales';
@@ -628,13 +630,29 @@ export default function App() {
     ];
     setVersionBots((v) => v + 1);
   };
+  /** Pone el grupo de triatlón a 15 m por delante (sustituye al que hubiera) a esos vatios. */
+  const anadirTriatlon = (vatios: number) => {
+    botsRef.current = [
+      ...botsRef.current.filter((b) => !b.triatlon),
+      ...crearGrupoTriatlon(vatios, posicionAhora(), velVirtualRef.current / 3.6, {
+        cda: equipoRef.current.cda,
+        masaKg: pesoRef.current + equipoRef.current.pesoBiciKg,
+      }),
+    ];
+    setVersionBots((v) => v + 1);
+  };
+  /** Cambia los vatios del grupo de triatlón sin moverlo de donde va. */
+  const vatiosTriatlon = (vatios: number) => {
+    for (const b of botsRef.current) if (b.triatlon) b.vatios = vatios;
+    setVersionBots((v) => v + 1);
+  };
   /** Quita un bot suelto o una grupeta entera (por su id), o todos. */
   const quitarBot = (id?: string) => {
     botsRef.current = id ? botsRef.current.filter((b) => b.id !== id && b.grupo !== id) : [];
     setVersionBots((v) => v + 1);
   };
   // Grupetas por el circuito (casilla del inicio): al entrar, 3 grupos a tu ritmo repartidos por la vuelta
-  const [grupetasAlEmpezar, setGrupetasAlEmpezar] = useState(() => leerLocal(CLAVE_GRUPETAS) === 'si');
+  const [grupetasAlEmpezar, setGrupetasAlEmpezar] = useState(() => leerLocal(CLAVE_GRUPETAS) !== 'no');
   useEffect(() => guardarLocal(CLAVE_GRUPETAS, grupetasAlEmpezar ? 'si' : 'no'), [grupetasAlEmpezar]);
   useEffect(() => {
     // Con nombre se entra en la salida en grupo: allí las grupetas son compartidas (ver más abajo)
@@ -1026,7 +1044,7 @@ export default function App() {
         // Sin las reglas nuevas no se puede compartir: grupetas solo para mí
         if (!ok) {
           botsRef.current = [
-            ...botsRef.current.filter((b) => !b.grupo || b.acompana),
+            ...botsRef.current.filter((b) => !b.grupo || b.acompana || b.triatlon),
             ...lista.flatMap((g) => crearGrupeta(g.vatios, g.s0, 0)),
           ];
           setVersionBots((v) => v + 1);
@@ -1463,7 +1481,9 @@ export default function App() {
   );
 
   // Sin cuenta no se puede usar la web: solo se ve la pantalla para entrar o crear la cuenta
-  if (!usuario) {
+  // (en desarrollo, `?sincuenta` la salta para probar pantallas sin Firebase; no existe en la web publicada)
+  const pruebaSinCuenta = import.meta.env.DEV && new URLSearchParams(location.search).has('sincuenta');
+  if (!usuario && !pruebaSinCuenta) {
     return (
       <div className="app">
         {cabecera}
@@ -1895,7 +1915,16 @@ export default function App() {
               ...otrosCiclistas,
               ...botsRef.current.map((b) => ({
                 uid: b.id,
-                nombre: b.lider || b.acompana ? '' : b.grupo ? `🚴 Grupeta ${b.vatios} W` : `🤖 ${b.vatios} W`,
+                nombre:
+                  b.lider || b.acompana
+                    ? ''
+                    : b.triatlon
+                      ? `🏊 ${b.vatios} W`
+                      : b.grupo
+                        ? `🚴 Grupeta ${b.vatios} W`
+                        : `🤖 ${b.vatios} W`,
+                // El último del grupo de triatlón lleva el cartel con la distancia
+                cartelDistancia: !!b.triatlon && !!b.lider && !botsRef.current.some((o) => o.lider === b.lider && (o.retraso ?? 0) > (b.retraso ?? 0)),
                 carril: b.carril,
                 avatar: b.avatar,
                 distancia: b.s,
@@ -1911,7 +1940,7 @@ export default function App() {
               lista: [
                 ...botsRef.current
                   .filter((b) => !b.lider && !b.acompana)
-                  .map((b) => ({ id: b.grupo ?? b.id, vatios: b.vatios, grupeta: !!b.grupo })),
+                  .map((b) => ({ id: b.grupo ?? b.id, vatios: b.vatios, grupeta: !!b.grupo, triatlon: !!b.triatlon })),
                 ...botsRef.current
                   .filter((b) => b.acompana)
                   .slice(0, 1)
@@ -1924,6 +1953,9 @@ export default function App() {
               ],
               onAnadir: anadirBot,
               onAcompanantes: anadirAcompanantes,
+              onTriatlon: anadirTriatlon,
+              onVatiosTriatlon: vatiosTriatlon,
+              vatiosTriatlonSugeridos: vatiosGrupeta(perfil.ftp, 80),
               onAnadirGrupeta: anadirGrupeta,
               ritmosGrupeta: RITMOS_GRUPETA.map((r) => ({ nombre: r.nombre, vatios: vatiosGrupeta(perfil.ftp, r.pct) })),
               onQuitar: quitarBot,

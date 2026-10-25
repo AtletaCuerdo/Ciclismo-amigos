@@ -26,6 +26,10 @@ export interface Bot {
   sim?: SimGrupeta;
   /** Acompañante: va siempre a tu lado, a tu ritmo, a `delante` metros de ti (negativo: detrás). */
   acompana?: { delante: number; rebufo: boolean; fase: number };
+  /** Grupo de triatlón: sale delante de ti a los vatios que elijas, con un cartel de la distancia. */
+  triatlon?: boolean;
+  /** Aerodinámica propia (m²) en lugar de la de una bici de carretera (p. ej. la tuya, si llevas cabra). */
+  cda?: number;
 }
 
 /** Paso fijo de la simulación compartida (s): con el mismo paso, todas las pantallas calculan lo mismo. */
@@ -141,6 +145,48 @@ export function crearBot(vatios: number, miPosicion: number, misVatios: number, 
   };
 }
 
+/** Distancia a la que sale el grupo de triatlón por delante de ti (m). */
+export const DISTANCIA_TRIATLON_M = 15;
+
+/** Grupo de triatlón de 3: dos delante y uno detrás, que es el que lleva el cartel. [m detrás del líder, carril] */
+const FORMACION_TRIATLON: [number, number][] = [
+  [0, 0.8],
+  [1.9, -0.5],
+  [3.8, 1.5],
+];
+
+/**
+ * Crea el grupo de triatlón con su último ciclista a 15 m por delante de ti, a tu velocidad, y
+ * a `vatios` fijos desde ahí: si vas más fuerte te acercas y, si no, se te va. El cartel de la
+ * espalda dice a cuántos metros lo llevas (en rojo si te metes en la zona de rebufo).
+ */
+export function crearGrupoTriatlon(
+  vatios: number,
+  miPosicion: number,
+  miVelocidadMs: number,
+  /** Tu aerodinámica y tu peso con la bici: así, a tus mismos vatios irían a tu misma velocidad. */
+  como: { cda: number; masaKg: number },
+): Bot[] {
+  const grupo = `triatlon-${++contador}`;
+  const ultimo = FORMACION_TRIATLON[FORMACION_TRIATLON.length - 1][0];
+  const sLider = miPosicion + DISTANCIA_TRIATLON_M + ultimo;
+  let lider: Bot | undefined;
+  return FORMACION_TRIATLON.map(([retraso, carril]) => {
+    const b = crearBot(vatios, miPosicion, 0, miVelocidadMs);
+    b.grupo = grupo;
+    b.triatlon = true;
+    b.cda = como.cda;
+    b.fisica.masaKg = como.masaKg;
+    b.carril = carril;
+    b.s = Math.max(0, sLider - retraso);
+    if (lider) {
+      b.lider = lider;
+      b.retraso = retraso;
+    } else lider = b;
+    return b;
+  });
+}
+
 /** Grupo de los acompañantes (para quitarlos todos de una vez). */
 export const GRUPO_ACOMPANANTES = 'acompanantes';
 
@@ -214,10 +260,11 @@ export function avanzarBots(bots: Bot[], dt: number, ciclistas: number[], ahoraS
     const delante = [...ciclistas, ...bots.filter((b) => b !== bot && (!bot.grupo || b.grupo !== bot.grupo)).map((b) => b.s)].map(
       (s) => hueco(bot.s, s),
     );
-    // El líder de una grupeta también ahorra algo por ir en grupo (relevos)
-    const objetivo = Math.max(ahorroRebufo(delante), bot.grupo ? 0.12 : 0);
+    // El líder de una grupeta también ahorra algo por ir en grupo (relevos). El de triatlón no
+    // (en triatlón no se va a rueda): rueda como uno solo a esos vatios
+    const objetivo = bot.triatlon ? 0 : Math.max(ahorroRebufo(delante), bot.grupo ? 0.12 : 0);
     bot.rebufo += (objetivo - bot.rebufo) * Math.min(1, dt * 2);
-    bot.fisica.cda = 0.29 * (1 - bot.rebufo);
+    bot.fisica.cda = (bot.cda ?? 0.29) * (1 - bot.rebufo);
     bot.fisica.actualizar(bot.vatios, pendiente(bot.s), dt);
     bot.s += bot.fisica.v * dt;
   }

@@ -73,10 +73,15 @@ interface Props {
   };
   /** Bots a vatios fijos: los que hay y cómo añadir o quitar. */
   bots: {
-    lista: { id: string; vatios: number; grupeta: boolean; acompanantes?: 'rebufo' | 'compania' }[];
+    lista: { id: string; vatios: number; grupeta: boolean; acompanantes?: 'rebufo' | 'compania'; triatlon?: boolean }[];
     onAnadir: (vatios: number) => void;
     /** Pone 3 acompañantes que ruedan contigo a tus vatios (con o sin rebufo). */
     onAcompanantes: (rebufo: boolean) => void;
+    /** Pone el grupo de triatlón 15 m por delante a esos vatios (o le cambia los vatios si ya está). */
+    onTriatlon: (vatios: number) => void;
+    onVatiosTriatlon: (vatios: number) => void;
+    /** Vatios con los que se rellena la casilla la primera vez (80 % del FTP). */
+    vatiosTriatlonSugeridos: number;
     onAnadirGrupeta: (vatios: number) => void;
     ritmosGrupeta: { nombre: string; vatios: number }[];
     onQuitar: (id?: string) => void;
@@ -295,6 +300,8 @@ export default function VistaRecorrido({
   // Elegir entrenamiento sin salir: al acabar uno o mientras se rueda libre
   const [eligiendo, setEligiendo] = useState(false);
   const [menuBots, setMenuBots] = useState(false);
+  const [vatiosTri, setVatiosTri] = useState(String(bots.vatiosTriatlonSugeridos));
+  const hayTriatlon = bots.lista.some((b) => b.triatlon);
   const anclaBotsRef = useRef<HTMLDivElement>(null);
   // El menú de bots se cierra al tocar fuera de él (en la carretera, el marcador…)
   useEffect(() => {
@@ -651,6 +658,49 @@ export default function VistaRecorrido({
                   </button>
                 </div>
                 <small>Van siempre contigo a tus vatios, en rodada libre o en un entrenamiento: no se quedan ni se escapan.</small>
+                <strong>🏊 Triatlón: grupo 15 m por delante</strong>
+                <div className="menu-bots-triatlon">
+                  <label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={50}
+                      max={600}
+                      step={5}
+                      value={vatiosTri}
+                      onChange={(e) => setVatiosTri(e.target.value)}
+                      aria-label="Vatios del grupo de triatlón"
+                    />
+                    W
+                  </label>
+                  <button
+                    className="boton-secundario"
+                    disabled={!(Number(vatiosTri) >= 50 && Number(vatiosTri) <= 600)}
+                    onClick={() => {
+                      const w = Math.round(Number(vatiosTri));
+                      if (hayTriatlon) bots.onVatiosTriatlon(w);
+                      else bots.onTriatlon(w);
+                      setMenuBots(false);
+                    }}
+                  >
+                    {hayTriatlon ? 'Cambiar vatios' : 'Ponerlo delante'}
+                  </button>
+                  {hayTriatlon && (
+                    <button
+                      className="boton-secundario"
+                      onClick={() => {
+                        bots.onTriatlon(Math.round(Number(vatiosTri)) || bots.vatiosTriatlonSugeridos);
+                        setMenuBots(false);
+                      }}
+                    >
+                      Otra vez a 15 m
+                    </button>
+                  )}
+                </div>
+                <small>
+                  Van a esos vatios sin esperarte. Su cartel dice a cuántos metros los llevas: en verde fuera de la zona de
+                  rebufo y en rojo a menos de 12 m (ahí ya te ahorras aire).
+                </small>
                 <strong>🚴 Añadir una grupeta (5 ciclistas)</strong>
                 <div className="menu-bots-vatios grupetas">
                   {bots.ritmosGrupeta.map((r) => (
@@ -690,7 +740,9 @@ export default function VistaRecorrido({
                         <li key={b.id}>
                           {b.acompanantes
                             ? `🤝 Acompañantes (${b.acompanantes === 'rebufo' ? 'con rebufo' : 'sin rebufo'})`
-                            : `${b.grupeta ? '🚴 Grupeta' : '🤖'} ${b.vatios} W`}
+                            : b.triatlon
+                              ? `🏊 Triatlón ${b.vatios} W`
+                              : `${b.grupeta ? '🚴 Grupeta' : '🤖'} ${b.vatios} W`}
                           <button className="chat-cerrar" onClick={() => bots.onQuitar(b.id)} aria-label="Quitar bot">
                             ✕
                           </button>
