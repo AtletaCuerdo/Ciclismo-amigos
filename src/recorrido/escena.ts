@@ -333,6 +333,8 @@ export interface OtroCiclista {
   emoji?: string;
   /** Lleva en la espalda un cartel con la distancia a la que vas de él (entreno de triatlón). */
   cartelDistancia?: boolean;
+  /** Va pegado a mí («siempre juntos»): rueda a mi lado, así que no me pongo detrás de él. */
+  pegado?: boolean;
 }
 
 const CERO = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -405,6 +407,7 @@ interface EstadoOtro {
   carril: number;
   fantasma: boolean;
   cartelDistancia: boolean;
+  pegado: boolean;
 }
 
 /** Por debajo de esta distancia ya hay rebufo (igual que en la física): el cartel se pone rojo. */
@@ -2958,6 +2961,7 @@ export class EscenaRecorrido {
           carril: o.fantasma ? MI_CARRIL : (o.carril ?? CARRILES[hash(o.uid) % CARRILES.length]),
           fantasma: !!o.fantasma,
           cartelDistancia: !!o.cartelDistancia,
+          pegado: !!o.pegado,
         };
         if (o.fantasma) c.volverFantasma();
         this.otros.set(o.uid, e);
@@ -2975,6 +2979,7 @@ export class EscenaRecorrido {
       e.cadencia = o.cadencia;
       e.vatios = o.vatios;
       e.cartelDistancia = !!o.cartelDistancia;
+      e.pegado = !!o.pegado;
       e.c.ponerEmoji(o.emoji ?? null);
     }
     for (const [uid, e] of this.otros) {
@@ -3093,7 +3098,7 @@ export class EscenaRecorrido {
     let carrilObjetivo = MI_CARRIL;
     let huecoMin = Infinity;
     for (const e of this.otros.values()) {
-      if (e.fantasma) continue;
+      if (e.fantasma || e.pegado) continue;
       let h = (e.sRender - this.sYo) % LONGITUD_VUELTA_M;
       if (h > LONGITUD_VUELTA_M / 2) h -= LONGITUD_VUELTA_M;
       if (h < -LONGITUD_VUELTA_M / 2) h += LONGITUD_VUELTA_M;

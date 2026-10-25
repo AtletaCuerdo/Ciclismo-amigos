@@ -140,6 +140,14 @@ el ciclista (se pueden cambiar sin moverlos), con tu CdA y tu peso y sin rebufo 
 lleva un cartel trasero (`ponerCartelTrasero`) con la distancia de rueda a rueda: verde fuera y rojo dentro
 de los 12 m de rebufo, gris si van detrás. En desarrollo, `?sincuenta` salta la pantalla de cuenta.
 
+25-10: rodar con amigos de dos formas desde «Amigos rodando ahora»: «A su lado» (cada uno a su ritmo,
+como antes) y «Siempre juntos» (`juntosCon` en App): el nodo de la sala lleva `juntos` (uid del amigo,
+que da nombre al grupo y entra solo) y `exige` (IF del entreno × intensidad; 0 en libre). Marca el ritmo
+el más exigente; los demás van pegados (`pegadoRef`: su punto y su velocidad en pantalla, sin tramos
+cronometrados; lo grabado sigue siendo lo pedaleado). Botón «Soltarme». Chat con mensajes de voz
+(MediaRecorder, MP4/AAC o WebM, 24 kbit/s, máx. 20 s, en base64 dentro del mensaje: `audio`, `dur`).
+**Necesita las reglas nuevas pegadas.**
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

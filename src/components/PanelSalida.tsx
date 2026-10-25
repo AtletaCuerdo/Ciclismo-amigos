@@ -10,8 +10,11 @@ interface Props {
   /** Nombre con el que te verán (el guardado o el de la cuenta). */
   nombre: string;
   onCambiarNombre: (nombre: string) => void;
-  /** Entrar en el recorrido junto a ese amigo. */
-  onRodarJunto: (uid: string, sala: string | undefined) => void;
+  /**
+   * Entrar en el recorrido junto a ese amigo: «a su lado» (cada uno a su ritmo, con rebufo si
+   * te pones detrás) o «siempre juntos» (os movéis a la vez, al ritmo del entreno más exigente).
+   */
+  onRodarJunto: (uid: string, sala: string | undefined, siempreJuntos: boolean) => void;
 }
 
 const km = (m: number) => (m / 1000).toFixed(1).replace('.', ',');
@@ -47,10 +50,16 @@ export function PanelSalida({ conectados, error, nombre, onCambiarNombre, onRoda
           podrán aparecer a tu lado.
         </p>
       ) : (
+        <>
+        <p className="detalle">
+          <strong>A su lado</strong>: cada uno a su ritmo (si te pones detrás, te da rebufo).{' '}
+          <strong>Siempre juntos</strong>: vais a la vez, al ritmo del que haga el entreno más exigente. Dentro puedes
+          elegir un entreno en «📋 Entreno».
+        </p>
         <ul className="lista-amigos">
           {conectados.map((c) => (
             <li key={c.uid}>
-              <button className="amigo" onClick={() => onRodarJunto(c.uid, c.sala)} title={`Aparecer junto a ${c.nombre}`}>
+              <div className="amigo">
                 <span className="amigo-punto" aria-hidden />
                 <span className="amigo-datos">
                   <strong>{conNivel(c.nombre, typeof c.nivel === 'number' ? c.nivel : undefined)}</strong>
@@ -65,11 +74,27 @@ export function PanelSalida({ conectados, error, nombre, onCambiarNombre, onRoda
                     {c.velocidad !== undefined && ` · ${c.velocidad.toFixed(1).replace('.', ',')} km/h`}
                   </span>
                 </span>
-                <span className="amigo-accion">🚴 Rodar a su lado</span>
-              </button>
+                <span className="amigo-acciones">
+                  <button
+                    className="amigo-accion"
+                    onClick={() => onRodarJunto(c.uid, c.sala, false)}
+                    title="Apareces a su lado y cada uno va a su ritmo: si te pones detrás, te da rebufo"
+                  >
+                    🚴 A su lado
+                  </button>
+                  <button
+                    className="amigo-accion juntos"
+                    onClick={() => onRodarJunto(c.uid, c.sala, true)}
+                    title="Vais siempre juntos, al ritmo del que haga el entreno más exigente"
+                  >
+                    🔗 Siempre juntos
+                  </button>
+                </span>
+              </div>
             </li>
           ))}
         </ul>
+        </>
       )}
 
       {error && <p className="aviso">{error}</p>}

@@ -4,7 +4,8 @@
  * Estructura en la base de datos:
  *   salas/{sala}/ciclistas/{uid} = { nombre, nivel, vatios, velocidad, cadencia, distancia, t }
  *   salas/{sala}/avatares/{uid}  = { maillot, franja, culotte, casco, bici, piel }
- *   salas/{sala}/chat/{id}       = { uid, nombre, texto, t }  (mensajes del grupo)
+ *   salas/{sala}/chat/{id}       = { uid, nombre, texto, t, audio?, dur? }  (mensajes del grupo;
+ *                                   los de voz llevan el audio en texto base64)
  *   salas/{sala}/emojis/{uid}    = { e, t }  (emoji rápido que se ve unos segundos sobre el ciclista)
  * El avatar va aparte: si las reglas de Firebase aún no lo permiten, falla solo
  * esa escritura y la salida en grupo sigue funcionando (con avatar por defecto). Lo mismo con el
@@ -52,6 +53,10 @@ export interface Ciclista {
   velocidad?: number; // km/h
   cadencia?: number; // rpm
   distancia?: number; // m
+  /** «Siempre juntos»: uid del amigo con el que rueda pegado (el grupo se llama como él). */
+  juntos?: string;
+  /** Lo exigente que es su entrenamiento ahora (IF × intensidad; 0 en rodar libre). */
+  exige?: number;
   t: number; // hora del servidor (ms)
 }
 
@@ -60,6 +65,8 @@ export interface MisDatos {
   velocidad?: number;
   cadencia?: number;
   distancia: number; // m
+  juntos?: string | null;
+  exige?: number;
 }
 
 export interface Mensaje {
@@ -67,8 +74,15 @@ export interface Mensaje {
   uid: string;
   nombre: string;
   texto: string;
+  /** Mensaje de voz: el audio como «data:audio/…;base64,…» y su duración (s). */
+  audio?: string;
+  dur?: number;
   t: number; // hora del servidor (ms)
 }
+
+/** Duración máxima de un mensaje de voz (s) y tamaño máximo del audio en texto. */
+export const AUDIO_MAX_S = 20;
+export const AUDIO_MAX_CARACTERES = 200000;
 
 /** Mensajes que se cargan del chat (los últimos) y antigüedad máxima que se muestra. */
 const MENSAJES_MAX = 40;
@@ -177,6 +191,8 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
         if (d.vatios !== undefined) nodo.vatios = Math.round(Math.max(0, Math.min(3000, d.vatios)));
         if (d.velocidad !== undefined) nodo.velocidad = Math.round(Math.max(0, Math.min(150, d.velocidad)) * 10) / 10;
         if (d.cadencia !== undefined) nodo.cadencia = Math.round(Math.max(0, Math.min(250, d.cadencia)));
+        if (d.juntos) nodo.juntos = d.juntos.slice(0, 40);
+        if (d.exige !== undefined) nodo.exige = Math.round(Math.max(0, Math.min(3, d.exige)) * 1000) / 1000;
         const nivel = leerMiNivel();
         if (mandarNivel && nivel) nodo.nivel = nivel;
         return nodo;
@@ -291,7 +307,15 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
             snap.forEach((hijo) => {
               const v = hijo.val();
               if (v && typeof v.texto === 'string' && typeof v.nombre === 'string')
-                lista.push({ id: hijo.key as string, uid: String(v.uid), nombre: v.nombre, texto: v.texto, t: Number(v.t) || 0 });
+                lista.push({
+                  id: hijo.key as string,
+                  uid: String(v.uid),
+                  nombre: v.nombre,
+                  texto: v.texto,
+                  audio: typeof v.audio === 'string' && v.audio.startsWith('data:audio/') ? v.audio : undefined,
+                  dur: typeof v.dur === 'number' ? v.dur : undefined,
+                  t: Number(v.t) || 0,
+                });
             });
             setMensajes(lista);
             setChatRechazado(false);
@@ -389,6 +413,27 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
     }
   };
 
+  /** Envía un mensaje de voz al chat del grupo (audio ya grabado, en texto base64). */
+  const enviarAudio = async (audio: string, dur: number) => {
+    const s = sesion.current;
+    if (!s || !audio.startsWith('data:audio/') || audio.length > AUDIO_MAX_CARACTERES) return false;
+    try {
+      await s.fb.push(s.fb.ref(s.fb.db, `salas/${s.sala}/chat`), {
+        uid: s.uid,
+        nombre: s.nombre,
+        texto: '🎤',
+        audio,
+        dur: Math.round(Math.min(AUDIO_MAX_S, Math.max(0, dur)) * 10) / 10,
+        t: s.fb.serverTimestamp(),
+      });
+      setChatRechazado(false);
+      return true;
+    } catch {
+      setChatRechazado(true);
+      return false;
+    }
+  };
+
   // Si cambio mi avatar estando en la salida, lo comparto al momento
   useEffect(() => {
     const s = sesion.current;
@@ -427,6 +472,7 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
     grupetas,
     publicarGrupetas,
     enviarMensaje,
+    enviarAudio,
     /** Emoji de cada ciclista (solo los recientes, con su hora del servidor). */
     emojis: Object.fromEntries(Object.entries(emojis).filter(([, v]) => ahoraServidor - v.t < EMOJI_MS)),
     enviarEmoji,

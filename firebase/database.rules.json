@@ -30,6 +30,12 @@
             "t": {
               ".validate": "newData.isNumber() && newData.val() <= now"
             },
+            "juntos": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40"
+            },
+            "exige": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3"
+            },
             "$otro": {
               ".validate": false
             }
@@ -104,6 +110,12 @@
             },
             "t": {
               ".validate": "newData.isNumber() && newData.val() <= now"
+            },
+            "audio": {
+              ".validate": "newData.isString() && newData.val().beginsWith('data:audio/') && newData.val().length <= 200000"
+            },
+            "dur": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 20"
             },
             "$otro": {
               ".validate": false

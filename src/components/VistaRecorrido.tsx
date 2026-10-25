@@ -107,6 +107,8 @@ interface Props {
   /** Circuito actual y el siguiente (se cambia al cruzar la meta). */
   /** `alMomento`: aún no se ha grabado nada, así que el circuito cambia ya (no al cruzar la meta). */
   circuito: { actual: string; siguiente: string | null; onElegir: (id: string | null) => void; alMomento: boolean };
+  /** «Siempre juntos»: con quién voy, quién marca el ritmo y cómo soltarme (null si no voy pegado). */
+  juntos: { companeros: string[]; marcaRitmo: string | null; esperando: boolean; onSoltar: () => void } | null;
   /** Mi nombre (para el dorsal). */
   miNombre?: string;
   /** Emojis rápidos (solo en la salida): el mío, si lo acabo de lanzar, y cómo lanzar uno. */
@@ -117,6 +119,7 @@ interface Props {
     miUid: string | null;
     rechazado: boolean;
     onEnviar: (texto: string) => Promise<boolean>;
+    onEnviarAudio: (audio: string, dur: number) => Promise<boolean>;
   } | null;
   rodilloControlado: boolean;
   /** Modo demostración: deslizador de vatios simulados (null si no está activo). */
@@ -267,6 +270,7 @@ const VISTAS: { id: VistaCamara; nombre: string }[] = [
 const km = (m: number, dec = 1) => (m / 1000).toFixed(dec).replace('.', ',');
 
 export default function VistaRecorrido({
+  juntos,
   avatar,
   calidad,
   leerYo,
@@ -935,6 +939,20 @@ export default function VistaRecorrido({
         </div>
       )}
 
+      {juntos && (
+        <div className="aviso-juntos">
+          <span>
+            🔗{' '}
+            {juntos.esperando
+              ? 'Siempre juntos: esperando a tu amigo…'
+              : `Juntos con ${juntos.companeros.join(', ')} · ritmo: ${juntos.marcaRitmo ?? 'tú'}`}
+          </span>
+          <button className="aviso-anular" onClick={juntos.onSoltar} title="Seguir cada uno a su ritmo desde aquí">
+            Soltarme
+          </button>
+        </div>
+      )}
+
       {circuito.siguiente && !avisoCircuitoCerrado && (
         <div className="aviso-cambio-circuito">
           🗺️ Al cruzar la meta: <strong>{circuitoPorId(circuito.siguiente).nombre}</strong> · quedan{' '}
@@ -960,7 +978,13 @@ export default function VistaRecorrido({
       {/* Abajo: el chat del grupo a la izquierda y el perfil de la vuelta a la derecha */}
       <div className="hud-abajo">
       {enSalida && chat && (
-        <ChatGrupo mensajes={chat.mensajes} miUid={chat.miUid} rechazado={chat.rechazado} onEnviar={chat.onEnviar} />
+        <ChatGrupo
+          mensajes={chat.mensajes}
+          miUid={chat.miUid}
+          rechazado={chat.rechazado}
+          onEnviar={chat.onEnviar}
+          onEnviarAudio={chat.onEnviarAudio}
+        />
       )}
       {enSalida && emojis && (
         <div className="emojis-rapidos">

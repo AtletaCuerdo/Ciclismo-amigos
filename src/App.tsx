@@ -33,7 +33,7 @@ import { borrarSesionEnCurso, guardarSesionEnCurso, leerSesionEnCurso, sesionLog
 import { CATALOGO } from './entrenamientos/catalogo';
 import { cargarPropios, guardarPropios } from './entrenamientos/propios';
 import { useCompartidos } from './entrenamientos/compartidos';
-import { desplegar, duracionTotal, potenciaEn, tramoEn, type Entrenamiento, type Tramo } from './entrenamientos/tipos';
+import { desplegar, duracionTotal, potenciaEn, tramoEn, tss, type Entrenamiento, type Tramo } from './entrenamientos/tipos';
 import { EMOJI_MS, cargarNombre, guardarNombre, useConectados, useSalida, type Ciclista } from './multijugador/useSalida';
 import { cargarAjustes, guardarAjustes, palancaNovoForce, potenciaDeAjustes, presetNovoForce } from './potenciaVirtual';
 import {
@@ -536,13 +536,21 @@ export default function App() {
   const [adelanto, setAdelanto] = useState(0);
   adelantoRef.current = adelanto;
   const distanciaRef = useRef(0);
-  distanciaRef.current = Math.max(0, adelanto + grabacion.distanciaM);
+  /**
+   * «Siempre juntos»: si otro del grupo marca el ritmo, mi punto del circuito y mi velocidad en
+   * pantalla son los suyos (lo grabado, el TCX y Strava siguen siendo lo que pedaleo yo).
+   */
+  const pegadoRef = useRef<{ s: number; v: number; uid: string } | null>(null);
+  distanciaRef.current = pegadoRef.current ? pegadoRef.current.s : Math.max(0, adelanto + grabacion.distanciaM);
   /** Coloca mi ciclista en el punto `s` del circuito (sin tocar lo grabado). */
   const ponerEnPunto = (s: number) => {
     const destino = Math.max(0, s);
     distanciaRef.current = destino;
     setAdelanto(destino - grabacion.distanciaM);
   };
+  // Para el bucle de la física (que se crea una vez): siempre con la distancia grabada de ahora
+  const ponerEnPuntoRef = useRef(ponerEnPunto);
+  ponerEnPuntoRef.current = ponerEnPunto;
 
   // La distancia se actualiza una vez por segundo; entre medias se estima con la velocidad
   // (hace falta precisión de metros para saber si vas a rueda)
@@ -557,13 +565,22 @@ export default function App() {
     return m.s + (velVirtualRef.current / 3.6) * Math.min(1.5, (performance.now() - m.t) / 1000);
   };
 
+  // ---- «Siempre juntos» con un amigo: grupo (uid del amigo) y lo exigente que es mi entreno ----
+  const [juntosCon, setJuntosCon] = useState<string | null>(null);
+  const juntosRef = useRef<string | null>(null);
+  juntosRef.current = juntosCon;
+  const exigeRef = useRef(0);
+
   // ---- Salida en grupo (multijugador con Firebase) ----
   const salida = useSalida(
     () => ({
       vatios: actualRef.current.potencia,
-      velocidad: leerActual().velocidad,
+      // Pegado a quien marca el ritmo, los demás me ven a su velocidad (si no, me verían frenar)
+      velocidad: pegadoRef.current ? pegadoRef.current.v * 3.6 : leerActual().velocidad,
       cadencia: actualRef.current.cadencia,
       distancia: enRecorridoRef.current ? posicionAhora() : distanciaRef.current,
+      juntos: enRecorridoRef.current ? juntosRef.current : null,
+      exige: exigeRef.current,
     }),
     perfil.avatar,
   );
@@ -573,6 +590,11 @@ export default function App() {
   // Intensidad: % de los vatios programados, para subirlos o bajarlos sin cancelar el entreno
   const [intensidad, setIntensidad] = useState(100);
   const objetivoW = objetivoPct !== undefined ? Math.round((objetivoPct * perfil.ftp * intensidad) / 10000) : undefined;
+  // Exigencia del entreno para «siempre juntos»: su IF (de su TSS y su duración) por la intensidad
+  exigeRef.current =
+    entrenoActivo && entrenoActivo.total > 0
+      ? Math.sqrt(tss(entrenoActivo.tramos) / 100 / (entrenoActivo.total / 3600)) * (intensidad / 100)
+      : 0;
   const objetivoRef = useRef<number | undefined>(undefined);
   objetivoRef.current = objetivoW;
   const entrenoActivoRef = useRef<EntrenoActivo | null>(null);
@@ -684,6 +706,20 @@ export default function App() {
       anterior = t;
       const f = fisicaRef.current;
       f.masaKg = pesoRef.current + equipoRef.current.pesoBiciKg;
+      // «Siempre juntos»: si otro marca el ritmo, voy en su mismo punto (estimado ahora mismo)
+      const lider = liderJuntosRef.current;
+      if (lider && corriendoRef.current) {
+        const edad = Math.min(2, Math.max(0, (Date.now() + desfaseRef.current - lider.t) / 1000));
+        const v = (lider.velocidad ?? 0) / 3.6;
+        const s = (lider.distancia ?? 0) + v * edad;
+        pegadoRef.current = { s, v, uid: lider.uid };
+        distanciaRef.current = s;
+      } else if (pegadoRef.current) {
+        // Me suelto (o ahora marco yo el ritmo): sigo desde donde iba
+        const s = pegadoRef.current.s;
+        pegadoRef.current = null;
+        ponerEnPuntoRef.current(s);
+      }
       // ¿Voy a rueda de alguien? Se estima dónde está cada uno ahora mismo
       let objetivoRebufo = 0;
       if (botsRef.current.length) {
@@ -728,7 +764,8 @@ export default function App() {
       if (corriendoRef.current) f.actualizar(actualRef.current.potencia ?? 0, grado, dt);
       else f.detener();
       velVirtualRef.current = f.v * 3.6;
-      const eventosCrono = cronoRef.current.actualizar(posicionAhora(), t, corriendoRef.current);
+      // Pegado a otro, los tramos cronometrados no cuentan (el tiempo sería el suyo)
+      const eventosCrono = cronoRef.current.actualizar(posicionAhora(), t, corriendoRef.current && !pegadoRef.current);
       if (eventosCrono.length) alEventosCronoRef.current(eventosCrono);
 
       const rodillo = sensores.ftms;
@@ -809,6 +846,41 @@ export default function App() {
     };
   }, [enRecorrido, sensores]);
 
+  // ---- «Siempre juntos»: quién está en mi grupo y quién marca el ritmo ----
+  // El grupo se llama como el amigo al que se unió el primero; él entra solo en cuanto alguien
+  // se le une. Marca el ritmo el del entreno más exigente (a igualdad, ese amigo); los demás van
+  // pegados a él.
+  const soltadoRef = useRef(false);
+  useEffect(() => {
+    if (!enRecorrido || juntosCon || soltadoRef.current || !salida.miUid) return;
+    if (salida.ciclistas.some((c) => c.uid !== salida.miUid && c.juntos === salida.miUid)) setJuntosCon(salida.miUid);
+  }, [enRecorrido, juntosCon, salida.ciclistas, salida.miUid]);
+  useEffect(() => {
+    if (enRecorrido) return;
+    setJuntosCon(null);
+    soltadoRef.current = false;
+  }, [enRecorrido]);
+  const miembrosJuntos =
+    juntosCon && salida.estado === 'dentro'
+      ? salida.ciclistas.filter((c) => (c.uid === salida.miUid ? true : c.juntos === juntosCon))
+      : [];
+  // Sin el amigo que da nombre al grupo (se ha soltado o se ha ido) no hay grupo
+  const grupoActivo = !!juntosCon && miembrosJuntos.some((c) => c.uid === juntosCon) && miembrosJuntos.length > 1;
+  const exigeDe = (c: Ciclista) => (c.uid === salida.miUid ? exigeRef.current : (c.exige ?? 0));
+  const marcaRitmo = grupoActivo
+    ? [...miembrosJuntos].sort(
+        (a, b) => exigeDe(b) - exigeDe(a) || Number(b.uid === juntosCon) - Number(a.uid === juntosCon) || a.uid.localeCompare(b.uid),
+      )[0]
+    : null;
+  const liderJuntosRef = useRef<Ciclista | null>(null);
+  liderJuntosRef.current = marcaRitmo && marcaRitmo.uid !== salida.miUid ? marcaRitmo : null;
+  /** Me suelto del grupo (sigo rodando desde donde estoy). */
+  const soltarJuntos = () => {
+    soltadoRef.current = true;
+    setJuntosCon(null);
+  };
+  const companerosJuntos = new Set(grupoActivo ? miembrosJuntos.map((c) => c.uid) : []);
+
   // Otros ciclistas de la salida, con su avatar (o uno fijo si no lo comparten)
   const otrosCiclistas: OtroCiclista[] = salida.ciclistas
     .filter((c) => c.uid !== salida.miUid)
@@ -822,6 +894,7 @@ export default function App() {
       cadencia: c.cadencia ?? 0,
       vatios: c.vatios,
       emoji: salida.emojis[c.uid]?.e,
+      pegado: companerosJuntos.has(c.uid),
     }));
   // Con quién coincido en la sesión (para los resúmenes)
   const companerosRef = useRef(new Set<string>());
@@ -1143,12 +1216,15 @@ export default function App() {
   };
 
   /** Rodar libre apareciendo junto a un amigo que ya está en el recorrido. */
-  const rodarJuntoA = (uid: string, sala: string | undefined) => {
+  const rodarJuntoA = (uid: string, sala: string | undefined, siempreJuntos = false) => {
     // Al circuito del amigo y a su lado
     const circ = CIRCUITOS.find((c) => c.sala === sala);
     if (circ) elegirCircuito(circ.id);
     juntoARef.current = uid;
     rodarLibre();
+    // «Siempre juntos»: me uno a su grupo (después de rodarLibre, que deja todo como al entrar)
+    soltadoRef.current = false;
+    setJuntosCon(siempreJuntos ? uid : null);
   };
 
   // ---- Cambiar de circuito sobre la marcha (al cruzar la meta) ----
@@ -1897,7 +1973,7 @@ export default function App() {
             calidad={calidad}
             leerYo={() => ({
               distancia: distanciaRef.current,
-              velocidad: velVirtualRef.current,
+              velocidad: pegadoRef.current ? pegadoRef.current.v * 3.6 : velVirtualRef.current,
               // Sin cadencia (rodillo que no la mide y sin sensor) se anima a una cadencia normal
               // mientras haya vatios, para que el ciclista no ruede con las piernas quietas
               cadencia:
@@ -1980,6 +2056,16 @@ export default function App() {
             errorSalida={salida.error}
             onUnirseSalida={unirseDesdeRecorrido}
             onJuntoA={ponerEnPunto}
+            juntos={
+              juntosCon
+                ? {
+                    companeros: miembrosJuntos.filter((c) => c.uid !== salida.miUid).map((c) => c.nombre),
+                    marcaRitmo: marcaRitmo && marcaRitmo.uid !== salida.miUid ? marcaRitmo.nombre : null,
+                    esperando: !grupoActivo,
+                    onSoltar: soltarJuntos,
+                  }
+                : null
+            }
             emojis={{ mio: miEmoji, onEnviar: lanzarEmoji }}
             miNombre={nombreVisible}
             chat={{
@@ -1991,6 +2077,7 @@ export default function App() {
               miUid: salida.miUid,
               rechazado: salida.chatRechazado,
               onEnviar: salida.enviarMensaje,
+              onEnviarAudio: salida.enviarAudio,
             }}
             rodilloControlado={hayErg}
             demo={usarDemo ? { vatios: demoVatios!, onCambiar: setDemoVatios } : null}
