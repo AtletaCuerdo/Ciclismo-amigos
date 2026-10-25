@@ -13,12 +13,16 @@ const km = (m: number) => `${(m / 1000).toLocaleString('es-ES', { maximumFractio
 
 export function PantallaAdmin({ onVolver }: { onVolver: () => void }) {
   const [fichas, setFichas] = useState<Ficha[] | null>(null);
+  const [sinCuenta, setSinCuenta] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const cargar = () => {
     setError(null);
     leerFichas()
-      .then(setFichas)
+      .then((r) => {
+        setFichas(r.fichas);
+        setSinCuenta(r.sinCuenta);
+      })
       .catch(() => setError('No se pudieron leer las cuentas. Comprueba que las reglas nuevas de Firebase estén pegadas.'));
   };
   useEffect(cargar, []);
@@ -39,7 +43,8 @@ export function PantallaAdmin({ onVolver }: { onVolver: () => void }) {
         </button>
       </div>
       <p className="detalle">
-        Solo lo ves tú. Cada ciclista aparece aquí la primera vez que abre la web con su cuenta (después de esta versión).
+        Solo lo ves tú. Las cuentas de antes salen con sus totales de los rankings; el correo, la fecha de alta y
+        Strava aparecen cuando esa persona vuelva a abrir la web con su cuenta.
       </p>
 
       {error && <p className="aviso">{error}</p>}
@@ -88,18 +93,23 @@ export function PantallaAdmin({ onVolver }: { onVolver: () => void }) {
                     <tr key={f.uid}>
                       <td>
                         <strong>{f.nombre}</strong>
-                        <small>{f.correo}</small>
+                        <small>{f.pendiente ? 'aún no ha vuelto a entrar' : f.correo}</small>
                       </td>
                       <td>{f.sesiones}</td>
                       <td>{km(f.metros)}</td>
-                      <td>{f.strava ? '✅' : '—'}</td>
-                      <td>{fecha(f.alta)}</td>
+                      <td>{f.pendiente ? '?' : f.strava ? '✅' : '—'}</td>
+                      <td>{f.pendiente ? '?' : fecha(f.alta)}</td>
                       <td>{fecha(f.t)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+          )}
+          {sinCuenta > 0 && (
+            <p className="detalle">
+              Además, {sinCuenta} {sinCuenta === 1 ? 'persona rueda' : 'personas ruedan'} sin cuenta (salen en los rankings).
+            </p>
           )}
         </>
       )}

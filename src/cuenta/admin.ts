@@ -21,6 +21,11 @@ export interface Ficha {
   alta: number;
   /** Última vez que abrió la web con la cuenta (ms del servidor). */
   t: number;
+  /**
+   * Cuenta de antes del panel que aún no ha publicado su ficha: se sabe que tiene cuenta (su perfil
+   * está en la nube) y sus totales salen de los rankings, pero sin correo ni fecha de alta.
+   */
+  pendiente?: boolean;
 }
 
 export async function publicarFicha(uid: string, datos: { nombre: string; sesiones: number; metros: number; strava: boolean }) {
@@ -54,8 +59,12 @@ export async function esAdmin(uid: string) {
   }
 }
 
-/** Todas las fichas, de más a menos kilómetros. */
-export async function leerFichas(): Promise<Ficha[]> {
+/**
+ * Todas las cuentas, de más a menos kilómetros: las que ya tienen ficha y, para las de antes que aún
+ * no han vuelto a entrar, las que aparecen en los rankings y tienen su perfil en la nube.
+ * `sinCuenta`: los que ruedan y salen en los rankings pero sin cuenta.
+ */
+export async function leerFichas(): Promise<{ fichas: Ficha[]; sinCuenta: number }> {
   const { fb } = await cargarFirebase();
   const snap = await fb.get(fb.ref(fb.db, 'fichas'));
   const lista: Ficha[] = [];
@@ -73,5 +82,32 @@ export async function leerFichas(): Promise<Ficha[]> {
       t: Number(v.t) || 0,
     });
   });
-  return lista.sort((a, b) => b.metros - a.metros);
+  const conFicha = new Set(lista.map((f) => f.uid));
+  let sinCuenta = 0;
+  const totales = await fb.get(fb.ref(fb.db, 'totales')).catch(() => null);
+  const candidatos: { uid: string; v: Record<string, unknown> }[] = [];
+  totales?.forEach((hijo) => {
+    if (!conFicha.has(hijo.key as string) && hijo.val()) candidatos.push({ uid: hijo.key as string, v: hijo.val() });
+  });
+  await Promise.all(
+    candidatos.map(async ({ uid, v }) => {
+      const perfil = await fb.get(fb.ref(fb.db, `usuarios/${uid}/perfil/ftp`)).catch(() => null);
+      if (!perfil?.exists()) {
+        sinCuenta++;
+        return;
+      }
+      lista.push({
+        uid,
+        nombre: String(v.nombre ?? ''),
+        correo: '',
+        sesiones: Number(v.sesiones) || 0,
+        metros: Number(v.metros) || 0,
+        strava: false,
+        alta: 0,
+        t: Number(v.t) || 0,
+        pendiente: true,
+      });
+    }),
+  );
+  return { fichas: lista.sort((a, b) => b.metros - a.metros), sinCuenta };
 }
