@@ -1409,8 +1409,7 @@ export default function App() {
   }, [pantalla]);
   const instalacion = useInstalar();
 
-  return (
-    <div className="app">
+  const cabecera = (
       <header className="barra-superior">
         <button className="marca" onClick={volver}>
           <span className="marca-icono" aria-hidden>
@@ -1424,18 +1423,20 @@ export default function App() {
           </span>
         </button>
         <div className="barra-acciones">
-          {soyAdmin && (
+          {usuario && soyAdmin && (
             <button className="boton-secundario" onClick={() => setPantalla('admin')} title="Panel del administrador">
               🛡️
             </button>
           )}
-          <button
-            className={`boton-secundario boton-cuenta ${usuario ? 'con-sesion' : ''}`}
-            onClick={() => setPantalla('cuenta')}
-            title={usuario ? `Sesión iniciada: ${usuario.email}` : 'Entra o crea tu cuenta'}
-          >
-            👤 {usuario ? usuario.nombre.split(' ')[0] : 'Entrar'}
-          </button>
+          {usuario && (
+            <button
+              className="boton-secundario boton-cuenta con-sesion"
+              onClick={() => setPantalla('cuenta')}
+              title={`Sesión iniciada: ${usuario.email}`}
+            >
+              👤 {usuario.nombre.split(' ')[0]}
+            </button>
+          )}
           {instalacion.disponible && (
             <button
               className="boton-secundario boton-instalar"
@@ -1445,19 +1446,43 @@ export default function App() {
               ⬇️ Instalar RideCrew
             </button>
           )}
-          <button className="boton-secundario" onClick={() => setPantalla('ajustes')}>
-            ⚙️ Ajustes
-          </button>
+          {usuario && (
+            <button className="boton-secundario" onClick={() => setPantalla('ajustes')}>
+              ⚙️ Ajustes
+            </button>
+          )}
         </div>
       </header>
+  );
+  const avisoBluetooth = (sinBluetooth || sinHttps) && (
+    <div className="banner-error">
+      {sinHttps
+        ? 'Web Bluetooth necesita que la página se abra por HTTPS (o desde localhost).'
+        : 'Este navegador no soporta Web Bluetooth. Usa Chrome en PC/Mac/Android o Bluefy en iPad/iPhone.'}
+    </div>
+  );
 
-      {(sinBluetooth || sinHttps) && (
-        <div className="banner-error">
-          {sinHttps
-            ? 'Web Bluetooth necesita que la página se abra por HTTPS (o desde localhost).'
-            : 'Este navegador no soporta Web Bluetooth. Usa Chrome en PC/Mac/Android o Bluefy en iPad/iPhone.'}
-        </div>
-      )}
+  // Sin cuenta no se puede usar la web: solo se ve la pantalla para entrar o crear la cuenta
+  if (!usuario) {
+    return (
+      <div className="app">
+        {cabecera}
+        {avisoBluetooth}
+        {cargandoCuenta ? (
+          <section className="pantalla">
+            <p className="detalle">Comprobando la sesión…</p>
+          </section>
+        ) : (
+          <PantallaCuenta usuario={null} cargando={false} sync={sync} onRefrescar={() => void refrescarUsuario()} onVolver={volver} obligatoria />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="app">
+      {cabecera}
+      {avisoBluetooth}
 
       {/* ================= INICIO ================= */}
       {pantalla === 'inicio' && (

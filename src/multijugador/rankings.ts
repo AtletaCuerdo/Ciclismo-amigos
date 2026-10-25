@@ -38,7 +38,7 @@ export function calcularTotales(lista: EntrenoGuardado[]): Totales {
 
 export async function publicarTotales(nombre: string, t: Totales) {
   const fb = await import('./firebase');
-  const yo = await fb.entrarAnonimo();
+  const yo = await fb.usuarioActual();
   await fb.set(fb.ref(fb.db, `totales/${yo.uid}`), {
     nombre: nombre.slice(0, 30) || 'Ciclista',
     sesiones: t.sesiones,
@@ -56,7 +56,7 @@ export async function publicarTotales(nombre: string, t: Totales) {
  */
 export async function leerRankings(): Promise<{ filas: FilaRanking[]; miUid: string }> {
   const fb = await import('./firebase');
-  const yo = await fb.entrarAnonimo();
+  const yo = await fb.usuarioActual();
   const snap = await fb.get(fb.ref(fb.db, 'totales'));
   const porNombre = new Map<string, FilaRanking>();
   snap.forEach((hijo) => {

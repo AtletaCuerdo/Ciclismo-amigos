@@ -64,7 +64,7 @@ export function useCompartidos(activo: boolean) {
     (async () => {
       try {
         const fb = await import('../multijugador/firebase');
-        const yo = await fb.entrarAnonimo();
+        const yo = await fb.usuarioActual();
         if (cerrado) return;
         cancelar = fb.onValue(
           fb.ref(fb.db, 'compartidos'),
@@ -112,7 +112,7 @@ export function useCompartidos(activo: boolean) {
   /** Comparte (o actualiza) uno de mis entrenamientos con el nombre `autor`. */
   const compartir = async (e: Entrenamiento, autor: string) => {
     const fb = await import('../multijugador/firebase');
-    const yo = await fb.entrarAnonimo();
+    const yo = await fb.usuarioActual();
     const { propio: _p, deAmigo: _d, ...limpio } = e;
     const texto = JSON.stringify(limpio);
     if (texto.length > TAMANO_MAX) throw new Error('El entrenamiento es demasiado largo para compartirlo.');
@@ -131,7 +131,7 @@ export function useCompartidos(activo: boolean) {
   /** Deja de compartir uno de mis entrenamientos. */
   const dejarDeCompartir = async (e: Entrenamiento) => {
     const fb = await import('../multijugador/firebase');
-    const yo = await fb.entrarAnonimo();
+    const yo = await fb.usuarioActual();
     await fb.remove(fb.ref(fb.db, `compartidos/${yo.uid}_${e.id}`));
   };
 

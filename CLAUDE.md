@@ -40,8 +40,8 @@ tiene que llamarse dentro del propio clic.
   de golpe los que ya se tenían) y niveles 1-100 (`niveles.ts`: XP del historial; `nivelPublico.ts`
   guarda mi nivel y lo publica en `salas/{sala}/ciclistas/{uid}/nivel`, que necesita las reglas nuevas).
 - `src/multijugador/`: Firebase y el hook `useSalida` para la salida en grupo.
-- `src/cuenta/`: cuentas (Firebase Auth: Google y correo/contraseña; la anónima sigue para la salida
-  en grupo) y sincronización «primero en local» en `usuarios/{uid}/…` (perfil, propios, historial,
+- `src/cuenta/`: cuentas (Firebase Auth: Google y correo/contraseña; **sin cuenta no se puede usar la web**:
+  `App` solo enseña `PantallaCuenta` y `usuarioActual()` ya no entra de forma anónima) y sincronización «primero en local» en `usuarios/{uid}/…` (perfil, propios, historial,
   muestras en texto y `borrados` para que lo borrado no vuelva). El historial local avisa a la nube
   con `establecerEspejo` (almacen.ts). Pantalla: `components/PantallaCuenta.tsx`.
 - `src/strava/strava.ts` + `src/components/Strava.tsx`: subida automática a Strava (OAuth; cada
@@ -129,6 +129,9 @@ cabecera): cada cuenta publica `fichas/{uid}` (nombre, correo, sesiones, metros,
 el administrador las lee todas (su uid va escrito en la regla `.read` de `fichas`; también vale
 `admins/{uid}: true` puesto a mano en la consola). Plazas de la
 app de Strava en `PLAZAS_STRAVA` (10). **Necesita las reglas nuevas pegadas.** El uid sale en «Tu cuenta».
+
+25-10: la web exige cuenta. Sin sesión solo se ve la pantalla para entrar o crear cuenta, y las reglas
+piden `auth.provider !== 'anonymous'` en todo. **Necesita las reglas nuevas pegadas.**
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).

@@ -74,7 +74,7 @@ export function guardarFantasma(muestras: [number, number][], circuito = CIRCUIT
 /** Sube mi marca a la tabla del grupo si mejora la que había. */
 export async function subirMarca(segmento: string, ms: number, nombre: string, circuito = CIRCUITO_ID) {
   const fb = await import('../multijugador/firebase');
-  const yo = await fb.entrarAnonimo();
+  const yo = await fb.usuarioActual();
   const ref = fb.ref(fb.db, `records/${circuito}/${clave(segmento, circuito)}/${yo.uid}`);
   const actual = await fb.get(ref);
   const previa = actual.val()?.ms;
@@ -86,7 +86,7 @@ export async function subirMarca(segmento: string, ms: number, nombre: string, c
 /** Tabla del grupo de un segmento, de más rápido a más lento. */
 export async function tablaGrupo(segmento: string, circuito = CIRCUITO_ID): Promise<{ tabla: MarcaGrupo[]; miUid: string }> {
   const fb = await import('../multijugador/firebase');
-  const yo = await fb.entrarAnonimo();
+  const yo = await fb.usuarioActual();
   const snap = await fb.get(fb.ref(fb.db, `records/${circuito}/${clave(segmento, circuito)}`));
   const tabla: MarcaGrupo[] = [];
   snap.forEach((hijo) => {

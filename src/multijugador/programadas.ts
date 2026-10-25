@@ -36,7 +36,7 @@ export function useProgramadas(activo: boolean) {
     void (async () => {
       try {
         const fb = await import('./firebase');
-        const yo = await fb.entrarAnonimo();
+        const yo = await fb.usuarioActual();
         if (!vivo) return;
         setMiUid(yo.uid);
         cancelar = fb.onValue(
@@ -84,7 +84,7 @@ export function useProgramadas(activo: boolean) {
   /** Crea una salida (y el creador queda apuntado). */
   const crear = async (datos: { titulo: string; circuito: string; hora: number; nombre: string }) => {
     const fb = await import('./firebase');
-    const yo = await fb.entrarAnonimo();
+    const yo = await fb.usuarioActual();
     const nombre = datos.nombre.slice(0, 30);
     await fb.push(fb.ref(fb.db, 'programadas'), {
       autorUid: yo.uid,
@@ -98,7 +98,7 @@ export function useProgramadas(activo: boolean) {
 
   const apuntarme = async (id: string, nombre: string, si: boolean) => {
     const fb = await import('./firebase');
-    const yo = await fb.entrarAnonimo();
+    const yo = await fb.usuarioActual();
     const ref = fb.ref(fb.db, `programadas/${id}/apuntados/${yo.uid}`);
     await (si ? fb.set(ref, nombre.slice(0, 30)) : fb.remove(ref));
   };

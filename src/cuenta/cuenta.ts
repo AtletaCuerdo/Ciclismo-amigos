@@ -80,8 +80,8 @@ export async function cerrarSesion() {
 }
 
 /**
- * Usuario con sesión iniciada (null si no hay, o si solo es la identidad anónima que usa la
- * salida en grupo). `cargando` es true hasta saber si había sesión guardada.
+ * Usuario con sesión iniciada (null si no hay, o si es una identidad anónima de antes: sin cuenta
+ * no se puede usar la web). `cargando` es true hasta saber si había sesión guardada.
  */
 export function useUsuario() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);

@@ -9,7 +9,7 @@
  * no hacer más pesada la carga inicial de la web.
  */
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, type User } from 'firebase/auth';
+import { getAuth, type User } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 
 const firebaseConfig = {
@@ -27,15 +27,14 @@ export const auth = getAuth(app);
 export const db = getDatabase(app);
 
 /**
- * Devuelve el usuario actual o entra de forma anónima.
- * Firebase recuerda la identidad anónima en el navegador, así que cada
- * dispositivo conserva la misma entre visitas.
+ * Devuelve el usuario con cuenta. RideCrew ya no deja usar la web sin cuenta (ni entrar de forma
+ * anónima): sin sesión, falla y quien llama lo trata como «sin conexión».
  */
-export async function entrarAnonimo(): Promise<User> {
+export async function usuarioActual(): Promise<User> {
   await auth.authStateReady();
-  if (auth.currentUser) return auth.currentUser;
-  const credencial = await signInAnonymously(auth);
-  return credencial.user;
+  const u = auth.currentUser;
+  if (!u || u.isAnonymous) throw new Error('Hace falta entrar con una cuenta');
+  return u;
 }
 
 export * from 'firebase/database';

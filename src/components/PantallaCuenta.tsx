@@ -17,9 +17,11 @@ interface Props {
   sync: EstadoSync;
   onRefrescar: () => void;
   onVolver: () => void;
+  /** Sin cuenta no se puede usar la web: sin «Inicio» y con la bienvenida. */
+  obligatoria?: boolean;
 }
 
-export function PantallaCuenta({ usuario, cargando, sync, onRefrescar, onVolver }: Props) {
+export function PantallaCuenta({ usuario, cargando, sync, onRefrescar, onVolver, obligatoria }: Props) {
   const [modo, setModo] = useState<'entrar' | 'crear'>('entrar');
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
@@ -44,10 +46,12 @@ export function PantallaCuenta({ usuario, cargando, sync, onRefrescar, onVolver 
   return (
     <section className="pantalla">
       <div className="cabecera-pantalla">
-        <button className="boton-volver" onClick={onVolver}>
-          ← Inicio
-        </button>
-        <h2>Tu cuenta</h2>
+        {!obligatoria && (
+          <button className="boton-volver" onClick={onVolver}>
+            ← Inicio
+          </button>
+        )}
+        <h2>{obligatoria ? 'Te damos la bienvenida a RideCrew' : 'Tu cuenta'}</h2>
       </div>
 
       {cargando ? (
@@ -83,16 +87,23 @@ export function PantallaCuenta({ usuario, cargando, sync, onRefrescar, onVolver 
             </button>
           </div>
           <p className="detalle">
-            Al cerrar sesión, lo guardado sigue en este dispositivo y en la nube; lo que hagas sin sesión se subirá la
-            próxima vez que entres.
+            Al cerrar sesión, lo guardado sigue en la nube; para volver a usar RideCrew tendrás que entrar otra vez.
           </p>
         </section>
       ) : (
         <section className="panel panel-cuenta">
-          <p>
-            Crea tu cuenta (gratis) para guardar tu historial y tu ciclista en la nube y usarlos desde cualquier
-            dispositivo. Lo que ya tengas en este aparato se sube al entrar.
-          </p>
+          {obligatoria ? (
+            <p>
+              Para rodar en RideCrew necesitas una cuenta (gratis). Con ella tus amigos te verán en el recorrido y tu
+              historial, tu ciclista y tu FTP estarán en todos tus dispositivos. Si ya habías rodado en este aparato, lo
+              que tengas guardado se sube al entrar.
+            </p>
+          ) : (
+            <p>
+              Crea tu cuenta (gratis) para guardar tu historial y tu ciclista en la nube y usarlos desde cualquier
+              dispositivo. Lo que ya tengas en este aparato se sube al entrar.
+            </p>
+          )}
           <button className="boton-google" disabled={ocupado} onClick={() => void hacer(entrarConGoogle)}>
             <span aria-hidden>G</span> Entrar con Google
           </button>

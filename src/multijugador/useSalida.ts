@@ -107,8 +107,7 @@ export function guardarNombre(nombre: string) {
 /** Traduce los errores de Firebase a algo entendible. */
 function mensaje(e: unknown) {
   const codigo = (e as { code?: string })?.code ?? '';
-  if (codigo.includes('admin-restricted-operation') || codigo.includes('operation-not-allowed'))
-    return 'El acceso anónimo no está activado en Firebase (Authentication → Método de acceso → Anónimo).';
+  if (/cuenta/.test(String((e as Error)?.message))) return 'Entra con tu cuenta para rodar con el grupo.';
   if (codigo.includes('unauthorized-domain'))
     return 'Este dominio no está autorizado en Firebase (Authentication → Configuración → Dominios autorizados).';
   if (codigo.includes('network-request-failed')) return 'Sin conexión a internet.';
@@ -159,7 +158,7 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
 
     try {
       const fb = await import('./firebase');
-      const usuario = await fb.entrarAnonimo();
+      const usuario = await fb.usuarioActual();
       const uid = usuario.uid;
       const miRef = fb.ref(fb.db, `salas/${sala}/ciclistas/${uid}`);
       const miAvatarRef = fb.ref(fb.db, `salas/${sala}/avatares/${uid}`);
@@ -458,7 +457,7 @@ export function useConectados(activo: boolean, salas: string[] = [SALA_POR_DEFEC
     (async () => {
       try {
         const fb = await import('./firebase');
-        await fb.entrarAnonimo();
+        await fb.usuarioActual();
         if (cerrado) return;
         cancelar.push(
           fb.onValue(fb.ref(fb.db, '.info/serverTimeOffset'), (snap) => setDesfaseServidor(Number(snap.val()) || 0)),

@@ -4,10 +4,10 @@
     ".write": false,
     "salas": {
       "$sala": {
-        ".read": "auth != null",
+        ".read": "auth != null && auth.provider !== 'anonymous'",
         "ciclistas": {
           "$uid": {
-            ".write": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && auth.provider !== 'anonymous' && auth.uid === $uid",
             ".validate": "newData.hasChildren(['nombre', 't'])",
             "nombre": {
               ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
@@ -37,7 +37,7 @@
         },
         "avatares": {
           "$uid": {
-            ".write": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && auth.provider !== 'anonymous' && auth.uid === $uid",
             ".validate": "newData.hasChildren(['maillot', 'franja', 'culotte', 'casco', 'bici', 'piel'])",
             "maillot": {
               ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$/)"
@@ -91,7 +91,7 @@
         },
         "chat": {
           "$id": {
-            ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || (data.exists() && !newData.exists() && (data.child('uid').val() === auth.uid || data.child('t').val() < now - 86400000)))",
+            ".write": "auth != null && auth.provider !== 'anonymous' && ((!data.exists() && newData.child('uid').val() === auth.uid) || (data.exists() && !newData.exists() && (data.child('uid').val() === auth.uid || data.child('t').val() < now - 86400000)))",
             ".validate": "newData.hasChildren(['uid', 'nombre', 'texto', 't'])",
             "uid": {
               ".validate": "newData.isString()"
@@ -111,7 +111,7 @@
           }
         },
         "grupetas": {
-          ".write": "auth != null",
+          ".write": "auth != null && auth.provider !== 'anonymous'",
           ".validate": "newData.hasChildren(['t0', 'autor', 'lista'])",
           "t0": {
             ".validate": "newData.isNumber() && newData.val() <= now"
@@ -139,7 +139,7 @@
         },
         "emojis": {
           "$uid": {
-            ".write": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && auth.provider !== 'anonymous' && auth.uid === $uid",
             ".validate": "newData.hasChildren(['e', 't'])",
             "e": {
               ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 8"
@@ -155,9 +155,9 @@
       }
     },
     "programadas": {
-      ".read": "auth != null",
+      ".read": "auth != null && auth.provider !== 'anonymous'",
       "$id": {
-        ".write": "auth != null && ((!data.exists() && newData.child('autorUid').val() === auth.uid) || (data.exists() && data.child('autorUid').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('hora').val() < now - 86400000))",
+        ".write": "auth != null && auth.provider !== 'anonymous' && ((!data.exists() && newData.child('autorUid').val() === auth.uid) || (data.exists() && data.child('autorUid').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('hora').val() < now - 86400000))",
         ".validate": "newData.hasChildren(['autorUid', 'autor', 'titulo', 'circuito', 'hora'])",
         "autorUid": {
           ".validate": "newData.isString()"
@@ -176,7 +176,7 @@
         },
         "apuntados": {
           "$uid": {
-            ".write": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && auth.provider !== 'anonymous' && auth.uid === $uid",
             ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
           }
         },
@@ -186,9 +186,9 @@
       }
     },
     "compartidos": {
-      ".read": "auth != null",
+      ".read": "auth != null && auth.provider !== 'anonymous'",
       "$clave": {
-        ".write": "auth != null && ((!data.exists() && newData.child('autorUid').val() === auth.uid) || (data.exists() && data.child('autorUid').val() === auth.uid && (!newData.exists() || newData.child('autorUid').val() === auth.uid)))",
+        ".write": "auth != null && auth.provider !== 'anonymous' && ((!data.exists() && newData.child('autorUid').val() === auth.uid) || (data.exists() && data.child('autorUid').val() === auth.uid && (!newData.exists() || newData.child('autorUid').val() === auth.uid)))",
         ".validate": "newData.hasChildren(['autorUid', 'autor', 't', 'entreno']) && $clave.beginsWith(auth.uid + '_')",
         "autorUid": {
           ".validate": "newData.isString()"
@@ -208,11 +208,11 @@
       }
     },
     "records": {
-      ".read": "auth != null",
+      ".read": "auth != null && auth.provider !== 'anonymous'",
       "$circuito": {
         "$segmento": {
           "$uid": {
-            ".write": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && auth.provider !== 'anonymous' && auth.uid === $uid",
             ".validate": "newData.hasChildren(['nombre', 'ms', 't'])",
             "nombre": {
               ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
@@ -231,9 +231,9 @@
       }
     },
     "totales": {
-      ".read": "auth != null",
+      ".read": "auth != null && auth.provider !== 'anonymous'",
       "$uid": {
-        ".write": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.provider !== 'anonymous' && auth.uid === $uid",
         ".validate": "newData.hasChildren(['nombre', 'sesiones', 'segundos', 'metros', 'desnivel', 't'])",
         "nombre": {
           ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
@@ -263,10 +263,10 @@
     },
     "usuarios": {
       "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid",
+        ".read": "auth != null && auth.provider !== 'anonymous' && auth.uid === $uid",
+        ".write": "auth != null && auth.provider !== 'anonymous' && auth.uid === $uid",
         "perfil": {
-          ".read": "auth != null && (auth.uid === '1WbWzGi0H6fmFUTyMspm5UGL3pU2' || root.child('admins').child(auth.uid).val() === true)",
+          ".read": "auth != null && auth.provider !== 'anonymous' && (auth.uid === '1WbWzGi0H6fmFUTyMspm5UGL3pU2' || root.child('admins').child(auth.uid).val() === true)",
           ".validate": "newData.hasChildren(['avatar', 'pesoKg', 'ftp'])"
         },
         "propios": {
@@ -296,15 +296,15 @@
     },
     "admins": {
       "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
+        ".read": "auth != null && auth.provider !== 'anonymous' && auth.uid === $uid",
         ".write": false
       }
     },
     "fichas": {
-      ".read": "auth != null && (auth.uid === '1WbWzGi0H6fmFUTyMspm5UGL3pU2' || root.child('admins').child(auth.uid).val() === true)",
+      ".read": "auth != null && auth.provider !== 'anonymous' && (auth.uid === '1WbWzGi0H6fmFUTyMspm5UGL3pU2' || root.child('admins').child(auth.uid).val() === true)",
       "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid && auth.provider !== 'anonymous'",
+        ".read": "auth != null && auth.provider !== 'anonymous' && auth.uid === $uid",
+        ".write": "auth != null && auth.provider !== 'anonymous' && auth.uid === $uid",
         ".validate": "newData.hasChildren(['nombre', 'correo', 'sesiones', 'metros', 'strava', 'alta', 't'])",
         "nombre": {
           ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
