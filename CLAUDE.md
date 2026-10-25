@@ -126,7 +126,8 @@ RideCrew), logotipo «Ride» cian + «Crew» blanco + «by TriCoach» verde, e i
 
 25-10: panel del administrador (`components/PantallaAdmin.tsx`, `cuenta/admin.ts`, botón 🛡️ en la
 cabecera): cada cuenta publica `fichas/{uid}` (nombre, correo, sesiones, metros, strava, alta, t) y solo
-quien está en `admins/{uid}: true` (puesto a mano en la consola de Firebase) las lee todas. Plazas de la
+el administrador las lee todas (su uid va escrito en la regla `.read` de `fichas`; también vale
+`admins/{uid}: true` puesto a mano en la consola). Plazas de la
 app de Strava en `PLAZAS_STRAVA` (10). **Necesita las reglas nuevas pegadas.** El uid sale en «Tu cuenta».
 
 ### Probado

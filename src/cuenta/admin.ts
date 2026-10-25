@@ -2,10 +2,10 @@
  * Panel del administrador: quién tiene cuenta en RideCrew y cuánto rueda.
  *
  *   fichas/{uid} = { nombre, correo, sesiones, metros, strava, alta, t }
- *   admins/{uid} = true   (solo se pone a mano en la consola de Firebase)
  *
  * Cada ciclista con cuenta publica su ficha al abrir la web (y al guardar sesiones o conectar
- * Strava). Las reglas solo dejan leer todas las fichas a quien está en `admins`.
+ * Strava). Las reglas solo dejan leer todas las fichas al administrador (su uid está escrito en
+ * las reglas de `fichas`; también vale `admins/{uid}: true` puesto a mano en la consola).
  */
 import { cargarFirebase } from './cuenta';
 
@@ -39,11 +39,16 @@ export async function publicarFicha(uid: string, datos: { nombre: string; sesion
   });
 }
 
-/** ¿Es esta cuenta la del administrador? (sin las reglas nuevas, simplemente no). */
+/**
+ * ¿Es esta cuenta la del administrador? Lo deciden las reglas: si deja leer todas las fichas,
+ * sí (el administrador está escrito en las reglas o en `admins/{uid}`). Sin permiso, no.
+ */
 export async function esAdmin(uid: string) {
   try {
     const { fb } = await cargarFirebase();
-    return (await fb.get(fb.ref(fb.db, `admins/${uid}`))).val() === true;
+    if (fb.auth.currentUser?.uid !== uid) return false;
+    await fb.get(fb.ref(fb.db, 'fichas'));
+    return true;
   } catch {
     return false;
   }

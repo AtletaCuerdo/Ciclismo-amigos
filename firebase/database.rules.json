@@ -300,7 +300,7 @@
       }
     },
     "fichas": {
-      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".read": "auth != null && (auth.uid === '1WbWzGi0H6fmFUTyMspm5UGL3pU2' || root.child('admins').child(auth.uid).val() === true)",
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid && auth.provider !== 'anonymous'",
