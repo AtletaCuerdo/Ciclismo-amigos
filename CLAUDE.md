@@ -68,7 +68,7 @@ tiene que llamarse dentro del propio clic.
 
 ## Estado actual (2026-09-27)
 
-Nombre visible provisional: **RideCrew** (título, cabecera, icono «RC», rotulación del maillot,
+Nombre visible: **RideCrew** (título «RideCrew by TriCoach», cabecera, icono «RC», rotulación del maillot,
 TCX y Strava). La dirección, el repositorio, Firebase y las claves de localStorage siguen con
 «ciclismo-amigos». Cyclink se descartó: es marca de Shimano en la UE.
 
@@ -118,6 +118,11 @@ momento si aún no se ha grabado nada, cámara Detrás / Lado / Arriba (`vistaCa
 arriba. Rodillos sin cadencia (Van Rysel D100): el 0 que mandan con vatios no cuenta, el ciclista pedalea
 a 85 rpm si no hay cadencia, y en Ajustes «Vatios y cadencia» se elige la fuente (`rodillos.fuentes`).
 TrainingPeaks: pendiente de saber si dan acceso a su API.
+
+25-10: tema oscuro de TriCoach (igual que TrCoach y TriCoach Entrenos, repo `TriCoach-Entrenos`): fondo
+pizarra `#0b1220`, paneles `#111c30`, acento cian `#22d3ee` → azul `#3b82f6` (`--degradado`, con texto
+oscuro `--texto-sobre-acento`) y verde `#4ade80`. Título «RideCrew by TriCoach» (el nombre sigue siendo
+RideCrew), logotipo «Ride» cian + «Crew» blanco + «by TriCoach» verde, e icono RC nuevo en cian sobre pizarra.
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).

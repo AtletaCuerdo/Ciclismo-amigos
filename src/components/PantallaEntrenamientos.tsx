@@ -25,7 +25,7 @@ interface Props {
   onGuardarCopia: (e: Entrenamiento) => void;
 }
 
-const AMIGOS = { nombre: '👥 Compartidos', descripcion: 'Los entrenamientos que ha compartido el grupo, también los tuyos', color: '#ff6a1a' };
+const AMIGOS = { nombre: '👥 Compartidos', descripcion: 'Los entrenamientos que ha compartido el grupo, también los tuyos', color: '#22d3ee' };
 
 /** Categorías → lista de entrenamientos → ficha con «Empezar». */
 export function PantallaEntrenamientos({

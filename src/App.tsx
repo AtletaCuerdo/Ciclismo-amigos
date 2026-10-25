@@ -1387,7 +1387,15 @@ export default function App() {
     <div className="app">
       <header className="barra-superior">
         <button className="marca" onClick={volver}>
-          <span className="marca-icono" aria-hidden>🚴</span> RideCrew
+          <span className="marca-icono" aria-hidden>
+            RC
+          </span>
+          <span className="marca-texto">
+            <span className="marca-nombre">
+              <span className="marca-ride">Ride</span>Crew
+            </span>
+            <span className="marca-by">by TriCoach</span>
+          </span>
         </button>
         <div className="barra-acciones">
           <button
@@ -1758,7 +1766,8 @@ export default function App() {
             <h2>Vatios y cadencia</h2>
             <p className="detalle">
               Si tienes varios sensores a la vez (p. ej. un rodillo Van Rysel D100, que no mide la cadencia, y unos
-              pedales o bielas con potenciómetro), elige de dónde se coge cada dato.
+              pedales o bielas con potenciómetro), elige de dónde se coge cada dato. En automático, los vatios
+              salen de los pedales si están conectados y la cadencia, de los pedales, el sensor o el rodillo.
             </p>
             <label className="selector-calidad">
               Vatios
@@ -1766,7 +1775,7 @@ export default function App() {
                 value={fuentes.vatios}
                 onChange={(e) => setFuentes((f) => ({ ...f, vatios: e.target.value as FuenteVatios }))}
               >
-                <option value="auto">Automático (pedales si están, si no el rodillo)</option>
+                <option value="auto">Automático</option>
                 <option value="rodillo">Del rodillo</option>
                 <option value="pedales">De los pedales o bielas</option>
               </select>
@@ -1777,7 +1786,7 @@ export default function App() {
                 value={fuentes.cadencia}
                 onChange={(e) => setFuentes((f) => ({ ...f, cadencia: e.target.value as FuenteCadencia }))}
               >
-                <option value="auto">Automático (pedales, sensor o rodillo)</option>
+                <option value="auto">Automático</option>
                 <option value="pedales">De los pedales o bielas</option>
                 <option value="sensor">Del sensor de cadencia</option>
                 <option value="rodillo">Del rodillo</option>

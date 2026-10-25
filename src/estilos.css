@@ -1,19 +1,26 @@
 /* =========================================================================
-   Tema claro, pensado para leerse bien en tablet y a cierta distancia
+   Tema oscuro de TriCoach (misma línea que TrCoach y TriCoach Entrenos):
+   fondo pizarra, acento cian→azul y verde. Pensado para leerse bien en
+   tablet y a cierta distancia.
    ========================================================================= */
 :root {
-  --fondo: #f3f5f8;
-  --panel: #ffffff;
-  --panel-2: #eef1f5;
-  --borde: #dde2e9;
-  --texto: #1b2029;
-  --texto-suave: #5d6878;
-  --acento: #ff6a1a;
-  --acento-suave: #fff1e8;
-  --ok: #1f9d55;
-  --aviso: #b7791f;
-  --error: #d64545;
-  --sombra: 0 1px 2px rgba(20, 30, 50, 0.06), 0 4px 14px rgba(20, 30, 50, 0.06);
+  --fondo: #0b1220;
+  --panel: #111c30;
+  --panel-2: #16233b;
+  --borde: #23324d;
+  --texto: #e2e8f0;
+  --texto-suave: #94a3b8;
+  --acento: #22d3ee;
+  --acento-2: #3b82f6;
+  /* Botones principales: degradado cian→azul con texto oscuro, como en TriCoach */
+  --degradado: linear-gradient(135deg, #22d3ee, #3b82f6);
+  --texto-sobre-acento: #04111f;
+  --acento-suave: rgba(34, 211, 238, 0.12);
+  --ok: #4ade80;
+  --aviso: #f59e0b;
+  --error: #f87171;
+  --sombra: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 14px rgba(0, 0, 0, 0.25);
+  color-scheme: dark;
   --radio: 16px;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--texto);
@@ -61,7 +68,7 @@ select {
 input:focus-visible,
 select:focus-visible,
 button:focus-visible {
-  outline: 3px solid rgba(255, 106, 26, 0.35);
+  outline: 3px solid rgba(34, 211, 238, 0.45);
   outline-offset: 1px;
 }
 
@@ -107,7 +114,7 @@ p {
 }
 
 .banner-error {
-  background: #fdecec;
+  background: rgba(248, 113, 113, 0.12);
   border: 1px solid var(--error);
   padding: 14px 16px;
   border-radius: var(--radio);
@@ -148,7 +155,36 @@ p {
   width: 42px;
   height: 42px;
   border-radius: 12px;
-  background: var(--acento-suave);
+  background: var(--degradado);
+  color: var(--texto-sobre-acento);
+  font-size: 17px;
+  font-style: italic;
+  letter-spacing: -0.03em;
+}
+
+/* Logotipo con la letra de TriCoach: «Ride» en cian, «Crew» en blanco y «by TriCoach» en verde */
+.marca-texto {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.05;
+}
+
+.marca-nombre {
+  font-style: italic;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.marca-ride {
+  color: var(--acento);
+}
+
+.marca-by {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ok);
+  letter-spacing: 0.02em;
 }
 
 /* ---------- Paneles y pantallas ---------- */
@@ -210,15 +246,15 @@ p {
 
 .boton-principal,
 .boton-conectar {
-  background: var(--acento);
-  color: #fff;
+  background: var(--degradado);
+  color: var(--texto-sobre-acento);
   border: none;
   border-radius: 12px;
   font-weight: 700;
   min-height: 52px;
   padding: 0 22px;
   font-size: 19px;
-  box-shadow: 0 2px 6px rgba(255, 106, 26, 0.3);
+  box-shadow: 0 2px 10px rgba(34, 211, 238, 0.25);
 }
 
 .boton-grande {
@@ -238,8 +274,8 @@ p {
 }
 
 .boton-finalizar {
-  background: var(--ok);
-  box-shadow: 0 2px 6px rgba(31, 157, 85, 0.3);
+  background: linear-gradient(135deg, #4ade80, #16a34a);
+  box-shadow: 0 2px 10px rgba(74, 222, 128, 0.25);
 }
 
 .boton-peligro {
@@ -346,16 +382,16 @@ p {
 }
 
 .accion-libre {
-  background: linear-gradient(135deg, #2e9d62, #1f7a4a);
+  background: linear-gradient(135deg, #16a34a, #0f6b3a);
 }
 .accion-entrenos {
-  background: linear-gradient(135deg, #ff7a2e, #e2530d);
+  background: linear-gradient(135deg, #0891b2, #1d4ed8);
 }
 .accion-crear {
-  background: linear-gradient(135deg, #5a79e0, #3c55b8);
+  background: linear-gradient(135deg, #3b82f6, #1e3a8a);
 }
 .accion-historial {
-  background: linear-gradient(135deg, #5f6b7d, #434d5c);
+  background: linear-gradient(135deg, #334155, #1e293b);
 }
 
 /* ---------- Dispositivos ---------- */
@@ -383,7 +419,7 @@ p {
 
 .tarjeta-conexion.estado-conectado {
   border-color: var(--ok);
-  background: #eaf7f0;
+  background: rgba(74, 222, 128, 0.1);
 }
 .tarjeta-conexion.estado-conectado .boton-conectar {
   background: var(--panel);
@@ -407,7 +443,7 @@ p {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #aab3c0;
+  background: #64748b;
 }
 .estado-conectado .punto {
   background: var(--ok);
@@ -552,8 +588,8 @@ p {
 }
 
 .insignia {
-  background: #fff3cd;
-  color: #7a5a00;
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
   font-size: 12px;
   border-radius: 6px;
   padding: 2px 8px;
@@ -630,6 +666,14 @@ p {
   align-items: center;
   gap: 10px;
   color: var(--texto-suave);
+  margin-top: 8px;
+}
+
+/* El desplegable ocupa lo que queda y no se sale del panel en el móvil */
+.selector-calidad select {
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* ---------- Ajustes del sensor ---------- */
@@ -689,8 +733,8 @@ p {
 }
 
 .aviso-ftp {
-  background: #f3effc;
-  border: 1px solid #c9b8f0;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.45);
   border-radius: 12px;
   padding: 12px 16px;
   margin-bottom: 12px;
@@ -891,7 +935,7 @@ p {
 .vista-previa-avatar {
   width: 100%;
   aspect-ratio: 1;
-  background: radial-gradient(circle at 50% 38%, #ffffff, #dfe6ee 75%);
+  background: radial-gradient(circle at 50% 38%, #2a3b5c, #0f172a 75%);
   border-radius: 16px;
   overflow: hidden;
 }
@@ -1105,8 +1149,8 @@ p {
 }
 
 .insignia-propio {
-  background: #e8edfd;
-  color: #3c55b8;
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
   font-size: 12px;
   font-weight: 700;
   border-radius: 6px;
@@ -1116,22 +1160,22 @@ p {
 .grafica-entreno {
   display: block;
   width: 100%;
-  background: #f5f7fa;
+  background: var(--panel-2);
   border-radius: 8px;
 }
 
 .linea-ftp {
-  stroke: rgba(30, 40, 60, 0.35);
+  stroke: rgba(226, 232, 240, 0.4);
   stroke-dasharray: 4 3;
   stroke-width: 1;
 }
 
 .grafica-hecho {
-  fill: rgba(255, 255, 255, 0.55);
+  fill: rgba(11, 18, 32, 0.55);
 }
 
 .grafica-cursor {
-  stroke: #111;
+  stroke: var(--texto);
   stroke-width: 2;
 }
 
@@ -1567,7 +1611,7 @@ p {
 }
 
 .perfil-hecho {
-  fill: rgba(255, 106, 26, 0.55);
+  fill: rgba(34, 211, 238, 0.55);
   stroke: var(--acento);
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
@@ -1609,7 +1653,7 @@ p {
   height: 14px;
   background: var(--acento);
   border-color: #fff;
-  box-shadow: 0 0 0 3px rgba(255, 106, 26, 0.35);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.35);
 }
 
 .perfil-texto {
@@ -1837,7 +1881,7 @@ p {
   font-size: 13px;
 }
 .error-strava {
-  color: #c0392b;
+  color: var(--error);
 }
 .aviso-strava {
   cursor: pointer;
@@ -1877,7 +1921,7 @@ p {
   margin: 2px 0 0;
 }
 .aviso-ok {
-  color: #1f8a4c;
+  color: var(--ok);
   font-weight: 600;
 }
 
@@ -2033,8 +2077,8 @@ p {
 
 /* Cuenta de usuario */
 .boton-cuenta.con-sesion {
-  border-color: #1f8a4c;
-  color: #1f8a4c;
+  border-color: var(--ok);
+  color: var(--ok);
   font-weight: 700;
 }
 .aviso-cuenta {
@@ -2046,8 +2090,8 @@ p {
   margin: 0 0 14px;
   padding: 12px 16px;
   border-radius: 14px;
-  background: #fff4ec;
-  border: 1px solid #ffd2b3;
+  background: var(--acento-suave);
+  border: 1px solid rgba(34, 211, 238, 0.4);
 }
 .panel-cuenta {
   max-width: 520px;
@@ -2072,8 +2116,8 @@ p {
 .cuenta-inicial {
   display: grid;
   place-items: center;
-  background: var(--acento);
-  color: #fff;
+  background: var(--degradado);
+  color: var(--texto-sobre-acento);
   font-weight: 800;
   font-size: 22px;
 }
@@ -2088,8 +2132,9 @@ p {
   gap: 10px;
   min-height: 48px;
   border-radius: 10px;
-  border: 1px solid #d0d5dd;
+  border: 1px solid var(--borde);
   background: #fff;
+  color: #1f2937; /* botón de Google: blanco con texto oscuro, como pide su guía */
   font-weight: 700;
   font-size: 16px;
   cursor: pointer;
@@ -2102,7 +2147,7 @@ p {
 .separador-cuenta {
   text-align: center;
   font-size: 13px;
-  color: #8a94a3;
+  color: var(--texto-suave);
 }
 .pestanas-cuenta {
   display: flex;
@@ -2112,15 +2157,15 @@ p {
   flex: 1;
   padding: 8px;
   border-radius: 10px;
-  border: 1px solid #d0d5dd;
+  border: 1px solid var(--borde);
   background: transparent;
   cursor: pointer;
   font-weight: 600;
 }
 .pestanas-cuenta button.activa {
-  background: var(--acento);
+  background: var(--degradado);
   border-color: var(--acento);
-  color: #fff;
+  color: var(--texto-sobre-acento);
 }
 .formulario-cuenta {
   display: flex;
@@ -2138,7 +2183,9 @@ p {
   font: inherit;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid #d0d5dd;
+  border: 1px solid var(--borde);
+  background: var(--panel-2);
+  color: var(--texto);
 }
 .enlace-boton {
   background: none;
@@ -2209,8 +2256,8 @@ p {
   flex: none;
   padding: 8px 12px;
   border-radius: 10px;
-  background: var(--acento);
-  color: #fff;
+  background: var(--degradado);
+  color: var(--texto-sobre-acento);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -2301,8 +2348,9 @@ p {
   min-height: 32px;
   padding: 0 10px;
   font-size: 13px;
-  background: var(--acento);
+  background: var(--degradado);
   border-color: var(--acento);
+  color: var(--texto-sobre-acento);
 }
 
 .hud-grupo .boton-secundario {
@@ -2426,7 +2474,8 @@ p {
   min-width: 20px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: var(--acento);
+  background: var(--degradado);
+  color: var(--texto-sobre-acento);
   font-size: 12px;
 }
 
@@ -2528,7 +2577,7 @@ p {
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 999px;
-  background: #e8f6ee;
+  background: rgba(74, 222, 128, 0.15);
   color: var(--ok);
   white-space: nowrap;
 }
@@ -2536,8 +2585,8 @@ p {
 .aviso-compartir {
   padding: 10px 14px;
   border-radius: 12px;
-  background: #e8f6ee;
-  color: #14683a;
+  background: rgba(74, 222, 128, 0.12);
+  color: var(--ok);
   font-weight: 600;
 }
 
@@ -2892,9 +2941,9 @@ p {
 }
 
 .pestanas-ranking button.activa {
-  background: var(--acento);
+  background: var(--degradado);
   border-color: var(--acento);
-  color: #fff;
+  color: var(--texto-sobre-acento);
 }
 
 .lista-ranking {
@@ -3006,7 +3055,7 @@ p {
 }
 
 .mini-perfil path {
-  fill: rgba(255, 106, 26, 0.25);
+  fill: rgba(34, 211, 238, 0.25);
   stroke: var(--acento);
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
@@ -3055,8 +3104,8 @@ p {
 }
 
 .chip-racha.viva {
-  background: rgba(249, 115, 22, 0.18);
-  color: #c2410c;
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
   font-weight: 600;
 }
 
@@ -3085,8 +3134,8 @@ p {
 .rejilla-logros li.conseguido {
   opacity: 1;
   filter: none;
-  border-color: rgba(249, 115, 22, 0.5);
-  background: rgba(249, 115, 22, 0.07);
+  border-color: rgba(34, 211, 238, 0.5);
+  background: rgba(34, 211, 238, 0.07);
 }
 
 .logro-icono {
@@ -3109,8 +3158,8 @@ p {
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  background: var(--acento);
-  color: #fff;
+  background: var(--degradado);
+  color: var(--texto-sobre-acento);
   font-size: 20px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -3136,7 +3185,7 @@ p {
 }
 
 .aviso-xp.sube {
-  background: rgba(249, 115, 22, 0.15);
+  background: rgba(34, 211, 238, 0.15);
   animation: logro-aparece 0.6s ease-out;
 }
 
@@ -3186,8 +3235,8 @@ p {
   gap: 8px;
   padding: 8px 12px;
   border-radius: 12px;
-  background: rgba(249, 115, 22, 0.12);
-  border: 1px solid rgba(249, 115, 22, 0.45);
+  background: rgba(34, 211, 238, 0.12);
+  border: 1px solid rgba(34, 211, 238, 0.45);
   animation: logro-aparece 0.6s ease-out;
 }
 
@@ -3315,7 +3364,7 @@ p {
 /* ---------- Resúmenes ---------- */
 
 .accion-resumenes {
-  background: linear-gradient(135deg, #d9467a, #a3285a);
+  background: linear-gradient(135deg, #0e7490, #164e63);
 }
 
 .resumen-periodo {
@@ -3364,12 +3413,12 @@ p {
 }
 
 .resumen-cambio.sube {
-  color: #16a34a;
+  color: var(--ok);
   opacity: 1;
 }
 
 .resumen-cambio.baja {
-  color: #dc2626;
+  color: var(--error);
   opacity: 1;
 }
 
@@ -3399,7 +3448,7 @@ p {
 }
 
 .resumen-barra span.con {
-  background: linear-gradient(180deg, #fb923c, #ea580c);
+  background: linear-gradient(180deg, #22d3ee, #3b82f6);
 }
 
 .resumen-barra small {
@@ -3586,7 +3635,7 @@ p {
 }
 
 .menu-sensores .tarjeta-conexion {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--panel);
   color: var(--texto);
 }
 
