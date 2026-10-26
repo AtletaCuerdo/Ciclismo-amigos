@@ -52,10 +52,14 @@ const CLAVE_TOCADO = 'rodillos.stravaAqui';
  */
 export function estadoStravaAqui(): boolean | undefined {
   if (leerConexion()) return true;
+  return tocadoAqui() ? false : undefined;
+}
+
+function tocadoAqui() {
   try {
-    return localStorage.getItem(CLAVE_TOCADO) ? false : undefined;
+    return !!localStorage.getItem(CLAVE_TOCADO);
   } catch {
-    return undefined;
+    return false;
   }
 }
 

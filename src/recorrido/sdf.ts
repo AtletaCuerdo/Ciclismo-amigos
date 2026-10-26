@@ -173,6 +173,24 @@ export function libre(
 // Poligonización (surface nets)
 // ---------------------------------------------------------------------------
 
+/**
+ * Detalle bajo: dentro de `enDetalleBajo` las mallas se generan con vóxeles `factor` veces más
+ * grandes (factor² veces menos triángulos). Son las de los ciclistas lejanos y las del público: a
+ * más de 20 m no se nota y el iPad dibuja mucho menos. Las piezas con tubos finos (cuadro,
+ * manillar) necesitan un factor menor: con vóxeles más gruesos que el tubo, desaparecen.
+ */
+let factorDetalle = 1;
+export const factorDetalleAhora = () => factorDetalle;
+export function enDetalleBajo<T>(generar: () => T, factor = 3): T {
+  const antes = factorDetalle;
+  factorDetalle = factor;
+  try {
+    return generar();
+  } finally {
+    factorDetalle = antes;
+  }
+}
+
 export interface OpcionesMalla {
   /** Tamaño del vóxel (m). */
   paso: number;
@@ -218,7 +236,7 @@ function masCercana(prims: Primitiva[], x: number, y: number, z: number) {
  * se buscan vértices y caras. Las normales salen del gradiente del campo.
  */
 export function mallaSdf(prims: Primitiva[], o: OpcionesMalla): THREE.BufferGeometry {
-  const paso = o.paso;
+  const paso = o.paso * factorDetalle;
   const mn: Vec = [Infinity, Infinity, Infinity];
   const mx: Vec = [-Infinity, -Infinity, -Infinity];
   for (const p of prims) {

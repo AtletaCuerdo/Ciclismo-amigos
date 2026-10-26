@@ -25,6 +25,7 @@ import {
 } from './recursos';
 import { crestas, datosRuidoPeriodico, fbm } from './ruido';
 import { trazadoDe, type Trazado } from './trazado';
+import { CRUCES, circuitoPorId } from './circuitos';
 import { nombreDeSubida } from './segmentos';
 import { cieloActual } from './cielos';
 import { conNivel } from '../entrenamiento/nivelPublico';
@@ -2898,6 +2899,46 @@ export class EscenaRecorrido {
         cartel(s, pct(g), 2.0, g >= 7 ? '#a3221b' : g >= 5 ? '#c26512' : '#1f5a2a');
       }
     }
+
+    // Cruces con los otros circuitos: cartel de dirección 80 m antes y un trozo de carretera a cada lado
+    const matAsfalto = new THREE.MeshStandardMaterial({ color: 0x3b3f45, roughness: 0.95 });
+    for (const cr of CRUCES[CIRCUITO.id] ?? []) {
+      const s = cr.km * 1000;
+      const texto = [
+        cr.izquierda ? `← ${circuitoPorId(cr.izquierda.circuito).nombre}` : '',
+        cr.derecha ? `${circuitoPorId(cr.derecha.circuito).nombre} →` : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+      cartel(s - 80, texto, 5.6, '#1d4f91', cr.izquierda && cr.derecha ? 1.9 : 1.15);
+      const k = Math.round(enVuelta(s) / PASO_M) % this.tr.n;
+      const l = Math.hypot(this.tr.dx[k], this.tr.dz[k]) || 1;
+      const [fx, fz] = [this.tr.dx[k] / l, this.tr.dz[k] / l];
+      // Derecha de la marcha: (−dz, dx), como en puntoEn
+      const [rx, rz] = [-fz, fx];
+      const y = altitud(s) + 0.27;
+      for (const lado of [cr.izquierda ? -1 : 0, cr.derecha ? 1 : 0]) {
+        if (!lado) continue;
+        const desde = ANCHO_CARRETERA / 2 - 0.2;
+        const hasta = ZONA_LLANA_M - 2; // dentro de la franja llana: el terreno no lo tapa
+        const medio = 3.2; // media anchura del ramal
+        const p = (lat: number, avance: number) => [
+          this.tr.x[k] + rx * lat * lado + fx * avance,
+          y,
+          this.tr.z[k] + rz * lat * lado + fz * avance,
+        ];
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute([...p(desde, -medio), ...p(desde, medio), ...p(hasta, -medio), ...p(hasta, medio)], 3));
+        geo.setIndex([0, 2, 1, 1, 2, 3]);
+        geo.computeVertexNormals();
+        // Que mire hacia arriba sea cual sea el lado (si no, por un lado no se vería)
+        if (geo.attributes.normal.getY(0) < 0) geo.setIndex([0, 1, 2, 1, 3, 2]);
+        geo.computeVertexNormals();
+        const ramal = new THREE.Mesh(geo, matAsfalto);
+        ramal.receiveShadow = true;
+        this.escena.add(ramal);
+      }
+    }
   }
 
   // =========================================================================
@@ -3142,6 +3183,10 @@ export class EscenaRecorrido {
       const qdz = q.dz;
       const lean = this.inclinacionEn(e.sRender, e.v);
       q.pos.set(qx, qy, qz);
+      // Lejos de la cámara, versión ligera; muy lejos (un punto en la pantalla), ni se dibuja
+      const d2 = this.camara.position.distanceToSquared(q.pos);
+      e.c.raiz.visible = d2 < 350 * 350;
+      e.c.ponerDetalle(d2 < 22 * 22);
       e.c.colocar(q.pos, qdx, qdz, pendiente(e.sRender), lean);
       // Los carteles de los bots y grupetas solo de cerca (los de tus amigos, siempre)
       if (uid.startsWith('bot-')) {
@@ -3161,7 +3206,8 @@ export class EscenaRecorrido {
         );
       } else e.c.ponerCartelTrasero(null);
       if (!e.fantasma) e.c.ponerDePie(tocaDePie(pendiente(e.sRender), (e.vatios ?? 0) >= 650, e.v, ahora, (hash(uid) % 97) / 97));
-      e.c.pedalear(e.v, e.cadencia, dt);
+      // Los que no se dibujan no necesitan mover las piernas (ahorra cálculo en la tablet)
+      if (e.c.raiz.visible) e.c.pedalear(e.v, e.cadencia, dt);
     }
 
     this.revisarZonas(miX, miZ, ahora);

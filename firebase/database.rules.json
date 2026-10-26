@@ -339,6 +339,9 @@
         "t": {
           ".validate": "newData.isNumber() && newData.val() <= now"
         },
+        "stravaAtleta": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60"
+        },
         "$otro": {
           ".validate": false
         }

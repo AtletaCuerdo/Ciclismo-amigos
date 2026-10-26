@@ -154,6 +154,15 @@ cronometrados; lo grabado sigue siendo lo pedaleado). Botón «Soltarme». Chat 
 de antes siguen con kJ. Strava en el panel: solo cambia la ficha el aparato donde se conectó o
 desconectó (`estadoStravaAqui`).
 
+26-10: cruces entre circuitos (`CRUCES` en `circuitos.ts`, dos por vuelta en llano): a 600 m sale el
+aviso «🔀 Cruce» con ⬅️/⬆️/➡️ y, al pasarlo, `pasarACircuito` carga el otro (igual que el cambio en meta);
+en el 3D, cartel azul 80 m antes y ramales de asfalto. Pegado a otro no se gira. Rendimiento: cada ciclista
+pesaba ~515 000 triángulos (zapatillas 65 000 cada una) y el público llevaba las mismas zapatillas.
+`enDetalleBajo(fn, factor)` (sdf.ts) genera versiones con vóxeles más gruesos (claves `|lejosN` en la caché);
+`Ciclista3D.ponerDetalle` las usa a más de 22 m, a más de 350 m el ciclista no se dibuja, y el público usa
+siempre las ligeras. Con 3 grupetas: de 5,7 M a ~1,8 M triángulos por imagen. Cuadro y manillar con factor
+1,7-1,8 (con 3 los tubos desaparecen). Las fichas guardan `stravaAtleta` (nombre en Strava).
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

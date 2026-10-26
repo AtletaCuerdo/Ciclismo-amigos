@@ -16,6 +16,7 @@ import { clone as clonarConEsqueleto } from 'three/examples/jsm/utils/SkeletonUt
 import type { Sexo } from './avatar';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PIEL_REFERENCIA, mallaCuerpo, type Plantillas } from './ciclistaHumano';
+import { enDetalleBajo } from './sdf';
 import { geometriaZapatilla } from './zapatilla';
 
 /** Gestos: 0 brazos arriba agitándolos, 1 aplaudiendo, 2 brazos abajo (mirando). */
@@ -313,10 +314,11 @@ export class PublicoHumano {
           this.materiales.push(mat);
           this.cabezas.set(`${sexo}-${esPelo ? 'cejas' : 'ojos'}`, capa(geometriaHorneada(o, hornear(o, false)), mat, false));
         });
-        // Zapatillas de verdad (las del ciclista: las piernas están en reposo, así que encajan)
+        // Zapatillas de verdad (las del ciclista: las piernas están en reposo, así que encajan), de
+        // poco detalle: el público siempre se ve a unos metros y así pesa 9 veces menos
         const zapas = mergeGeometries(
           (['l', 'r'] as const).map((lado) => {
-            const g = geometriaZapatilla(cuerpo, sexo, lado).clone();
+            const g = enDetalleBajo(() => geometriaZapatilla(cuerpo, sexo, lado)).clone();
             for (const n of Object.keys(g.attributes)) if (n !== 'position' && n !== 'normal') g.deleteAttribute(n);
             return g;
           }),

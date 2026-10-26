@@ -3805,3 +3805,52 @@ p {
   background: linear-gradient(135deg, #f87171, #dc2626);
   color: #fff;
 }
+
+/* ---------- Cruces con otros circuitos ---------- */
+
+.aviso-cruce {
+  position: absolute;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 16px;
+  background: rgba(15, 17, 21, 0.8);
+  border: 1px solid rgba(34, 211, 238, 0.5);
+  color: #fff;
+  max-width: calc(100vw - 32px);
+}
+
+.aviso-cruce-titulo {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.aviso-cruce-botones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.aviso-cruce-botones button {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-weight: 700;
+}
+
+.aviso-cruce-botones button.activo {
+  background: var(--degradado);
+  border-color: transparent;
+  color: var(--texto-sobre-acento);
+}

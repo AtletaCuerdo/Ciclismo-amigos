@@ -19,6 +19,7 @@ import type { Avatar, Peinado, Sexo } from './avatar';
 import { EquipoCabeza, GLSL_RECORTE_PELO, medirCabeza, type MedidasCabeza } from './equipamiento';
 import { rutaPublica } from './recursos';
 import { materialCuadro } from './bici';
+import { enDetalleBajo } from './sdf';
 import { geometriaZapatilla } from './zapatilla';
 
 // ---------------------------------------------------------------------------
@@ -730,6 +731,7 @@ export class JineteHumano {
     this.materiales.push(this.matZapatillas);
     for (const lado of ['l', 'r'] as const) {
       const z = new THREE.Mesh(geometriaZapatilla(cuerpo, sexo, lado), this.matZapatillas);
+      z.userData.lejos = enDetalleBajo(() => geometriaZapatilla(cuerpo, sexo, lado));
       z.castShadow = true;
       const pie = hueso(lado === "l" ? 'foot_l' : 'foot_r');
       z.applyMatrix4(pie.matrixWorld.clone().invert());

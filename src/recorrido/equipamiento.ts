@@ -14,7 +14,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Casco } from './avatar';
 import { mallaGuardada } from './cacheMallas';
-import { libre, mallaSdf, smax } from './sdf';
+import { enDetalleBajo, factorDetalleAhora, libre, mallaSdf, smax } from './sdf';
 
 const GRADOS = Math.PI / 180;
 
@@ -360,7 +360,7 @@ interface GeometriasGafas {
 const cache = new Map<string, GeometriasCasco>();
 
 export function geometriasCasco(clave: string, m: MedidasCabeza, tipo: Casco): GeometriasCasco {
-  const k = `${clave}|${tipo}`;
+  const k = `${clave}|${tipo}|${factorDetalleAhora()}`;
   let g = cache.get(k);
   if (!g) {
     g = construirGeometrias(m, tipo, clave);
@@ -712,6 +712,7 @@ export class EquipoCabeza {
       this.matCasco.customProgramCacheKey = () => 'casco-ciclista';
     }
     const exterior = new THREE.Mesh(g.exterior, this.matCasco);
+    if (!def.tela) exterior.userData.lejos = enDetalleBajo(() => geometriasCasco(clave, m, tipo).exterior);
     exterior.castShadow = true;
     this.grupo.add(exterior);
     this.materiales.push(this.matCasco);

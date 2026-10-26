@@ -15,7 +15,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { MARCAS, type ModeloBici, type TipoRuedas } from './avatar';
 import { mallaGuardada } from './cacheMallas';
-import { caja, cilindroZ, mallaSdf, tubo, tuboCurvo, type Primitiva, type Vec } from './sdf';
+import { caja, cilindroZ, enDetalleBajo, factorDetalleAhora, mallaSdf, tubo, tuboCurvo, type Primitiva, type Vec } from './sdf';
 
 const V = (x: number, y: number, z = 0) => new THREE.Vector3(x, y, z);
 
@@ -292,7 +292,7 @@ interface MallaCuadro {
   diagonalFondo: number;
 }
 
-const cacheCuadro = new Map<ModeloBici, MallaCuadro>();
+const cacheCuadro = new Map<string, MallaCuadro>();
 
 /** Tubo diagonal: del pedalier a la parte trasera-baja del tubo de dirección (sin generar la malla). */
 export function tuboDiagonal(modelo: ModeloBici) {
@@ -306,7 +306,7 @@ export function tuboDiagonal(modelo: ModeloBici) {
 }
 
 export function mallaCuadro(modelo: ModeloBici): MallaCuadro {
-  const hecho = cacheCuadro.get(modelo);
+  const hecho = cacheCuadro.get(`${modelo}|${factorDetalleAhora()}`);
   if (hecho) return hecho;
   const P = puntosCuadro(modelo);
   const d = P.def;
@@ -435,7 +435,7 @@ export function mallaCuadro(modelo: ModeloBici): MallaCuadro {
     },
   }));
   const m: MallaCuadro = { geometria, diagonalA: dtA, diagonalB: dtB, diagonalFondo: (d.diagonal[0] + d.diagonal[2]) / 2 };
-  cacheCuadro.set(modelo, m);
+  cacheCuadro.set(`${modelo}|${factorDetalleAhora()}`, m);
   return m;
 }
 
@@ -549,10 +549,10 @@ function cockpit(P: PuntosCuadro, modelo: ModeloBici): Cockpit {
   return { prims, agarre: muneca.clone(), codo };
 }
 
-const cacheCockpit = new Map<ModeloBici, THREE.BufferGeometry>();
+const cacheCockpit = new Map<string, THREE.BufferGeometry>();
 
 export function mallaCockpit(modelo: ModeloBici): THREE.BufferGeometry {
-  let g = cacheCockpit.get(modelo);
+  let g = cacheCockpit.get(`${modelo}|${factorDetalleAhora()}`);
   if (g) return g;
   const P = puntosCuadro(modelo);
   const c = cockpit(P, modelo);
@@ -573,7 +573,7 @@ export function mallaCockpit(modelo: ModeloBici): THREE.BufferGeometry {
       return PESOS[id] ?? PESOS[Z.carbono];
     },
   }));
-  cacheCockpit.set(modelo, g);
+  cacheCockpit.set(`${modelo}|${factorDetalleAhora()}`, g);
   return g;
 }
 
@@ -1245,8 +1245,9 @@ export function montarBici(modelo: ModeloBici, ruedasTipo: TipoRuedas, m: Materi
   }
 
   // Cuadro, horquilla y cockpit
-  malla(mallaCuadro(modelo).geometria, m.cuadro, false);
-  malla(mallaCockpit(modelo), m.cuadro, false);
+  // Con su versión de poco detalle para cuando se ve de lejos (Ciclista3D.ponerDetalle)
+  malla(mallaCuadro(modelo).geometria, m.cuadro, false).userData.lejos = enDetalleBajo(() => mallaCuadro(modelo).geometria, 1.7);
+  malla(mallaCockpit(modelo), m.cuadro, false).userData.lejos = enDetalleBajo(() => mallaCockpit(modelo), 1.8);
 
   // Sillín con raíles
   const sillin = malla(geometriaSillin(G.cabra), m.negro);

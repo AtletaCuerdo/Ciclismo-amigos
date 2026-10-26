@@ -361,6 +361,23 @@ export class Ciclista3D {
     }
   }
 
+  private cerca = true;
+  private repasoDetalle = 0;
+  /**
+   * Detalle según la distancia: de lejos, cuadro, cockpit, casco y zapatillas pasan a su versión
+   * ligera (unas 9 veces menos triángulos). Se repasa de vez en cuando por si el cuerpo se ha
+   * montado después (carga en segundo plano o cambio de avatar).
+   */
+  ponerDetalle(cerca: boolean) {
+    if (cerca === this.cerca && ++this.repasoDetalle % 90 !== 0) return;
+    this.cerca = cerca;
+    this.raiz.traverse((o) => {
+      if (!(o instanceof THREE.Mesh) || !o.userData.lejos) return;
+      if (!o.userData.cerca) o.userData.cerca = o.geometry;
+      o.geometry = cerca ? o.userData.cerca : o.userData.lejos;
+    });
+  }
+
   /** Pone (o quita, con null) el cartel de la espalda; solo se redibuja si cambia el texto o el color. */
   ponerCartelTrasero(texto: string | null, color = '#ffffff') {
     const clave = texto === null ? '' : `${texto}|${color}`;

@@ -68,13 +68,13 @@ import { calcularTotales, publicarTotales } from './multijugador/rankings';
 import { PantallaRankings } from './components/PantallaRankings';
 import { PantallaAdmin } from './components/PantallaAdmin';
 import { esAdmin, publicarFicha } from './cuenta/admin';
-import { estadoStravaAqui } from './strava/strava';
+import { estadoStravaAqui, leerConexion } from './strava/strava';
 import { PantallaResumenes } from './components/PantallaResumenes';
 import { CircuitoElegido, PantallaCircuitos } from './components/PantallaCircuitos';
 import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
 import { mantenerPantallaEncendida, soltarPantalla } from './pantallaEncendida';
 import { CIRCUITO, LONGITUD_VUELTA_M, pendiente as pendienteRuta, usarCircuito } from './recorrido/perfil';
-import { CIRCUITOS, circuitoPorId, longitudDe } from './recorrido/circuitos';
+import { CIRCUITOS, CRUCES, circuitoPorId, longitudDe } from './recorrido/circuitos';
 import {
   CIELOS,
   cieloSegunHora,
@@ -1058,6 +1058,7 @@ export default function App() {
           sesiones: t.sesiones,
           metros: t.metros,
           strava: estadoStravaAqui(),
+          stravaAtleta: leerConexion()?.atleta,
         });
       })
       .catch(() => undefined); // sin las reglas nuevas: se intenta la próxima vez
@@ -1249,6 +1250,15 @@ export default function App() {
     const sobra = distanciaRef.current - vuelta * LONGITUD_VUELTA_M;
     const id = circuitoSiguiente;
     setCircuitoSiguiente(null);
+    pasarACircuito(id, sobra);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grabacion.distanciaM, enRecorrido, circuitoSiguiente]);
+
+  /**
+   * Pasa a otro circuito en el punto `sobra` de su vuelta (en su meta o al girar en un cruce): lo
+   * grabado sigue en la misma actividad; los tramos, el fantasma y las grupetas empiezan de nuevo.
+   */
+  const pasarACircuito = (id: string, sobra: number) => {
     elegirCircuito(id);
     setAdelanto(sobra - grabacion.distanciaM);
     cronoRef.current.cancelar();
@@ -1272,8 +1282,28 @@ export default function App() {
         if (nombreVisible) void salida.unirse(nombreVisible, circuitoPorId(id).sala);
       });
     }
+  };
+
+  // ---- Cruces: a 600 m de uno se puede elegir girar a otro circuito ----
+  const [eleccionCruce, setEleccionCruce] = useState<{ km: number; lado: 'izquierda' | 'derecha' } | null>(null);
+  const enLaVuelta = ((distanciaRef.current % LONGITUD_VUELTA_M) + LONGITUD_VUELTA_M) % LONGITUD_VUELTA_M;
+  // Pegado a otro («siempre juntos») no se gira: el ritmo y el camino los marca él
+  const proximoCruce = pegadoRef.current
+    ? null
+    : (CRUCES[circuitoId] ?? [])
+        .map((c) => ({ cruce: c, metros: c.km * 1000 - enLaVuelta }))
+        .find((c) => c.metros > 0 && c.metros <= 600) ?? null;
+  useEffect(() => {
+    if (!enRecorrido || !eleccionCruce) return;
+    const pasado = enLaVuelta - eleccionCruce.km * 1000;
+    if (pasado < 0) return;
+    const elegido = eleccionCruce;
+    setEleccionCruce(null);
+    const salidaCruce = (CRUCES[circuitoId] ?? []).find((c) => c.km === elegido.km)?.[elegido.lado];
+    // Se gira solo si se acaba de pasar el cruce (si no, p. ej. tras un salto, se olvida la elección)
+    if (salidaCruce && pasado < 150) pasarACircuito(salidaCruce.circuito, salidaCruce.km * 1000 + pasado);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grabacion.distanciaM, enRecorrido, circuitoSiguiente]);
+  }, [grabacion.distanciaM, enRecorrido]);
 
   /** Entrar a una salida programada: a su circuito y, si ya hay alguien rodando, a su lado. */
   const entrarProgramada = (circuito: string) => {
@@ -1970,6 +2000,17 @@ export default function App() {
               onElegir: elegirSiguienteCircuito,
               alMomento: !grabacion.hayDatos,
             }}
+            cruce={
+              proximoCruce
+                ? {
+                    metros: proximoCruce.metros,
+                    izquierda: proximoCruce.cruce.izquierda ? circuitoPorId(proximoCruce.cruce.izquierda.circuito).nombre : null,
+                    derecha: proximoCruce.cruce.derecha ? circuitoPorId(proximoCruce.cruce.derecha.circuito).nombre : null,
+                    eleccion: eleccionCruce?.km === proximoCruce.cruce.km ? eleccionCruce.lado : null,
+                    onElegir: (lado) => setEleccionCruce(lado ? { km: proximoCruce.cruce.km, lado } : null),
+                  }
+                : null
+            }
             avatar={perfil.avatar}
             calidad={calidad}
             leerYo={() => ({

@@ -97,7 +97,10 @@ export function PantallaAdmin({ onVolver }: { onVolver: () => void }) {
                       </td>
                       <td>{f.sesiones}</td>
                       <td>{km(f.metros)}</td>
-                      <td>{f.pendiente ? '?' : f.strava ? '✅' : '—'}</td>
+                      <td>
+                        {f.pendiente ? '?' : f.strava ? '✅' : '—'}
+                        {f.strava && f.stravaAtleta && <small>{f.stravaAtleta}</small>}
+                      </td>
                       <td>{f.pendiente ? '?' : fecha(f.alta)}</td>
                       <td>{fecha(f.t)}</td>
                     </tr>

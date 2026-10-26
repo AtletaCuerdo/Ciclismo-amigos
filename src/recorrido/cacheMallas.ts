@@ -8,6 +8,7 @@
  * Hay que subir VERSION cuando cambie cómo se generan las mallas.
  */
 import * as THREE from 'three';
+import { factorDetalleAhora } from './sdf';
 
 const VERSION = 4;
 const BD = 'ciclismo-mallas';
@@ -92,7 +93,8 @@ function aGeometria(d: Datos) {
 
 /** Devuelve la malla guardada con esa clave o la genera (y la guarda para la próxima vez). */
 export function mallaGuardada(clave: string, generar: () => THREE.BufferGeometry): THREE.BufferGeometry {
-  const k = `${clave}|v${VERSION}`;
+  const f = factorDetalleAhora();
+  const k = `${clave}${f !== 1 ? `|lejos${f}` : ''}|v${VERSION}`;
   const guardada = memoria.get(k);
   if (guardada) return aGeometria(guardada);
   const g = generar();

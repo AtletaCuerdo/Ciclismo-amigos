@@ -269,6 +269,43 @@ export const CIRCUITOS: DefCircuito[] = [
   },
 ];
 
+/** Salida de un cruce: a qué circuito lleva y en qué km de él apareces. */
+export interface SalidaCruce {
+  circuito: string;
+  km: number;
+}
+
+/** Cruce en un llano del circuito: girando a un lado o al otro se pasa a otro circuito. */
+export interface Cruce {
+  km: number;
+  izquierda?: SalidaCruce;
+  derecha?: SalidaCruce;
+}
+
+/**
+ * Cruces de cada circuito (dos por vuelta, siempre en llano, y desde cada uno se llega a los otros
+ * tres). Cada circuito es un mundo aparte: al girar se carga el otro y apareces en su km indicado,
+ * también en llano. El desnivel grabado sale de la pendiente, así que el salto de altitud no cuenta.
+ */
+export const CRUCES: Record<string, Cruce[]> = {
+  vuelta17: [
+    { km: 1, derecha: { circuito: 'sierra', km: 1.5 } },
+    { km: 8.5, izquierda: { circuito: 'ribera', km: 9.5 }, derecha: { circuito: 'costa', km: 2.5 } },
+  ],
+  ribera: [
+    { km: 9.5, izquierda: { circuito: 'vuelta17', km: 8.5 }, derecha: { circuito: 'costa', km: 1.5 } },
+    { km: 18.5, derecha: { circuito: 'sierra', km: 1.5 } },
+  ],
+  sierra: [
+    { km: 1.5, izquierda: { circuito: 'vuelta17', km: 1 }, derecha: { circuito: 'ribera', km: 18.5 } },
+    { km: 12, derecha: { circuito: 'costa', km: 11 } },
+  ],
+  costa: [
+    { km: 2.5, izquierda: { circuito: 'vuelta17', km: 8.5 }, derecha: { circuito: 'ribera', km: 9.5 } },
+    { km: 11, izquierda: { circuito: 'sierra', km: 12 } },
+  ],
+};
+
 export const CIRCUITO_POR_DEFECTO = CIRCUITOS[0].id;
 
 export const circuitoPorId = (id: string) => CIRCUITOS.find((c) => c.id === id) ?? CIRCUITOS[0];

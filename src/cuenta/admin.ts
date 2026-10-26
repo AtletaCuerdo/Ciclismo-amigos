@@ -1,7 +1,7 @@
 /**
  * Panel del administrador: quién tiene cuenta en RideCrew y cuánto rueda.
  *
- *   fichas/{uid} = { nombre, correo, sesiones, metros, strava, alta, t }
+ *   fichas/{uid} = { nombre, correo, sesiones, metros, strava, stravaAtleta?, alta, t }
  *
  * Cada ciclista con cuenta publica su ficha al abrir la web (y al guardar sesiones o conectar
  * Strava). Las reglas solo dejan leer todas las fichas al administrador (su uid está escrito en
@@ -17,6 +17,8 @@ export interface Ficha {
   metros: number;
   /** Tiene la subida a Strava conectada (en el último aparato desde el que entró). */
   strava: boolean;
+  /** Nombre con el que se conectó a Strava (para saber quién ocupa cada plaza de la aplicación). */
+  stravaAtleta?: string;
   /** Fecha de alta de la cuenta (ms). */
   alta: number;
   /** Última vez que abrió la web con la cuenta (ms del servidor). */
@@ -29,11 +31,17 @@ export interface Ficha {
 }
 
 /** `strava` undefined: en este aparato no se sabe (se deja lo que dijo el último que lo sabía). */
-export async function publicarFicha(uid: string, datos: { nombre: string; sesiones: number; metros: number; strava?: boolean }) {
+export async function publicarFicha(
+  uid: string,
+  datos: { nombre: string; sesiones: number; metros: number; strava?: boolean; stravaAtleta?: string },
+) {
   const { fb } = await cargarFirebase();
   const u = fb.auth.currentUser;
   if (!u || u.uid !== uid) return;
-  const strava = datos.strava ?? (await fb.get(fb.ref(fb.db, `fichas/${uid}/strava`)).catch(() => null))?.val() === true;
+  // Lo que no se sabe en este aparato se deja como lo dejó el último que lo sabía
+  const antes = datos.strava === undefined ? ((await fb.get(fb.ref(fb.db, `fichas/${uid}`)).catch(() => null))?.val() ?? {}) : {};
+  const strava = datos.strava ?? antes.strava === true;
+  const stravaAtleta = datos.strava === undefined ? antes.stravaAtleta : datos.stravaAtleta;
   const alta = Date.parse(u.metadata.creationTime ?? '') || Date.now();
   await fb.set(fb.ref(fb.db, `fichas/${uid}`), {
     nombre: (datos.nombre || 'Ciclista').slice(0, 30),
@@ -41,6 +49,7 @@ export async function publicarFicha(uid: string, datos: { nombre: string; sesion
     sesiones: datos.sesiones,
     metros: Math.round(datos.metros),
     strava,
+    ...(strava && typeof stravaAtleta === 'string' && stravaAtleta ? { stravaAtleta: stravaAtleta.slice(0, 60) } : {}),
     alta,
     t: fb.serverTimestamp(),
   });
@@ -80,6 +89,7 @@ export async function leerFichas(): Promise<{ fichas: Ficha[]; sinCuenta: number
       sesiones: Number(v.sesiones) || 0,
       metros: Number(v.metros) || 0,
       strava: v.strava === true,
+      stravaAtleta: typeof v.stravaAtleta === 'string' ? v.stravaAtleta : undefined,
       alta: Number(v.alta) || 0,
       t: Number(v.t) || 0,
     });

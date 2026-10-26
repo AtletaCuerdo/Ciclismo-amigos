@@ -108,6 +108,17 @@ interface Props {
   /** Circuito actual y el siguiente (se cambia al cruzar la meta). */
   /** `alMomento`: aún no se ha grabado nada, así que el circuito cambia ya (no al cruzar la meta). */
   circuito: { actual: string; siguiente: string | null; onElegir: (id: string | null) => void; alMomento: boolean };
+  /**
+   * Cruce que viene (a menos de 600 m): a qué circuito se va por cada lado (null si por ahí no hay
+   * salida), lo elegido y cómo elegir (null = seguir recto).
+   */
+  cruce: {
+    metros: number;
+    izquierda: string | null;
+    derecha: string | null;
+    eleccion: 'izquierda' | 'derecha' | null;
+    onElegir: (lado: 'izquierda' | 'derecha' | null) => void;
+  } | null;
   /** «Siempre juntos»: con quién voy, quién marca el ritmo y cómo soltarme (null si no voy pegado). */
   juntos: { companeros: string[]; marcaRitmo: string | null; esperando: boolean; onSoltar: () => void } | null;
   /** Mi nombre (para el dorsal). */
@@ -272,6 +283,7 @@ const km = (m: number, dec = 1) => (m / 1000).toFixed(dec).replace('.', ',');
 
 export default function VistaRecorrido({
   juntos,
+  cruce,
   avatar,
   calidad,
   leerYo,
@@ -936,6 +948,27 @@ export default function VistaRecorrido({
             <button className="boton-principal" onClick={() => setMenuSensores(false)}>
               Listo
             </button>
+          </div>
+        </div>
+      )}
+
+      {cruce && (
+        <div className="aviso-cruce">
+          <span className="aviso-cruce-titulo">🔀 Cruce en {Math.round(cruce.metros / 10) * 10} m</span>
+          <div className="aviso-cruce-botones">
+            {cruce.izquierda && (
+              <button className={cruce.eleccion === 'izquierda' ? 'activo' : ''} onClick={() => cruce.onElegir('izquierda')}>
+                ⬅️ {cruce.izquierda}
+              </button>
+            )}
+            <button className={cruce.eleccion === null ? 'activo' : ''} onClick={() => cruce.onElegir(null)}>
+              ⬆️ Seguir
+            </button>
+            {cruce.derecha && (
+              <button className={cruce.eleccion === 'derecha' ? 'activo' : ''} onClick={() => cruce.onElegir('derecha')}>
+                {cruce.derecha} ➡️
+              </button>
+            )}
           </div>
         </div>
       )}
