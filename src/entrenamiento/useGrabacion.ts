@@ -9,6 +9,7 @@
  */
 import { useEffect, useReducer, useRef } from 'react';
 import { nuevoId } from './almacen';
+import { kcalSesion, type DatosCalorias } from './calorias';
 import { calcularResumen } from './resumen';
 import type { Entreno, Muestra } from './tipos';
 
@@ -69,6 +70,8 @@ export function useGrabacion(
   leerActual: () => ValoresActuales,
   leerPendiente: () => number | null,
   leerAdelanto?: () => number,
+  /** Peso, edad y sexo para las calorías. */
+  leerDatosCalorias?: () => DatosCalorias,
 ) {
   const g = useRef<Interno>(vacio());
   const [, refrescar] = useReducer((x: number) => x + 1, 0);
@@ -159,7 +162,12 @@ export function useGrabacion(
     return {
       id: nuevoId(),
       inicio: actual.inicio,
-      resumen: calcularResumen(actual.muestras, Math.round(actual.acumuladoMs / 1000), actual.potenciaEstimada),
+      resumen: calcularResumen(
+        actual.muestras,
+        Math.round(actual.acumuladoMs / 1000),
+        actual.potenciaEstimada,
+        leerDatosCalorias?.(),
+      ),
       muestras: actual.muestras,
     };
   };
@@ -195,6 +203,8 @@ export function useGrabacion(
     pulsoMedio: s.muestrasPulso ? s.sumaPulso / s.muestrasPulso : undefined,
     /** Una muestra por segundo: julios = suma de vatios. En bici, kcal gastadas ≈ kJ de trabajo. */
     kilojulios: s.sumaPotencia / 1000,
+    /** Calorías hasta ahora (por pulso o por vatios, ver calorias.ts). */
+    kcal: leerDatosCalorias ? kcalSesion(s.muestras, leerDatosCalorias()) : s.sumaPotencia / 1000,
     iniciar,
     pausar,
     finalizar,

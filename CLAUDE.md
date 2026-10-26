@@ -31,7 +31,7 @@ tiene que llamarse dentro del propio clic.
   **subir VERSION si cambia su generación**), humano con IK de piernas, brazos, agarre de dedos y
   tronco ajustado al manillar (`ciclistaHumano.ts`), casco y gafas (`equipamiento.ts`), zapatillas
   (`zapatilla.ts`), avatar, física, perfil de 17 km y terreno.
-- `src/entrenamientos/`: 128 entrenamientos: base (`catalogo.ts`) + biblioteca ampliada (`biblioteca.ts`,
+- `src/entrenamientos/`: 151 entrenamientos: base (`catalogo.ts`) + biblioteca ampliada (`biblioteca.ts`,
   propia, basada en protocolos clásicos; potencias en % del FTP), importador de archivos .zwo/.mrc/.erg
   (`importar.ts`, categoría automática por intensidad),
   entrenamientos propios (`propios.ts`, se guardan en el navegador) y tipos.
@@ -147,6 +147,12 @@ el más exigente; los demás van pegados (`pegadoRef`: su punto y su velocidad e
 cronometrados; lo grabado sigue siendo lo pedaleado). Botón «Soltarme». Chat con mensajes de voz
 (MediaRecorder, MP4/AAC o WebM, 24 kbit/s, máx. 20 s, en base64 dentro del mensaje: `audio`, `dur`).
 **Necesita las reglas nuevas pegadas.**
+
+26-10: 8 entrenos nuevos (VO2Max 30/30 de 4 y 5 bloques; 6 de tempo alto al 84-90 %). Calorías
+(`entrenamiento/calorias.ts`, `resumen.kcal`): por pulso con la fórmula de Keytel 2005 si hay pulsómetro en
+≥ 70 % de la sesión y el perfil tiene edad y sexo (Ajustes), y si no, kJ / 22 % de eficiencia; las sesiones
+de antes siguen con kJ. Strava en el panel: solo cambia la ficha el aparato donde se conectó o
+desconectó (`estadoStravaAqui`).
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).

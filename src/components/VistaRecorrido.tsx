@@ -60,6 +60,7 @@ interface Props {
     cadenciaMedia?: number;
     pulsoMedio?: number;
     kilojulios: number;
+    kcal: number;
     iniciar: () => void;
     pausar: () => void;
   };
@@ -596,9 +597,9 @@ export default function VistaRecorrido({
                 <b>{Math.round(grabacion.pulsoMedio)} ppm</b> med.
               </span>
             )}
-            {grabacion.kilojulios >= 1 && (
+            {grabacion.kcal >= 1 && (
               <span className="hud-media">
-                <b>{Math.round(grabacion.kilojulios)} kcal</b>
+                <b>{Math.round(grabacion.kcal)} kcal</b>
               </span>
             )}
             <span className="hud-media">

@@ -28,17 +28,19 @@ export interface Ficha {
   pendiente?: boolean;
 }
 
-export async function publicarFicha(uid: string, datos: { nombre: string; sesiones: number; metros: number; strava: boolean }) {
+/** `strava` undefined: en este aparato no se sabe (se deja lo que dijo el último que lo sabía). */
+export async function publicarFicha(uid: string, datos: { nombre: string; sesiones: number; metros: number; strava?: boolean }) {
   const { fb } = await cargarFirebase();
   const u = fb.auth.currentUser;
   if (!u || u.uid !== uid) return;
+  const strava = datos.strava ?? (await fb.get(fb.ref(fb.db, `fichas/${uid}/strava`)).catch(() => null))?.val() === true;
   const alta = Date.parse(u.metadata.creationTime ?? '') || Date.now();
   await fb.set(fb.ref(fb.db, `fichas/${uid}`), {
     nombre: (datos.nombre || 'Ciclista').slice(0, 30),
     correo: (u.email ?? '').slice(0, 100),
     sesiones: datos.sesiones,
     metros: Math.round(datos.metros),
-    strava: datos.strava,
+    strava,
     alta,
     t: fb.serverTimestamp(),
   });

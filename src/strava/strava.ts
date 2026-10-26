@@ -43,8 +43,25 @@ export function leerConexion(): ConexionStrava | null {
   }
 }
 
+/** En este aparato se ha conectado o desconectado Strava alguna vez (para el panel del administrador). */
+const CLAVE_TOCADO = 'rodillos.stravaAqui';
+
+/**
+ * ¿Tiene Strava conectado? true o false si se ha conectado o desconectado en este aparato; undefined
+ * si aquí nunca se ha tocado (puede que lo tenga conectado en otro aparato).
+ */
+export function estadoStravaAqui(): boolean | undefined {
+  if (leerConexion()) return true;
+  try {
+    return localStorage.getItem(CLAVE_TOCADO) ? false : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function guardarConexion(c: ConexionStrava | null) {
   try {
+    localStorage.setItem(CLAVE_TOCADO, '1');
     if (c) localStorage.setItem(CLAVE, JSON.stringify(c));
     else localStorage.removeItem(CLAVE);
   } catch {

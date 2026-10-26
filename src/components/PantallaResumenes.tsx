@@ -50,7 +50,7 @@ function resumir(lista: EntrenoGuardado[]) {
     km: suma((g) => g.resumen.distanciaM) / 1000,
     horas: segundos / 3600,
     desnivel: suma((g) => g.resumen.desnivelM),
-    kcal: suma((g) => g.resumen.kilojulios),
+    kcal: suma((g) => g.resumen.kcal ?? g.resumen.kilojulios),
     rueda: suma((g) => g.resumen.segundosRueda ?? 0),
     vatiosMedios: sVatios > 0 ? conVatios.reduce((a, g) => a + (g.resumen.potenciaMedia ?? 0) * g.resumen.duracionS, 0) / sVatios : null,
     dias: new Set(lista.map((g) => new Date(g.inicio).toDateString())).size,

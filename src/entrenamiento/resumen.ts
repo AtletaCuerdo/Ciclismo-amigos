@@ -1,3 +1,4 @@
+import { calculaPorPulso, kcalSesion, type DatosCalorias } from './calorias';
 import type { Muestra, Resumen } from './tipos';
 
 const media = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : undefined);
@@ -8,6 +9,7 @@ export function calcularResumen(
   muestras: Muestra[],
   duracionS: number,
   potenciaEstimada: boolean,
+  datosCalorias?: DatosCalorias,
 ): Resumen {
   const potencias = muestras.flatMap((m) => (m.p !== undefined ? [Math.max(0, m.p)] : []));
   const velocidades = muestras.flatMap((m) => (m.v !== undefined ? [m.v] : []));
@@ -38,6 +40,9 @@ export function calcularResumen(
     pulsoMax: maximo(pulsos),
     // Una muestra ≈ 1 segundo → julios = suma de vatios
     kilojulios: potencias.reduce((a, b) => a + b, 0) / 1000,
+    ...(datosCalorias
+      ? { kcal: kcalSesion(muestras, datosCalorias), kcalPorPulso: calculaPorPulso(muestras, datosCalorias) }
+      : {}),
   };
 }
 

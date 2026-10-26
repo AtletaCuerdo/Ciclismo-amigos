@@ -24,6 +24,10 @@ export interface Resumen {
   pulsoMedio?: number;
   pulsoMax?: number;
   kilojulios: number;
+  /** Calorías gastadas (ver calorias.ts). En las sesiones de antes no está: se usan los kJ. */
+  kcal?: number;
+  /** Las calorías salieron del pulso (si no, de los vatios). */
+  kcalPorPulso?: boolean;
   /** Tiempo a rueda de otro ciclista (rebufo) en la salida en grupo, s. */
   segundosRueda?: number;
   /** Circuito en el que se rodó (para los resúmenes); el último si se cambió. */

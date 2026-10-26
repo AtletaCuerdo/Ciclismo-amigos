@@ -68,7 +68,7 @@ import { calcularTotales, publicarTotales } from './multijugador/rankings';
 import { PantallaRankings } from './components/PantallaRankings';
 import { PantallaAdmin } from './components/PantallaAdmin';
 import { esAdmin, publicarFicha } from './cuenta/admin';
-import { leerConexion } from './strava/strava';
+import { estadoStravaAqui } from './strava/strava';
 import { PantallaResumenes } from './components/PantallaResumenes';
 import { CircuitoElegido, PantallaCircuitos } from './components/PantallaCircuitos';
 import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
@@ -528,6 +528,7 @@ export default function App() {
     leerActual,
     () => pendienteRef.current,
     () => adelantoRef.current,
+    () => ({ pesoKg: perfil.pesoKg, edad: perfil.edad, sexo: perfil.sexo }),
   );
 
   // ---- Punto del circuito ----
@@ -1056,7 +1057,7 @@ export default function App() {
           nombre: nombreVisible || usuario.nombre,
           sesiones: t.sesiones,
           metros: t.metros,
-          strava: leerConexion() !== null,
+          strava: estadoStravaAqui(),
         });
       })
       .catch(() => undefined); // sin las reglas nuevas: se intenta la próxima vez

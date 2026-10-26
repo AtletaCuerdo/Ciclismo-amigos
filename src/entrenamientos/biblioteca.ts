@@ -117,6 +117,13 @@ const TEMPO: Def[] = [
   { id: 'b-tem-progresivo', nombre: 'Tempo progresivo 3×10′', categoria: 'tempo', descripcion: 'Cada bloque empieza al 76 % y termina al 88 %.', bloques: [...calentar(10, 72), ...rep(3, [r(10, 76, 88), c(4, 58)]), ...volverCalma()] },
   { id: 'b-tem-mixto', nombre: 'Tempo y umbral 65′', categoria: 'tempo', descripcion: 'Treinta minutos al 80 % y un remate de 6′ al 97 %.', bloques: [...calentar(10, 72), c(30, 80), c(5, 58), c(6, 97), r(14, 62, 42)] },
   { id: 'b-tem-bloques-cortos', nombre: 'Tempo en bloques 6×6′', categoria: 'tempo', descripcion: 'Seis bloques de 6′ al 82 %: el tempo se hace más ameno partido.', bloques: [...calentar(10, 72), s(6, 6, 82, 2, 58), ...volverCalma()] },
+  // Tempo alto: la parte de arriba de la zona 3 (84-90 %), pegada al umbral
+  { id: 'b-tem-alto-3x15', nombre: 'Tempo alto 3×15′', categoria: 'tempo', descripcion: 'Tres bloques de 15′ al 87 %, en lo alto de la zona 3, con 4′ suaves.', bloques: [...calentar(10, 75), s(3, 15, 87, 4, 58), ...volverCalma()] },
+  { id: 'b-tem-alto-2x25', nombre: 'Tempo alto 2×25′', categoria: 'tempo', descripcion: 'Dos bloques largos de 25′ al 85 %: ritmo de escapada que se aguanta mucho rato.', bloques: [...calentar(10, 75), s(2, 25, 85, 5, 58), ...volverCalma()] },
+  { id: 'b-tem-alto-40', nombre: 'Tempo alto 40′ seguidos', categoria: 'tempo', descripcion: 'Cuarenta minutos sin parar al 86 %. Cabeza y constancia.', bloques: [...calentar(12, 76), c(40, 86), ...volverCalma(8)] },
+  { id: 'b-tem-alto-4x10', nombre: 'Tempo alto 4×10′', categoria: 'tempo', descripcion: 'Cuatro bloques de 10′ al 89 %, justo por debajo del sweet spot, con 3′ de recuperación.', bloques: [...calentar(10, 75), s(4, 10, 89, 3, 58), ...volverCalma()] },
+  { id: 'b-tem-alto-cambios', nombre: 'Tempo alto con cambios 3×12′', categoria: 'tempo', descripcion: 'Cada bloque alterna 2′ al 84 % y 2′ al 90 %: como un llano con viento a rachas.', bloques: [...calentar(10, 75), ...rep(3, [...rep(3, [c(2, 84), c(2, 90)]), c(4, 58)]), ...volverCalma()] },
+  { id: 'b-tem-alto-progresivo', nombre: 'Tempo alto progresivo 3×12′', categoria: 'tempo', descripcion: 'Cada bloque sube del 84 % al 90 % sin parar y luego 4′ suaves.', bloques: [...calentar(10, 75), ...rep(3, [r(12, 84, 90), c(4, 58)]), ...volverCalma()] },
 ];
 
 const THRESHOLD: Def[] = [
@@ -145,6 +152,8 @@ const VO2MAX: Def[] = [
   { id: 'b-vo2-hill', nombre: 'Cuestas de VO2 6×2′30″', categoria: 'vo2max', descripcion: 'Seis «cuestas» de 2′30″ al 115 % a cadencia baja, bajando suave entre ellas.', bloques: [...calentarActivo(), s(6, 2.5, 115, 3, 50), ...volverCalma()] },
   { id: 'b-vo2-mixto', nombre: 'VO2 y umbral 60′', categoria: 'vo2max', descripcion: 'Cuatro series de 3′ al 118 % y, tras descansar, 8′ al 97 %.', bloques: [...calentarActivo(), s(4, 3, 118, 3, 50), c(5, 55), c(8, 97), ...volverCalma(7)] },
   { id: 'b-vo2-20-40', nombre: 'VO2 20/40 (3×8)', categoria: 'vo2max', descripcion: 'Tres bloques de 8 × (20″ al 140 % / 40″ al 60 %): más llevadero que el 30/30.', bloques: [...calentarActivo(), ...rep(3, [s(8, 1 / 3, 140, 2 / 3, 60), c(4, 50)]), ...volverCalma()] },
+  { id: 'b-vo2-3030-4x', nombre: 'VO2Max 30/30 (4×10)', categoria: 'vo2max', descripcion: 'Cuatro bloques de 10 × (30″ al 125 % / 30″ al 50 %) con 5′ suaves entre ellos: un bloque más que el clásico.', bloques: [...calentarActivo(), ...rep(4, [s(10, 0.5, 125, 0.5, 50), c(5, 50)]), r(3, 55, 45)] },
+  { id: 'b-vo2-3030-5x', nombre: 'VO2Max 30/30 (5×10)', categoria: 'vo2max', descripcion: 'Cinco bloques de 10 × (30″ al 125 % / 30″ al 50 %): 25′ cerca del VO2máx. Solo con buena base.', bloques: [...calentarActivo(), ...rep(5, [s(10, 0.5, 125, 0.5, 50), c(5, 50)]), r(3, 55, 45)] },
 ];
 
 /**

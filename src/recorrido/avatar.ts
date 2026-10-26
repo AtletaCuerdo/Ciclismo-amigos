@@ -68,6 +68,18 @@ export interface Perfil {
   pesoKg: number;
   /** Umbral de potencia funcional (W): base de los entrenamientos en ERG. */
   ftp: number;
+  /** Edad y sexo: solo para calcular las calorías por pulso. */
+  edad?: number;
+  sexo?: 'hombre' | 'mujer';
+}
+
+/** Edad y sexo válidos de un perfil guardado (lo demás se descarta). */
+export function edadSexo(g: { edad?: unknown; sexo?: unknown }): Pick<Perfil, 'edad' | 'sexo'> {
+  const edad = Number(g.edad);
+  return {
+    ...(edad >= 10 && edad <= 100 ? { edad: Math.round(edad) } : {}),
+    ...(g.sexo === 'hombre' || g.sexo === 'mujer' ? { sexo: g.sexo } : {}),
+  };
 }
 
 export const MODELOS: { id: ModeloBici; nombre: string; descripcion: string }[] = [
@@ -166,7 +178,12 @@ export function cargarPerfil(): Perfil {
     if (avatar) {
       const peso = Number(g.pesoKg);
       const ftp = Number(g.ftp);
-      return { avatar, pesoKg: peso >= 30 && peso <= 200 ? peso : 75, ftp: ftp >= 50 && ftp <= 600 ? ftp : 200 };
+      return {
+        avatar,
+        pesoKg: peso >= 30 && peso <= 200 ? peso : 75,
+        ftp: ftp >= 50 && ftp <= 600 ? ftp : 200,
+        ...edadSexo(g),
+      };
     }
   } catch {
     // sin almacenamiento: se genera uno nuevo

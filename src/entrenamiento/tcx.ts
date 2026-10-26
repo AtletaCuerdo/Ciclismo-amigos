@@ -90,7 +90,7 @@ export function generarTcx(e: Entreno, geo: Geo | null = null): string {
   vuelta += `<DistanceMeters>${r.distanciaM.toFixed(1)}</DistanceMeters>`;
   if (r.velocidadMax !== undefined) vuelta += `<MaximumSpeed>${(r.velocidadMax / 3.6).toFixed(3)}</MaximumSpeed>`;
   // En ciclismo, kJ de trabajo ≈ kcal gastadas (la eficiencia del cuerpo compensa la conversión)
-  vuelta += `<Calories>${entero(r.kilojulios)}</Calories>`;
+  vuelta += `<Calories>${entero(r.kcal ?? r.kilojulios)}</Calories>`;
   if (r.pulsoMedio) vuelta += `<AverageHeartRateBpm><Value>${entero(r.pulsoMedio)}</Value></AverageHeartRateBpm>`;
   if (r.pulsoMax) vuelta += `<MaximumHeartRateBpm><Value>${entero(r.pulsoMax)}</Value></MaximumHeartRateBpm>`;
   vuelta += '<Intensity>Active</Intensity>';

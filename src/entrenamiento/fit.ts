@@ -287,7 +287,7 @@ export function generarFit(e: Entreno, geo: Geo | null = null): Uint8Array {
       (fin - inicio + 1) * 1000,
       r.duracionS * 1000,
       r.distanciaM * 100,
-      r.kilojulios, // en bici, kJ de trabajo ≈ kcal gastadas
+      r.kcal ?? r.kilojulios, // calorías (en las sesiones de antes, kJ ≈ kcal)
       s.pulso,
       s.pulsoMax,
       s.cadencia,

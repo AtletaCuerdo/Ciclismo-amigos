@@ -160,8 +160,11 @@ export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual,
         <Metrica etiqueta="Pulso medio" valor={r.pulsoMedio} unidad="ppm" />
         <Metrica etiqueta="Pulso máx." valor={r.pulsoMax} unidad="ppm" />
         <Metrica etiqueta="Trabajo" valor={r.kilojulios} unidad="kJ" />
-        {/* En bici el cuerpo aprovecha ~1/4 de la energía: kcal gastadas ≈ kJ de trabajo */}
-        <Metrica etiqueta="Calorías" valor={r.kilojulios} unidad="kcal" />
+        <Metrica
+          etiqueta={r.kcalPorPulso ? 'Calorías (por pulso)' : 'Calorías'}
+          valor={r.kcal ?? r.kilojulios}
+          unidad="kcal"
+        />
         {r.desnivelM > 0 && <Metrica etiqueta="Desnivel +" valor={r.desnivelM} unidad="m" />}
         {r.segundosRueda !== undefined && r.segundosRueda > 0 && (
           <div className="metrica metrica-rueda">

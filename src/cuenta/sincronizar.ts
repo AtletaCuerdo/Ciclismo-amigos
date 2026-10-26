@@ -14,7 +14,7 @@
 import { establecerEspejo, guardarEntrenoLocal, listarEntrenos, cargarEntreno, borrarEntreno as borrarLocal } from '../entrenamiento/almacen';
 import type { Entreno, EntrenoGuardado, Muestra } from '../entrenamiento/tipos';
 import type { Entrenamiento } from '../entrenamientos/tipos';
-import { normalizarAvatar, type Perfil } from '../recorrido/avatar';
+import { edadSexo, normalizarAvatar, type Perfil } from '../recorrido/avatar';
 
 type Fb = typeof import('../multijugador/firebase');
 
@@ -106,7 +106,13 @@ export class Nube {
     const nubePerfil = todo?.perfil;
     const avatarNube = nubePerfil ? normalizarAvatar(nubePerfil.avatar) : null;
     if (nubePerfil && avatarNube && (nubePerfil.t ?? 0) >= local.perfilT) {
-      r.perfil = { avatar: avatarNube, pesoKg: Number(nubePerfil.pesoKg) || local.perfil.pesoKg, ftp: Number(nubePerfil.ftp) || local.perfil.ftp };
+      r.perfil = {
+        avatar: avatarNube,
+        pesoKg: Number(nubePerfil.pesoKg) || local.perfil.pesoKg,
+        ftp: Number(nubePerfil.ftp) || local.perfil.ftp,
+        ...edadSexo(local.perfil),
+        ...edadSexo(nubePerfil),
+      };
     } else {
       await this.subirPerfil(local.perfil);
     }
