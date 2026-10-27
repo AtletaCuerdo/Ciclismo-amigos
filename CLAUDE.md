@@ -163,6 +163,12 @@ pesaba ~515 000 triángulos (zapatillas 65 000 cada una) y el público llevaba l
 siempre las ligeras. Con 3 grupetas: de 5,7 M a ~1,8 M triángulos por imagen. Cuadro y manillar con factor
 1,7-1,8 (con 3 los tubos desaparecen). Las fichas guardan `stravaAtleta` (nombre en Strava).
 
+27-10: el modo demostración solo lo ve el administrador (y en desarrollo). Aviso de altas por correo:
+al entrar con una cuenta creada hace < 30 min, la web llama a `/alta` del Worker de Strava con el ID token
+(`avisarAltaSiNueva` en `cuenta/admin.ts`); el Worker lo valida con `accounts:lookup` de Google y manda el
+correo con el enlace `CORREO` (Email Routing de tricoach.es), `AVISO_DESTINO` y `AVISO_REMITENTE`. Pasos
+del usuario en `servidor-strava/GUIA.md`, parte 3.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

@@ -123,3 +123,35 @@ export async function leerFichas(): Promise<{ fichas: Ficha[]; sinCuenta: number
   );
   return { fichas: lista.sort((a, b) => b.metros - a.metros), sinCuenta };
 }
+
+const CLAVE_ALTA = 'rodillos.altaAvisada';
+/** Solo las cuentas creadas hace menos de esto se avisan (las de antes ya existían). */
+const ALTA_RECIENTE_MS = 30 * 60 * 1000;
+
+/**
+ * Si la cuenta con la que se acaba de entrar es nueva, pide al intermediario (el Worker de Strava)
+ * que avise por correo al administrador. Una vez por cuenta y aparato; sin intermediario, nada.
+ */
+export async function avisarAltaSiNueva(urlIntermediario: string) {
+  if (!urlIntermediario) return;
+  const { fb } = await cargarFirebase();
+  const u = fb.auth.currentUser;
+  if (!u || u.isAnonymous) return;
+  if (!(Date.now() - (Date.parse(u.metadata.creationTime ?? '') || 0) < ALTA_RECIENTE_MS)) return;
+  try {
+    if (localStorage.getItem(CLAVE_ALTA) === u.uid) return;
+  } catch {
+    // sin almacenamiento: se avisa igual (el Worker solo avisa de cuentas recién creadas)
+  }
+  const r = await fetch(`${urlIntermediario.replace(/\/$/, '')}/alta`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken: await u.getIdToken() }),
+  });
+  if (!r.ok) return;
+  try {
+    localStorage.setItem(CLAVE_ALTA, u.uid);
+  } catch {
+    // no es grave
+  }
+}

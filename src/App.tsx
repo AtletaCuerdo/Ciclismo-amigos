@@ -67,8 +67,8 @@ import {
 import { calcularTotales, publicarTotales } from './multijugador/rankings';
 import { PantallaRankings } from './components/PantallaRankings';
 import { PantallaAdmin } from './components/PantallaAdmin';
-import { esAdmin, publicarFicha } from './cuenta/admin';
-import { estadoStravaAqui, leerConexion } from './strava/strava';
+import { avisarAltaSiNueva, esAdmin, publicarFicha } from './cuenta/admin';
+import { estadoStravaAqui, leerConexion, URL_INTERMEDIARIO } from './strava/strava';
 import { PantallaResumenes } from './components/PantallaResumenes';
 import { CircuitoElegido, PantallaCircuitos } from './components/PantallaCircuitos';
 import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
@@ -1063,6 +1063,13 @@ export default function App() {
       })
       .catch(() => undefined); // sin las reglas nuevas: se intenta la próxima vez
   }, [versionHistorial, nombreVisible, usuario?.uid, pantalla]);
+  // Cuenta recién creada: aviso por correo al administrador (lo manda el Worker)
+  useEffect(() => {
+    if (!usuario) return;
+    // Unos segundos de margen: al crear la cuenta con correo, el nombre se guarda justo después
+    const id = setTimeout(() => void avisarAltaSiNueva(URL_INTERMEDIARIO).catch(() => undefined), 5000);
+    return () => clearTimeout(id);
+  }, [usuario?.uid]);
   const [soyAdmin, setSoyAdmin] = useState(false);
   useEffect(() => {
     setSoyAdmin(false);
@@ -1743,14 +1750,17 @@ export default function App() {
           <section className="panel">
             <div className="cabecera-panel">
               <h2>Dispositivos</h2>
-              <label className="casilla">
-                <input
-                  type="checkbox"
-                  checked={demoVatios !== null}
-                  onChange={(e) => setDemoVatios(e.target.checked ? 180 : null)}
-                />
-                Modo demostración (sin rodillo)
-              </label>
+              {/* Solo el administrador (y en desarrollo, para las pruebas) */}
+              {(soyAdmin || import.meta.env.DEV) && (
+                <label className="casilla">
+                  <input
+                    type="checkbox"
+                    checked={demoVatios !== null}
+                    onChange={(e) => setDemoVatios(e.target.checked ? 180 : null)}
+                  />
+                  Modo demostración (sin rodillo)
+                </label>
+              )}
             </div>
             <div className="rejilla-conexion">
               {tarjetas.map(({ fuente, titulo, detalle }) => (

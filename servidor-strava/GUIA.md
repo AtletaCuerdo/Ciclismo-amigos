@@ -81,3 +81,33 @@ Yo los pongo en la web (archivo `.env.production`) y la publico. A partir de ah�
   Strava y lo olvida. Tu permiso de Strava se queda en tu navegador.
 - **¿Y si quiero quitarlo?** En Ajustes → Strava → «Desconectar Strava» (también retira el
   permiso en Strava).
+
+---
+
+## Parte 3 (opcional). Correo cuando alguien crea una cuenta en RideCrew
+
+El mismo Worker manda un correo al administrador con los datos de cada cuenta nueva. Lo envía
+Cloudflare (gratis) desde una dirección de tu dominio `tricoach.es`.
+
+> **Antes de empezar:** si ya recibes correo en alguna dirección `@tricoach.es` con otro servicio,
+> **no actives Email Routing** sin mirarlo antes: cambia los registros MX del dominio.
+
+1. **Email Routing:** en Cloudflare, entra en el dominio `tricoach.es` → **Email** → **Email Routing**
+   → **Enable** (acepta los registros que te propone).
+2. En **Destination addresses**, añade **tu correo** y pulsa el enlace de verificación que te llega.
+3. **El Worker:** Workers & Pages → `strava-rodillos` → **Edit code** → pega de nuevo
+   `servidor-strava/worker.js` (ha cambiado) → **Deploy**.
+4. En el Worker → **Settings** → **Bindings** → **Add** → **Send email**:
+   - Nombre de la variable: `CORREO`
+   - Dirección de destino: **tu correo** (la verificada en el paso 2).
+5. En **Settings** → **Variables and Secrets** → **Add** (tipo Text), y **Deploy**:
+
+   | Nombre | Valor |
+   | --- | --- |
+   | `AVISO_DESTINO` | tu correo (el mismo del paso 2) |
+   | `AVISO_REMITENTE` | `ridecrew@tricoach.es` |
+
+6. Comprueba que `ORIGENES` incluye `https://ridecrew.tricoach.es`.
+
+Para probarlo, crea una cuenta nueva en RideCrew (con otro correo): en un minuto te llega el aviso.
+Si te llega a «Correo no deseado», márcalo como «No es spam».
