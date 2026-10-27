@@ -111,3 +111,23 @@ Cloudflare (gratis) desde una dirección de tu dominio `tricoach.es`.
 
 Para probarlo, crea una cuenta nueva en RideCrew (con otro correo): en un minuto te llega el aviso.
 Si te llega a «Correo no deseado», márcalo como «No es spam».
+
+---
+
+## Parte 4. Que el Worker se actualice solo desde GitHub (una vez, desde el ordenador)
+
+Así no hace falta volver a pegar el código: cada cambio que se suba a `main` en `servidor-strava/`
+se despliega solo. La configuración está en `servidor-strava/wrangler.jsonc`.
+
+1. Cloudflare → **Workers & Pages** → `strava-rodillos` → **Settings** → **Build** (o «Builds»)
+   → **Connect** → GitHub → repositorio **Ciclismo-amigos**.
+2. Rellena:
+   - **Branch:** `main`
+   - **Root directory (directorio raíz):** `servidor-strava`
+   - **Build command:** déjalo vacío
+   - **Deploy command:** `npx wrangler deploy`
+3. Guarda y lanza el primer despliegue (**Retry/Deploy** o haciendo cualquier cambio en `main`).
+4. En **Settings → Variables and Secrets**, comprueba que siguen `STRAVA_CLIENT_SECRET` (Secret) y
+   añade, si no está, `AVISO_DESTINO` (Text) con tu correo. Las demás variables y el enlace de correo
+   `CORREO` los pone el propio despliegue.
+5. Prueba: crea una cuenta nueva en RideCrew con otro correo; en un minuto te llega el aviso.

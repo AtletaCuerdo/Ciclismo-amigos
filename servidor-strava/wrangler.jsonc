@@ -1,0 +1,24 @@
+// Intermediario de RideCrew en Cloudflare (Worker «strava-rodillos»): Strava y aviso de altas por correo.
+// Se despliega solo con Workers Builds en cada push a main que toque esta carpeta
+// (directorio raíz: servidor-strava · comando de despliegue: npx wrangler deploy).
+//
+// Lo que NO va aquí (el repositorio es público) y se pone a mano en el Worker, en
+// Settings → Variables and Secrets (se conserva gracias a «keep_vars»):
+//   STRAVA_CLIENT_SECRET  (Secret) la clave secreta de la aplicación de Strava
+//   AVISO_DESTINO         (Text)   el correo al que llegan los avisos de altas (verificado en Email Routing)
+{
+  "name": "strava-rodillos",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  // No borrar las variables puestas a mano en el panel al desplegar
+  "keep_vars": true,
+  "vars": {
+    "STRAVA_CLIENT_ID": "257751",
+    "ORIGENES": "https://ridecrew.tricoach.es,https://atletacuerdo.github.io,http://localhost:5173",
+    "AVISO_REMITENTE": "ridecrew@tricoach.es"
+  },
+  // Envío de correo con Email Routing de tricoach.es (a las direcciones de destino verificadas)
+  "send_email": [{ "name": "CORREO" }],
+  "observability": { "enabled": true }
+}

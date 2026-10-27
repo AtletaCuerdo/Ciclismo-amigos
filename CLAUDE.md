@@ -169,6 +169,11 @@ al entrar con una cuenta creada hace < 30 min, la web llama a `/alta` del Worker
 correo con el enlace `CORREO` (Email Routing de tricoach.es), `AVISO_DESTINO` y `AVISO_REMITENTE`. Pasos
 del usuario en `servidor-strava/GUIA.md`, parte 3.
 
+27-10: `servidor-strava/wrangler.jsonc` para desplegar el Worker con Workers Builds desde GitHub (raíz
+`servidor-strava`, `npx wrangler deploy`, `keep_vars`; el secreto de Strava y `AVISO_DESTINO` se ponen a mano
+en el panel porque el repositorio es público). Pendiente: que el usuario lo conecte desde el PC (GUIA.md,
+parte 4); el Email Routing de tricoach.es y su correo de destino ya están hechos.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
