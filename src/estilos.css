@@ -1854,6 +1854,36 @@ p {
 .boton-strava:hover {
   background: #e34402;
 }
+.strava-conectar {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+  border-radius: 6px;
+}
+.strava-conectar img {
+  height: 48px;
+  width: auto;
+  display: block;
+}
+.powered-strava {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 44px;
+  opacity: 0.85;
+}
+.powered-strava img {
+  height: 14px;
+  width: auto;
+  display: block;
+}
+.enlace-strava {
+  color: #fc4c02;
+  font-weight: 700;
+  text-decoration: underline;
+}
 .panel-strava p {
   margin: 0 0 10px;
 }

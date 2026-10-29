@@ -70,12 +70,24 @@ export function PanelStrava() {
             Conecta tu cuenta una vez y cada entrenamiento se subirá solo a Strava al pulsar «Terminar», como
             «Virtual Ride». El permiso se guarda solo en este dispositivo.
           </p>
-          <button className="boton-strava" onClick={conectarStrava}>
-            Conectar con Strava
+          <button className="strava-conectar" onClick={conectarStrava} aria-label="Connect with Strava">
+            <img src={`${RECURSOS}btn_strava_connect_with_orange.svg`} alt="Connect with Strava" height={48} />
           </button>
         </>
       )}
+      <PoweredByStrava />
     </section>
+  );
+}
+
+const RECURSOS = `${import.meta.env.BASE_URL}strava/`;
+
+/** Logo oficial «Powered by Strava» (blanco, para el fondo oscuro), como pide Strava donde salen sus datos. */
+export function PoweredByStrava() {
+  return (
+    <a className="powered-strava" href="https://www.strava.com" target="_blank" rel="noreferrer">
+      <img src={`${RECURSOS}api_logo_pwrdBy_strava_horiz_white.svg`} alt="Powered by Strava" height={14} />
+    </a>
   );
 }
 
@@ -141,8 +153,8 @@ export function BotonStrava({ id, obtener, nombre, descripcion, auto = false }: 
         <span>
           {estado.duplicada ? 'Ya estaba en Strava.' : 'Subido a Strava ✓'}{' '}
           {estado.actividad && (
-            <a href={enlaceActividad(estado.actividad)} target="_blank" rel="noreferrer">
-              Ver en Strava
+            <a className="enlace-strava" href={enlaceActividad(estado.actividad)} target="_blank" rel="noreferrer">
+              View on Strava
             </a>
           )}
         </span>
