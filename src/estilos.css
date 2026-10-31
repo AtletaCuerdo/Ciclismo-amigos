@@ -4001,142 +4001,141 @@ p {
   -webkit-backdrop-filter: blur(6px);
 }
 
-/* Animaciones de las escenas */
-.escena-brindis .escena-brazo {
-  animation: escena-brindis 2.6s ease-in-out infinite;
+/* Animaciones de las escenas (lentas y suaves) */
+.escena-trago {
+  animation: escena-trago 9s ease-in-out infinite;
 }
-.escena-brindis.d2 .escena-brazo {
-  animation-delay: 0.15s;
+.escena-trago.d2 {
+  animation-delay: 3s;
 }
-.escena-brindis.d3 .escena-brazo {
-  animation-delay: 0.3s;
+.escena-trago.d3 {
+  animation-delay: 6s;
 }
-@keyframes escena-brindis {
+@keyframes escena-trago {
   0%,
-  55%,
+  60%,
   100% {
     transform: rotate(0deg);
   }
   70%,
-  85% {
-    transform: rotate(-105deg);
+  82% {
+    transform: rotate(-58deg);
   }
 }
 .escena-burbuja {
-  animation: escena-burbuja 1.8s linear infinite;
+  animation: escena-burbuja 2.4s linear infinite;
 }
 .escena-burbuja.b2 {
-  animation-delay: 0.6s;
+  animation-delay: 0.8s;
 }
 .escena-burbuja.b3 {
-  animation-delay: 1.2s;
+  animation-delay: 1.6s;
 }
 @keyframes escena-burbuja {
   from {
     transform: translateY(0);
-    opacity: 1;
+    opacity: 0.9;
   }
   to {
-    transform: translateY(-12px);
+    transform: translateY(-11px);
     opacity: 0;
   }
 }
-.escena-sol {
-  animation: escena-latido 6s ease-in-out infinite;
-  transform-origin: 350px 22px;
+.escena-luz {
+  animation: escena-luz 5s ease-in-out infinite;
 }
-@keyframes escena-latido {
+.escena-luz.l1 {
+  animation-delay: 1.7s;
+}
+.escena-luz.l2 {
+  animation-delay: 3.4s;
+}
+@keyframes escena-luz {
   50% {
-    transform: scale(1.08);
+    opacity: 0.6;
   }
 }
+.escena-ventana {
+  animation: escena-luz 7s ease-in-out infinite;
+}
+.escena-ventana.v1 {
+  animation-delay: 2s;
+}
+.escena-ventana.v2 {
+  animation-delay: 4s;
+}
+.escena-ventana.v3 {
+  animation-delay: 5.5s;
+}
 .escena-texto {
-  animation: escena-aparece 1.2s ease-out both;
+  animation: escena-aparece 1.6s ease-out both;
 }
 @keyframes escena-aparece {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
 }
 .escena-respira {
-  animation: escena-respira 4s ease-in-out infinite;
+  animation: escena-respira 5s ease-in-out infinite;
 }
 @keyframes escena-respira {
   50% {
-    transform: scaleY(1.04);
+    transform: scaleY(1.025);
   }
 }
 .escena-scroll {
-  animation: escena-scroll 5s linear infinite;
+  animation: escena-scroll 7s linear infinite;
 }
 @keyframes escena-scroll {
   from {
     transform: translateY(0);
   }
   to {
-    transform: translateY(-36px);
+    transform: translateY(-40px);
   }
 }
 .escena-brillo {
-  animation: escena-brillo 3s ease-in-out infinite;
+  animation: escena-brillo 3.5s ease-in-out infinite;
 }
 @keyframes escena-brillo {
   50% {
-    opacity: 0.3;
+    opacity: 0.36;
   }
 }
-.escena-estrella {
-  animation: escena-brillo-estrella 2.4s ease-in-out infinite;
+.escena-lluvia {
+  animation: escena-lluvia 1.1s linear infinite;
 }
-.escena-estrella.e1 {
-  animation-delay: 0.8s;
-}
-.escena-estrella.e2 {
-  animation-delay: 1.4s;
-}
-.escena-estrella.e3 {
-  animation-delay: 2s;
-}
-@keyframes escena-brillo-estrella {
-  50% {
-    opacity: 0.2;
-  }
-}
-.escena-zeta {
-  animation: escena-zeta 3s ease-in infinite;
-}
-.escena-zeta.d2 {
-  animation-delay: 1.5s;
-}
-@keyframes escena-zeta {
+@keyframes escena-lluvia {
   from {
-    opacity: 0;
-    transform: translate(0, 0);
-  }
-  30% {
-    opacity: 1;
+    transform: translateY(-20px);
   }
   to {
-    opacity: 0;
-    transform: translate(-14px, -26px);
+    transform: translateY(20px);
+  }
+}
+.escena-rayo {
+  animation: escena-rayo 8s ease-in-out infinite;
+}
+@keyframes escena-rayo {
+  50% {
+    opacity: 0.75;
   }
 }
 .escena-masaje {
-  animation: escena-masaje 1.4s ease-in-out infinite;
+  animation: escena-masaje 2.6s ease-in-out infinite;
 }
 @keyframes escena-masaje {
   50% {
-    transform: translateX(-16px);
+    transform: rotate(7deg);
   }
 }
 .escena-hoja {
-  animation: escena-hoja 5s ease-in-out infinite;
-  transform-origin: 352px 150px;
+  animation: escena-hoja 6s ease-in-out infinite;
+  transform-origin: 362px 174px;
 }
 @keyframes escena-hoja {
   50% {
-    transform: rotate(3deg);
+    transform: rotate(2deg);
   }
 }
 @media (prefers-reduced-motion: reduce) {

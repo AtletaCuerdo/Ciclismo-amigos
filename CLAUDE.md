@@ -180,7 +180,11 @@ de antes cuentan 1/min). Tienda (`PantallaTienda.tsx`) con 5 nutriciones (guayab
 suben la velocidad virtual unos minutos (también la distancia grabada y Strava; no se suman; pegado no sirve). Lo
 comprado y gastado va en `perfil.despensa` (contadores que solo suben; al sincronizar gana el mayor): **sin reglas
 nuevas**. Al terminar: «Finalizar» o «Finalizar y ver estadísticas» sobre una escena SVG animada (`EscenaFinal.tsx`:
-cervezas, cama con Strava o fisio). Pendiente: gesto de comer del ciclista y tienda de material.
+cervezas, cama con Strava o fisio). Pendiente: tienda de material.
+
+01-11: escenas finales rehechas en estilo cinematográfico (siluetas a contraluz, luz cálida, movimientos lentos;
+sigue siendo SVG, sin GPU). Gesto de comer: `Ciclista3D.comer()` (3 s; `escena.miComer()`), la mano derecha va a
+la boca con un gel naranja (`JineteHumano.posar(…, comer)`). Ojo: `dirMundo` devuelve direcciones de 1 m.
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).

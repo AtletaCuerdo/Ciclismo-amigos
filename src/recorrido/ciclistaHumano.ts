@@ -631,6 +631,8 @@ export class JineteHumano {
   private anguloTroncoDePie = 30;
   /** Posición de la pelvis sentado (coordenadas de la bici). */
   private posicionSentado = new THREE.Vector3();
+  /** Gel o guayaba en la mano derecha mientras se lo toma (ver `posar`, `comer`). */
+  private gel: THREE.Mesh;
 
   constructor(
     p: Plantillas,
@@ -768,6 +770,13 @@ export class JineteHumano {
     this.manos = { l: mano('l'), r: mano('r') };
     for (const m of Object.values(this.manos)) for (const b of [...m.falanges.flat(), ...m.pulgar]) this.reposo.set(b, b.quaternion.clone());
 
+    // Gel (oculto): un sobre pequeño que aparece en la mano al tomar nutrición
+    const matGel = new THREE.MeshStandardMaterial({ color: '#f97316', roughness: 0.45, metalness: 0.1 });
+    this.materiales.push(matGel);
+    this.gel = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.075, 0.032), matGel);
+    this.gel.visible = false;
+    padre.add(this.gel);
+
     this.colocarCadera();
     this.posicionSentado.copy(this.raiz.position);
     this.anguloTronco = this.ajustarTronco();
@@ -890,6 +899,16 @@ export class JineteHumano {
     this.matZapatillas.userData.uniformes.uPintura2.value.set(a.franja);
   }
 
+  /** Mano derecha hacia la cara, con los dedos cerrados sobre el gel. */
+  private sujetarGel() {
+    const m = this.manos.r;
+    orientar(m.hueso, m.dedos, this.dirMundo(0.25, 0.85, -0.45).normalize());
+    const F = this.dirMundo(0.25, 0.85, -0.45).normalize();
+    const eje = new THREE.Vector3().crossVectors(F, this.dirMundo(0, 0, -1)).normalize();
+    for (const dedo of m.falanges) dedo.forEach((f, i) => girarMundo(f, new THREE.Quaternion().setFromAxisAngle(eje, [0.9, 1, 0.6][i])));
+    m.pulgar.forEach((f, i) => girarMundo(f, new THREE.Quaternion().setFromAxisAngle(eje, i === 0 ? 0.2 : 0.5)));
+  }
+
   /** Orienta la mano (dedos y palma) y cierra los dedos alrededor del manillar. */
   private agarrar(lado: 'l' | 'r', s: number) {
     const m = this.manos[lado];
@@ -914,8 +933,9 @@ export class JineteHumano {
    * Coloca el cuerpo sobre la bici.
    * @param pedales posiciones de los pedales izquierdo y derecho (coordenadas de la bici)
    * @param anguloBiela para mover un poco los tobillos
+   * @param comer 0 … 1: la mano derecha suelta el manillar y se lleva el gel a la boca
    */
-  posar(pedales: { izq: THREE.Vector3; der: THREE.Vector3 }, anguloBiela: number, dePie = 0) {
+  posar(pedales: { izq: THREE.Vector3; der: THREE.Vector3 }, anguloBiela: number, dePie = 0, comer = 0) {
     const H = this.huesos;
     const P = this.postura;
     const padre = this.raiz.parent!;
@@ -936,13 +956,39 @@ export class JineteHumano {
     // Brazos (izquierdo del modelo = lado -Z de la bici)
     for (const [lado, s] of [['l', -1], ['r', 1]] as const) {
       const hombro = H[`upperarm_${lado}`].getWorldPosition(new THREE.Vector3());
+      const k = lado === 'r' ? comer : 0;
       const mano = this.aMundo(this.muneca(s));
-      const codo = P.codo
+      let codo = P.codo
         ? this.aMundo(new THREE.Vector3(P.codo.x, P.codo.y, P.codo.z * s))
         : articulacion3D(hombro, mano, this.largos.brazo, this.largos.antebrazo, this.dirMundo(-0.25, -1, 0.75 * s));
+      if (k > 0) {
+        // Muñeca bajo la barbilla, algo por delante y hacia el lado; el codo baja y se abre
+        // (dirMundo da direcciones de 1 m: se escala a la distancia de verdad)
+        const boca = H.Head.getWorldPosition(new THREE.Vector3()).add(this.dirMundo(0.13, -0.05, 0.06).multiplyScalar(0.152));
+        mano.lerp(boca, k);
+        codo = codo.lerp(
+          articulacion3D(hombro, mano, this.largos.brazo, this.largos.antebrazo, this.dirMundo(-0.2, -1, 0.9)),
+          k,
+        );
+      }
       apuntar(H[`upperarm_${lado}`], H[`lowerarm_${lado}`], codo);
       apuntar(H[`lowerarm_${lado}`], H[`hand_${lado}`], mano);
-      this.agarrar(lado, s);
+      if (k < 0.5) this.agarrar(lado, s);
+      else this.sujetarGel();
+    }
+    if (comer > 0.5) {
+      // El gel, en la mano: un poco por delante de la palma, apuntando a la boca
+      const m = this.manos.r;
+      const dedos = m.dedos.clone().applyQuaternion(m.hueso.getWorldQuaternion(new THREE.Quaternion()));
+      const pos = m.hueso.getWorldPosition(new THREE.Vector3()).addScaledVector(dedos, 0.06);
+      this.gel.position.copy(padre.worldToLocal(pos));
+      this.gel.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0),
+        dedos.transformDirection(padre.matrixWorld.clone().invert()),
+      );
+      this.gel.visible = true;
+    } else {
+      this.gel.visible = false;
     }
 
     // Piernas siguiendo a los pedales, con las rodillas hacia delante
@@ -963,6 +1009,8 @@ export class JineteHumano {
   }
 
   destruir() {
+    this.gel.geometry.dispose();
+    this.gel.removeFromParent();
     (this.material.userData.uniformes.uDorsal.value as THREE.Texture | null)?.dispose();
     this.materiales.forEach((m) => m.dispose());
     this.equipo.destruir();

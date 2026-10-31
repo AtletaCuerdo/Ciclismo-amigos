@@ -190,6 +190,14 @@ export class Ciclista3D {
     this.humano?.ponerDorsal(this.dorsal, this.semillaDorsal);
   }
 
+  /** Segundos desde que empezó a tomarse un gel (null: no está comiendo). */
+  private tComer: number | null = null;
+
+  /** Se lleva un gel a la boca (unos 3 s) con la mano derecha. */
+  comer() {
+    this.tComer = 0;
+  }
+
   /** De pie sobre los pedales (rampas duras, sprints) o sentado. */
   ponerDePie(si: boolean) {
     this.quiereDePie = si;
@@ -481,7 +489,16 @@ export class Ciclista3D {
     if (this.dePie > 0.01) this.inclinacion.rotation.x += this.dePie * 0.09 * Math.sin(this.anguloBiela);
 
     if (this.humano) {
-      this.humano.posar({ izq: this.pedalIzq, der: this.pedalDer }, this.anguloBiela, this.dePie);
+      // Tomar el gel: sube la mano (0,7 s), lo sujeta en la boca (1,6 s) y vuelve al manillar (0,7 s)
+      let comer = 0;
+      if (this.tComer !== null) {
+        this.tComer += dt;
+        const t = this.tComer;
+        const suave = (x: number) => x * x * (3 - 2 * x);
+        comer = t < 0.7 ? suave(t / 0.7) : t < 2.3 ? 1 : t < 3 ? suave(1 - (t - 2.3) / 0.7) : 0;
+        if (t >= 3) this.tComer = null;
+      }
+      this.humano.posar({ izq: this.pedalIzq, der: this.pedalDer }, this.anguloBiela, this.dePie, comer);
       return;
     }
 

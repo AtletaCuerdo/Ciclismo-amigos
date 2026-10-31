@@ -2264,6 +2264,7 @@ export default function App() {
               despensa: NUTRICION.map((n) => ({ n, quedan: existencias(perfil.despensa, n.id) })),
               efecto: efectoActivo,
               bloqueada: !!pegadoRef.current,
+              tomadaEn: efecto ? efecto.hasta - nutricionPorId(efecto.id).duracionS * 1000 : null,
               onTomar: tomarNutricion,
             }}
             onSalir={salirRecorrido}

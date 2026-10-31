@@ -178,6 +178,8 @@ interface Props {
     efecto: { n: Nutricion; restanteS: number } | null;
     /** Pegado a otro («Siempre juntos») no sirve de nada. */
     bloqueada: boolean;
+    /** Cuándo se tomó la última (ms), para que el ciclista haga el gesto. */
+    tomadaEn: number | null;
     onTomar: (n: Nutricion) => void;
   };
 }
@@ -409,6 +411,9 @@ export default function VistaRecorrido({
   useEffect(() => escena.current?.cambiarMiAvatar(avatar), [avatar]);
   useEffect(() => escena.current?.actualizarOtros(otros), [otros, cargando]);
   useEffect(() => escena.current?.ponerMiEmoji(emojis?.mio ?? null), [emojis?.mio, cargando]);
+  useEffect(() => {
+    if (nutricion.tomadaEn && Date.now() - nutricion.tomadaEn < 2000) escena.current?.miComer();
+  }, [nutricion.tomadaEn]);
   useEffect(() => escena.current?.ponerMiDorsal(miNombre || null), [miNombre, cargando]);
   const [menuEmojis, setMenuEmojis] = useState(false);
   const [menuCircuito, setMenuCircuito] = useState(false);

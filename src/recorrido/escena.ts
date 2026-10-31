@@ -3037,6 +3037,11 @@ export class EscenaRecorrido {
   }
 
   /** Mi emoji (o null para quitarlo). */
+  /** Mi ciclista se toma un gel (gesto de unos 3 s). */
+  miComer() {
+    this.yo.comer();
+  }
+
   ponerMiEmoji(emoji: string | null) {
     this.yo.ponerEmoji(emoji);
   }
