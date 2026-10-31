@@ -32,6 +32,8 @@ import { formatearTiempo } from './Metrica';
 import { mantenerPantallaEncendida } from '../pantallaEncendida';
 import { TarjetaConexion, type InfoConexion } from './TarjetaConexion';
 import { conNivel } from '../entrenamiento/nivelPublico';
+import type { Nutricion } from '../entrenamiento/ridecoins';
+import { ESCENAS, type EscenaFinal } from './EscenaFinal';
 
 export interface DatosHud extends DatosYo {
   potencia?: number;
@@ -167,10 +169,20 @@ interface Props {
   onOtroEntreno: (e: Entrenamiento) => void;
   /** Deja el entrenamiento y sigue rodando libre. */
   onSeguirLibre: () => void;
-  onTerminar: () => void;
+  /** Termina y guarda; con escena, el resumen sale sobre esa animación. */
+  onTerminar: (escena: EscenaFinal | null) => void;
   onSalir: () => void;
+  /** Nutrición (RideCoins): lo que llevas, el efecto en curso y tomar una. */
+  nutricion: {
+    despensa: { n: Nutricion; quedan: number }[];
+    efecto: { n: Nutricion; restanteS: number } | null;
+    /** Pegado a otro («Siempre juntos») no sirve de nada. */
+    bloqueada: boolean;
+    onTomar: (n: Nutricion) => void;
+  };
 }
 
+const pct = (x: number) => `${(x * 100).toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`;
 const mmss = (s: number) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
 
 /** Panel del entrenamiento guiado: objetivo, tiempo del tramo, siguiente tramo y gráfica. */
@@ -313,7 +325,12 @@ export default function VistaRecorrido({
   onSeguirLibre,
   onTerminar,
   onSalir,
+  nutricion,
 }: Props) {
+  const [menuNutricion, setMenuNutricion] = useState(false);
+  // Al terminar: finalizar sin más o con las estadísticas sobre una escena
+  const [finalizando, setFinalizando] = useState<null | 'elegir' | 'escena'>(null);
+  const llevaNutricion = nutricion.despensa.some((x) => x.quedan > 0);
   // Elegir entrenamiento sin salir: al acabar uno o mientras se rueda libre
   const [eligiendo, setEligiendo] = useState(false);
   const [menuBots, setMenuBots] = useState(false);
@@ -845,8 +862,60 @@ export default function VistaRecorrido({
               📋 Entreno
             </button>
           )}
+          <div className="menu-bots-ancla">
+            <button
+              className={`boton-secundario ${nutricion.efecto ? 'activo' : ''}`}
+              onClick={() => setMenuNutricion((m) => !m)}
+              title="Tomar nutrición: vas un poco más rápido unos minutos"
+            >
+              {nutricion.efecto
+                ? `${nutricion.efecto.n.emoji} +${pct(nutricion.efecto.n.mejora)} · ${mmss(nutricion.efecto.restanteS)}`
+                : '🍬 Nutrición'}
+            </button>
+            {menuNutricion && (
+              <div className="hud menu-bots menu-nutricion">
+                <div className="menu-bots-cabecera">
+                  <strong>🍬 Tomar nutrición</strong>
+                  <button className="chat-cerrar" onClick={() => setMenuNutricion(false)} aria-label="Cerrar">
+                    ✕
+                  </button>
+                </div>
+                {nutricion.efecto && (
+                  <small>
+                    {nutricion.efecto.n.emoji} {nutricion.efecto.n.nombre}: +{pct(nutricion.efecto.n.mejora)} durante{' '}
+                    {mmss(nutricion.efecto.restanteS)} más. Hasta que acabe no puedes tomar otra.
+                  </small>
+                )}
+                {nutricion.bloqueada && <small>Vas pegado a tu amigo («Siempre juntos»): la nutrición no se nota.</small>}
+                {llevaNutricion ? (
+                  nutricion.despensa
+                    .filter((x) => x.quedan > 0)
+                    .map(({ n, quedan }) => (
+                      <button
+                        key={n.id}
+                        className="boton-secundario fila-nutricion"
+                        disabled={!!nutricion.efecto || nutricion.bloqueada}
+                        onClick={() => {
+                          nutricion.onTomar(n);
+                          setMenuNutricion(false);
+                        }}
+                      >
+                        <span>
+                          {n.emoji} {n.nombre}
+                        </span>
+                        <small>
+                          +{pct(n.mejora)} · {n.duracionS / 60} min · te quedan {quedan}
+                        </small>
+                      </button>
+                    ))
+                ) : (
+                  <small>No llevas nada. Compra en la tienda 🪙 con tus RideCoins (desde el inicio).</small>
+                )}
+              </div>
+            )}
+          </div>
           {grabacion.hayDatos && (
-            <button className="boton-principal boton-finalizar" onClick={onTerminar}>
+            <button className="boton-principal boton-finalizar" onClick={() => setFinalizando('elegir')}>
               Terminar
             </button>
           )}
@@ -881,12 +950,12 @@ export default function VistaRecorrido({
       </div>
 
       {/* Al completar un entrenamiento: terminar, seguir libre o encadenar otro */}
-      {acabado && !eligiendo && (
+      {acabado && !eligiendo && !finalizando && (
         <div className="fin-entreno">
           <strong>¡{entreno.entreno.nombre} completado!</strong>
           <span>¿Qué quieres hacer ahora?</span>
           <div className="fin-entreno-botones">
-            <button className="boton-principal boton-finalizar" onClick={onTerminar}>
+            <button className="boton-principal boton-finalizar" onClick={() => setFinalizando('elegir')}>
               ✅ Terminar y guardar
             </button>
             <button className="boton-secundario" onClick={onSeguirLibre}>
@@ -897,6 +966,41 @@ export default function VistaRecorrido({
             </button>
           </div>
           <small>Si sigues, todo se guardará y subirá como una sola actividad.</small>
+        </div>
+      )}
+      {finalizando && (
+        <div className="fin-entreno fin-elegir">
+          {finalizando === 'elegir' ? (
+            <>
+              <strong>¿Cómo quieres terminar?</strong>
+              <div className="fin-entreno-botones">
+                <button className="boton-principal boton-finalizar" onClick={() => onTerminar(null)}>
+                  ✅ Finalizar
+                </button>
+                <button className="boton-principal" onClick={() => setFinalizando('escena')}>
+                  📊 Finalizar y ver estadísticas
+                </button>
+                <button className="boton-secundario" onClick={() => setFinalizando(null)}>
+                  Seguir rodando
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <strong>¿Y ahora qué hace tu ciclista?</strong>
+              <span>Verás tus estadísticas con esta escena de fondo.</span>
+              <div className="fin-entreno-botones">
+                {ESCENAS.map((e) => (
+                  <button key={e.id} className="boton-secundario" onClick={() => onTerminar(e.id)}>
+                    {e.emoji} {e.nombre}
+                  </button>
+                ))}
+                <button className="boton-secundario" onClick={() => setFinalizando('elegir')}>
+                  ← Atrás
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
       {eligiendo && (

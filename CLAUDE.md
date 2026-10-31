@@ -174,6 +174,14 @@ del usuario en `servidor-strava/GUIA.md`, parte 3.
 en el panel porque el repositorio es público). Pendiente: que el usuario lo conecte desde el PC (GUIA.md,
 parte 4); el Email Routing de tricoach.es y su correo de destino ya están hechos.
 
+31-10: RideCoins (`entrenamiento/ridecoins.ts`): se ganan por minuto según % del FTP (1 / 1,5 / 2), +25 % con
+amigos, +20 por entreno completado, +10 primera del día y +25 de racha de 3 días; van en `resumen.monedas` (las sesiones
+de antes cuentan 1/min). Tienda (`PantallaTienda.tsx`) con 5 nutriciones (guayaba, geles 30/50 con y sin cafeína) que
+suben la velocidad virtual unos minutos (también la distancia grabada y Strava; no se suman; pegado no sirve). Lo
+comprado y gastado va en `perfil.despensa` (contadores que solo suben; al sincronizar gana el mayor): **sin reglas
+nuevas**. Al terminar: «Finalizar» o «Finalizar y ver estadísticas» sobre una escena SVG animada (`EscenaFinal.tsx`:
+cervezas, cama con Strava o fisio). Pendiente: gesto de comer del ciclista y tienda de material.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

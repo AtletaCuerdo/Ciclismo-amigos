@@ -15,6 +15,7 @@ import { establecerEspejo, guardarEntrenoLocal, listarEntrenos, cargarEntreno, b
 import type { Entreno, EntrenoGuardado, Muestra } from '../entrenamiento/tipos';
 import type { Entrenamiento } from '../entrenamientos/tipos';
 import { edadSexo, normalizarAvatar, type Perfil } from '../recorrido/avatar';
+import { mezclarDespensa, normalizarDespensa } from '../entrenamiento/ridecoins';
 
 type Fb = typeof import('../multijugador/firebase');
 
@@ -112,9 +113,17 @@ export class Nube {
         ftp: Number(nubePerfil.ftp) || local.perfil.ftp,
         ...edadSexo(local.perfil),
         ...edadSexo(nubePerfil),
+        despensa: mezclarDespensa(local.perfil.despensa, nubePerfil.despensa),
       };
+      // Lo comprado o tomado en este aparato y aún no subido
+      if (JSON.stringify(r.perfil.despensa) !== JSON.stringify(normalizarDespensa(nubePerfil.despensa))) {
+        await this.subirPerfil(r.perfil);
+      }
     } else {
-      await this.subirPerfil(local.perfil);
+      // Este aparato manda, pero sin perder lo comprado o tomado en otro
+      const p = { ...local.perfil, despensa: mezclarDespensa(local.perfil.despensa, nubePerfil?.despensa) };
+      if (JSON.stringify(p.despensa) !== JSON.stringify(normalizarDespensa(local.perfil.despensa))) r.perfil = p;
+      await this.subirPerfil(p);
     }
 
     // Entrenamientos propios (la nube manda si el mismo está en los dos lados)

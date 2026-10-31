@@ -3,6 +3,7 @@
  * El avatar se comparte con los demás en la salida en grupo; el peso no
  * (solo se usa para calcular la velocidad virtual).
  */
+import { normalizarDespensa, type Despensa } from '../entrenamiento/ridecoins';
 
 export type ModeloBici = 'ruta' | 'aero' | 'escaladora' | 'cabra';
 export type TipoRuedas = 'bajo' | 'medio' | 'alto' | 'lenticular';
@@ -71,6 +72,8 @@ export interface Perfil {
   /** Edad y sexo: solo para calcular las calorías por pulso. */
   edad?: number;
   sexo?: 'hombre' | 'mujer';
+  /** RideCoins gastados y nutrición comprada y tomada (ver ridecoins.ts). */
+  despensa?: Despensa;
 }
 
 /** Edad y sexo válidos de un perfil guardado (lo demás se descarta). */
@@ -183,6 +186,7 @@ export function cargarPerfil(): Perfil {
         pesoKg: peso >= 30 && peso <= 200 ? peso : 75,
         ftp: ftp >= 50 && ftp <= 600 ? ftp : 200,
         ...edadSexo(g),
+        ...(g.despensa ? { despensa: normalizarDespensa(g.despensa) } : {}),
       };
     }
   } catch {

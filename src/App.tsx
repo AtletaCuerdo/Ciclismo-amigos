@@ -25,6 +25,19 @@ import { ResumenAcumulado } from './components/ResumenAcumulado';
 import { ResumenEntreno } from './components/ResumenEntreno';
 import { TarjetaConexion, type InfoConexion } from './components/TarjetaConexion';
 import { guardarEntreno, listarEntrenos } from './entrenamiento/almacen';
+import {
+  NUTRICION,
+  calcularMonedas,
+  comprar,
+  existencias,
+  monedasGanadas,
+  nutricionPorId,
+  tomar,
+  type IdNutricion,
+  type Nutricion,
+} from './entrenamiento/ridecoins';
+import { PantallaTienda } from './components/PantallaTienda';
+import type { EscenaFinal } from './components/EscenaFinal';
 import { tituloRueda, type Entreno } from './entrenamiento/tipos';
 import { useGrabacion, type ValoresActuales } from './entrenamiento/useGrabacion';
 import { mejorHoraCadencia, muestrasDeCortes } from './entrenamiento/resumen';
@@ -104,7 +117,8 @@ type Pantalla =
   | 'rankings'
   | 'circuitos'
   | 'resumenes'
-  | 'admin';
+  | 'admin'
+  | 'tienda';
 
 /** Resultado de un segmento recién terminado (con la tabla del grupo cuando llega). */
 export interface ResultadoSegmento {
@@ -298,6 +312,7 @@ export default function App() {
     error: string | null;
     ftpSugerido?: FtpSugerido;
     nombreEntreno?: string;
+    escena?: EscenaFinal | null;
   } | null>(null);
   // Mensaje al volver de la página de permisos de Strava
   const [avisoStrava, setAvisoStrava] = useState<string | null>(null);
@@ -627,6 +642,13 @@ export default function App() {
   /** Ahorro de aire actual por ir a rueda (0 … 0,3) y segundos acumulados a rueda. */
   const rebufoRef = useRef(0);
   const segundosRuedaRef = useRef(0);
+  // RideCoins: segundos rodando con amigos y nutrición tomada en esta sesión
+  const segundosAmigoRef = useRef(0);
+  const nutricionSesionRef = useRef<IdNutricion[]>([]);
+  /** Nutrición en efecto: qué es y hasta cuándo (ms). */
+  const [efecto, setEfecto] = useState<{ id: IdNutricion; hasta: number } | null>(null);
+  const efectoRef = useRef(efecto);
+  efectoRef.current = efecto;
   const ruedaAlEntrarRef = useRef(0);
   // Bots a vatios fijos (solo en esta pantalla): se mueven en el mismo bucle que tu física
   const botsRef = useRef<Bot[]>([]);
@@ -758,13 +780,18 @@ export default function App() {
       rebufoRef.current += (objetivoRebufo - rebufoRef.current) * Math.min(1, dt * 2);
       if (rebufoRef.current < 0.005) rebufoRef.current = 0;
       if (rebufoRef.current > 0.05) segundosRuedaRef.current += dt;
+      if (corriendoRef.current && f.v > 2 && otrosRef.current.some((c) => (c.velocidad ?? 0) > 7)) segundosAmigoRef.current += dt;
       f.cda = equipoRef.current.cda * (1 - rebufoRef.current);
       const grado = pendienteRuta(distanciaRef.current);
       // La pendiente del recorrido alimenta el desnivel acumulado de la grabación
       pendienteRef.current = grado;
       if (corriendoRef.current) f.actualizar(actualRef.current.potencia ?? 0, grado, dt);
       else f.detener();
-      velVirtualRef.current = f.v * 3.6;
+      // Nutrición en efecto: con los mismos vatios se avanza un poco más rápido (también cuenta en
+      // la distancia y la velocidad media que se graban y se suben a Strava)
+      const ef = efectoRef.current;
+      const mejora = ef && Date.now() < ef.hasta ? nutricionPorId(ef.id).mejora : 0;
+      velVirtualRef.current = f.v * 3.6 * (1 + mejora);
       // Pegado a otro, los tramos cronometrados no cuentan (el tiempo sería el suyo)
       const eventosCrono = cronoRef.current.actualizar(posicionAhora(), t, corriendoRef.current && !pegadoRef.current);
       if (eventosCrono.length) alEventosCronoRef.current(eventosCrono);
@@ -1388,7 +1415,7 @@ export default function App() {
   };
 
   /** Guarda la sesión y vuelve al inicio con el resumen. */
-  const terminar = async () => {
+  const terminar = async (escena: EscenaFinal | null = null) => {
     const activo = entrenoActivo;
     const sesion = sesionRef.current;
     sesionRef.current = { nombres: [] };
@@ -1408,7 +1435,13 @@ export default function App() {
       if (ls.maxGrupo) entreno.resumen.maxGrupo = ls.maxGrupo;
       const cadencia = mejorHoraCadencia(entreno.muestras);
       if (cadencia) entreno.resumen.mejorHoraCadencia = Math.round(cadencia * 10) / 10;
+      if (nutricionSesionRef.current.length) entreno.resumen.nutricion = [...nutricionSesionRef.current];
     }
+    const segundosConAmigo = segundosAmigoRef.current;
+    const completados = logrosSesionRef.current.completados.length;
+    segundosAmigoRef.current = 0;
+    nutricionSesionRef.current = [];
+    setEfecto(null);
     // Tiempo a rueda (rebufo): al resumen y, si voy en grupo, al chat para que lo vean todos
     const rueda = Math.round(segundosRuedaRef.current);
     if (entreno && rueda >= 1) {
@@ -1433,12 +1466,21 @@ export default function App() {
     const w = est ? Math.round(mejorMedia(entreno, est.ventanaS) * est.factor) : 0;
     const ftpSugerido = est && w > 0 ? { w, texto: est.texto } : undefined;
     const nombreEntreno = sesion.nombres.length ? [...new Set(sesion.nombres)].join(' + ') : undefined;
-    setTerminado({ entreno, error: null, ftpSugerido, nombreEntreno });
+    // RideCoins de la sesión (ya fuera del recorrido: leer el historial tarda un momento)
+    const monedas = calcularMonedas(entreno.muestras, entreno.inicio, {
+      ftp: perfil.ftp,
+      entrenosCompletados: completados,
+      segundosConAmigo,
+      anteriores: await listarEntrenos().catch(() => []),
+    });
+    entreno.resumen.monedas = monedas.total;
+    if (monedas.detalle.length) entreno.resumen.monedasDetalle = monedas.detalle;
+    setTerminado({ entreno, error: null, ftpSugerido, nombreEntreno, escena });
     try {
       await guardarEntreno(entreno);
       setVersionHistorial((v) => v + 1);
     } catch (e) {
-      setTerminado({ entreno, error: e instanceof Error ? e.message : String(e), ftpSugerido, nombreEntreno });
+      setTerminado({ entreno, error: e instanceof Error ? e.message : String(e), ftpSugerido, nombreEntreno, escena });
     }
   };
 
@@ -1535,6 +1577,33 @@ export default function App() {
   ];
 
   const volver = () => setPantalla('inicio');
+
+  // ---- RideCoins: saldo (lo ganado en el historial menos lo gastado), tienda y nutrición ----
+  const [ganadas, setGanadas] = useState(0);
+  useEffect(() => {
+    let vivo = true;
+    listarEntrenos()
+      .then((lista) => vivo && setGanadas(monedasGanadas(lista)))
+      .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
+  }, [versionHistorial, usuario?.uid]);
+  const saldo = Math.max(0, ganadas - (perfil.despensa?.gastado ?? 0));
+  const comprarNutricion = (id: IdNutricion) => {
+    if (saldo < nutricionPorId(id).precio) return;
+    cambiarPerfil({ ...perfil, despensa: comprar(perfil.despensa, id) });
+  };
+  const tomarNutricion = (n: Nutricion) => {
+    if (existencias(perfil.despensa, n.id) <= 0 || pegadoRef.current) return;
+    if (efecto && Date.now() < efecto.hasta) return;
+    cambiarPerfil({ ...perfil, despensa: tomar(perfil.despensa, n.id) });
+    nutricionSesionRef.current.push(n.id);
+    setEfecto({ id: n.id, hasta: Date.now() + n.duracionS * 1000 });
+  };
+  // El efecto se acaba solo (el reloj `ahora` repinta cada segundo)
+  const efectoActivo =
+    efecto && ahora < efecto.hasta ? { n: nutricionPorId(efecto.id), restanteS: Math.ceil((efecto.hasta - ahora) / 1000) } : null;
   // Cada pantalla se abre desde arriba (si no, al cambiar se quedaba a media página)
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -1649,6 +1718,8 @@ export default function App() {
               nombreEntreno={terminado.nombreEntreno}
               onAceptarFtp={(w) => cambiarPerfil({ ...perfil, ftp: w })}
               onCerrar={() => setTerminado(null)}
+              escena={terminado.escena}
+              colores={{ maillot: perfil.avatar.maillot, piel: perfil.avatar.piel, pelo: perfil.avatar.colorPelo }}
             />
           )}
 
@@ -1729,6 +1800,11 @@ export default function App() {
               <span className="accion-icono" aria-hidden>✏️</span>
               <strong>Crea tus entrenamientos</strong>
               <span>Diseña tus propias series</span>
+            </button>
+            <button className="accion accion-tienda" onClick={() => setPantalla('tienda')}>
+              <span className="accion-icono" aria-hidden>🪙</span>
+              <strong>Tienda · {saldo.toLocaleString('es-ES')} RideCoins</strong>
+              <span>Gana RideCoins rodando y cámbialos por geles y guayabas que te dan velocidad unos minutos</span>
             </button>
             <button className="accion accion-rankings" onClick={() => setPantalla('rankings')}>
               <span className="accion-icono" aria-hidden>🏆</span>
@@ -1842,6 +1918,9 @@ export default function App() {
 
       {pantalla === 'rankings' && <PantallaRankings onVolver={volver} />}
       {pantalla === 'admin' && soyAdmin && <PantallaAdmin onVolver={volver} />}
+      {pantalla === 'tienda' && (
+        <PantallaTienda saldo={saldo} despensa={perfil.despensa} onComprar={comprarNutricion} onVolver={volver} />
+      )}
       {pantalla === 'resumenes' && <PantallaResumenes onVolver={volver} />}
       {pantalla === 'circuitos' && (
         <PantallaCircuitos
@@ -2180,7 +2259,13 @@ export default function App() {
             entrenamientos={todosLosEntrenos}
             onOtroEntreno={encadenarEntreno}
             onSeguirLibre={seguirLibre}
-            onTerminar={() => void terminar()}
+            onTerminar={(escena) => void terminar(escena)}
+            nutricion={{
+              despensa: NUTRICION.map((n) => ({ n, quedan: existencias(perfil.despensa, n.id) })),
+              efecto: efectoActivo,
+              bloqueada: !!pegadoRef.current,
+              onTomar: tomarNutricion,
+            }}
             onSalir={salirRecorrido}
           />
         </Suspense>

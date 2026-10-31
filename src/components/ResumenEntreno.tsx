@@ -9,6 +9,8 @@ import { logrosNuevos, type Logro } from '../entrenamiento/logros';
 import { nivelDe, xpTotal } from '../entrenamiento/niveles';
 import { guardarMiNivel } from '../entrenamiento/nivelPublico';
 import { mediasDeBloques, mejoresVatios } from '../entrenamiento/resumen';
+import { nutricionPorId, type IdNutricion } from '../entrenamiento/ridecoins';
+import { EscenaFondo, type EscenaFinal } from './EscenaFinal';
 
 interface Props {
   entreno: Entreno;
@@ -21,6 +23,10 @@ interface Props {
   nombreEntreno?: string;
   onAceptarFtp?: (w: number) => void;
   onCerrar: () => void;
+  /** «Finalizar y ver estadísticas»: el resumen sale sobre esta escena animada. */
+  escena?: EscenaFinal | null;
+  /** Colores del ciclista para la escena. */
+  colores?: { maillot: string; piel: string; pelo: string };
 }
 
 /** Botones para llevar el entrenamiento a Strava (descargar / compartir el TCX). */
@@ -52,7 +58,17 @@ export function BotonesTcx({ entreno }: { entreno: Entreno }) {
 }
 
 /** Pantalla que aparece al pulsar "Finalizar": resumen y descarga del archivo. */
-export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual, nombreEntreno, onAceptarFtp, onCerrar }: Props) {
+export function ResumenEntreno({
+  entreno,
+  errorGuardado,
+  ftpSugerido,
+  ftpActual,
+  nombreEntreno,
+  onAceptarFtp,
+  onCerrar,
+  escena,
+  colores,
+}: Props) {
   const strava = stravaDisponible() && leerConexion() !== null;
   const textos = textosStrava(entreno, nombreEntreno);
   const r = entreno.resumen;
@@ -85,11 +101,11 @@ export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual,
   }, [entreno.id]);
 
   useEffect(() => {
-    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [entreno.id]);
+    if (!escena) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [entreno.id, escena]);
 
-  return (
-    <section className="panel resumen" ref={ref}>
+  const panel = (
+    <section className={`panel resumen ${escena ? 'sobre-escena' : ''}`} ref={ref}>
       <div className="cabecera-panel">
         <h2>Entrenamiento terminado</h2>
         <button className="boton-secundario" onClick={onCerrar}>
@@ -105,6 +121,20 @@ export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual,
             <strong>Nivel {xp.nivel}</strong>
           )}{' '}
           · +{xp.ganados.toLocaleString('es-ES')} XP en esta sesión
+        </div>
+      )}
+
+      {r.monedas !== undefined && (
+        <div className="aviso-monedas" role="status">
+          <strong>🪙 +{r.monedas} RideCoins</strong>
+          {r.monedasDetalle && r.monedasDetalle.length > 0 && (
+            <span className="detalle">{r.monedasDetalle.map(([c, n]) => `${c} +${n}`).join(' · ')}</span>
+          )}
+          {r.nutricion && r.nutricion.length > 0 && (
+            <span className="detalle">
+              Tomaste: {r.nutricion.map((id) => nutricionPorId(id as IdNutricion)?.nombre ?? id).join(', ')}
+            </span>
+          )}
         </div>
       )}
 
@@ -208,6 +238,13 @@ export function ResumenEntreno({ entreno, errorGuardado, ftpSugerido, ftpActual,
       )}
       <BotonesTcx entreno={entreno} />
     </section>
+  );
+  if (!escena) return panel;
+  return (
+    <div className="resumen-escena">
+      <EscenaFondo tipo={escena} colores={colores ?? { maillot: '#22d3ee', piel: '#e0ac69', pelo: '#3b2a1e' }} />
+      <div className="resumen-escena-contenido">{panel}</div>
+    </div>
   );
 }
 

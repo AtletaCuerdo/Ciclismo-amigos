@@ -54,6 +54,11 @@ export interface Resumen {
    * medias en el resumen: [inicio (s en marcha), duración (s), vatios objetivo].
    */
   bloques?: [number, number, number][];
+  /** RideCoins ganados en la sesión (ver ridecoins.ts) y de dónde salen. */
+  monedas?: number;
+  monedasDetalle?: [string, number][];
+  /** Nutrición tomada durante la sesión (ids). */
+  nutricion?: string[];
 }
 
 /** Título según el porcentaje del tiempo que se ha ido a rueda (para las risas del grupo). */
