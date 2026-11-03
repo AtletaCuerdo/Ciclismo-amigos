@@ -287,6 +287,9 @@ export interface Cruce {
  * tres). Cada circuito es un mundo aparte: al girar se carga el otro y apareces en su km indicado,
  * también en llano. El desnivel grabado sale de la pendiente, así que el salto de altitud no cuenta.
  */
+/** Metros pasado el cruce en los que se cambia al otro circuito (ya al final del ramal del 3D). */
+export const CRUCE_CAMBIO_M = 20;
+
 export const CRUCES: Record<string, Cruce[]> = {
   vuelta17: [
     { km: 1, derecha: { circuito: 'sierra', km: 1.5 } },

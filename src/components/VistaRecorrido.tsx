@@ -18,7 +18,7 @@ import {
 } from '../recorrido/perfil';
 import type { Entrenamiento, Tramo } from '../entrenamientos/tipos';
 import { SelectorEntreno } from './SelectorEntreno';
-import { CIRCUITOS, circuitoPorId, desnivelDe, longitudDe } from '../recorrido/circuitos';
+import { CIRCUITOS, CRUCE_CAMBIO_M, circuitoPorId, desnivelDe, longitudDe } from '../recorrido/circuitos';
 import { PanelSegmentos } from './PanelSegmentos';
 import type { ResultadoSegmento } from '../App';
 import { textoTiempo, type TramoActivo } from '../recorrido/segmentos';
@@ -121,6 +121,10 @@ interface Props {
     eleccion: 'izquierda' | 'derecha' | null;
     onElegir: (lado: 'izquierda' | 'derecha' | null) => void;
   } | null;
+  /** Giro en un cruce ya elegido: punto del cruce (m), lado y nombre del circuito al que se va. */
+  giro: { s: number; lado: 1 | -1; destino: string } | null;
+  /** Se llega girando desde un cruce: la escena aparece con un fundido desde negro. */
+  llegadaCruce: string | null;
   /** «Siempre juntos»: con quién voy, quién marca el ritmo y cómo soltarme (null si no voy pegado). */
   juntos: { companeros: string[]; marcaRitmo: string | null; esperando: boolean; onSoltar: () => void } | null;
   /** Mi nombre (para el dorsal). */
@@ -162,6 +166,9 @@ interface Props {
     intensidad: number;
     /** Sube o baja la intensidad (en puntos de %). */
     onIntensidad: (delta: number) => void;
+    /** Segundos de calentamiento al principio (0 si no tiene) y cómo saltárselo. */
+    calentamientoS: number;
+    onSaltarCalentamiento: () => void;
   } | null;
   /** Todos los entrenamientos (para elegir otro sin salir del recorrido). */
   entrenamientos: Entrenamiento[];
@@ -219,6 +226,15 @@ function PanelEntreno({
           {mmss(Math.min(t, e.total))} / {mmss(e.total)}
           {actual?.libre ? ' · ¡a tope! (sin ERG)' : e.erg ? ' · ERG' : ' · sigue el objetivo'}
         </span>
+        {t < e.calentamientoS && (
+          <button
+            className="saltar-calentamiento"
+            onClick={e.onSaltarCalentamiento}
+            title="Ir directo a la parte principal del entreno"
+          >
+            ⏭ Saltar calentamiento
+          </button>
+        )}
       </div>
       {acabado ? (
         <div className="hud-entreno-fin">¡Entrenamiento completado!</div>
@@ -296,6 +312,8 @@ const VISTAS: { id: VistaCamara; nombre: string }[] = [
 const km = (m: number, dec = 1) => (m / 1000).toFixed(dec).replace('.', ',');
 
 export default function VistaRecorrido({
+  giro,
+  llegadaCruce,
   juntos,
   cruce,
   avatar,
@@ -411,6 +429,16 @@ export default function VistaRecorrido({
   useEffect(() => escena.current?.cambiarMiAvatar(avatar), [avatar]);
   useEffect(() => escena.current?.actualizarOtros(otros), [otros, cargando]);
   useEffect(() => escena.current?.ponerMiEmoji(emojis?.mio ?? null), [emojis?.mio, cargando]);
+  // Giro en el cruce: el ciclista sale en curva por el ramal y, al final, fundido a negro
+  useEffect(() => escena.current?.girarEnCruce(giro ? giro.s : null, giro?.lado ?? 1), [giro?.s, giro?.lado, cargando]);
+  const fundiendo = !!giro && leerYo().distancia >= giro.s + CRUCE_CAMBIO_M - 9;
+  // Al llegar desde un cruce, la escena nueva aparece desde negro en cuanto está lista
+  const [velo, setVelo] = useState(!!llegadaCruce);
+  useEffect(() => {
+    if (!velo || cargando) return;
+    const id = setTimeout(() => setVelo(false), 200);
+    return () => clearTimeout(id);
+  }, [velo, cargando]);
   useEffect(() => {
     if (nutricion.tomadaEn && Date.now() - nutricion.tomadaEn < 2000) escena.current?.miComer();
   }, [nutricion.tomadaEn]);
@@ -497,7 +525,10 @@ export default function VistaRecorrido({
     <div className="recorrido">
       <div className="recorrido-lienzo" ref={contenedor} />
 
-      {cargando && <div className="recorrido-cargando">Generando el recorrido…</div>}
+      {cargando && !velo && <div className="recorrido-cargando">Generando el recorrido…</div>}
+      <div className={`fundido-cruce ${fundiendo || velo ? 'visible' : ''}`} aria-hidden={!(fundiendo || velo)}>
+        {(giro || llegadaCruce) && <span>🔀 Rumbo a {giro?.destino ?? llegadaCruce}</span>}
+      </div>
       {cartelVuelta !== null && (
         <div className="cartel-vuelta" key={cartelVuelta}>
           <span>Vuelta</span>

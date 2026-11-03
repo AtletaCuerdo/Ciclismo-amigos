@@ -196,6 +196,12 @@ fuente `ftms`; en el bucle del rodillo manda el ANT+ si está conectado. Solo Ch
 en Windows hace falta WinUSB con Zadig. Sin probar con el aparato. En cada tarjeta Bluetooth, «¿No sale tu aparato?
 Ver todos» abre la lista con `acceptAllDevices`.
 
+04-11: «⏭ Saltar calentamiento» en la cabecera del entreno guiado (`finCalentamiento` en `entrenamientos/tipos.ts`:
+rampas de subida que empiezan ≤ 65 % y bloques ≤ 60 % y ≤ 10′ del principio, hasta 25′; 150 de 151 entrenos lo tienen):
+mueve `inicioS` y adelanta las vueltas y bloques que faltan. Giro en los cruces: a 40 m del cruce elegido, `giroCruce`
+(App) → `escena.girarEnCruce`: curva de 9 m de radio hacia el ramal con la cámara detrás, fundido a negro
+(`.fundido-cruce`) y el cambio de circuito a `CRUCE_CAMBIO_M` (20 m) pasado el cruce; el circuito nuevo aparece desde negro.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

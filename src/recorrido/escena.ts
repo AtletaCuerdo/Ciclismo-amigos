@@ -37,6 +37,9 @@ const PASO_M = 5; // resolución del trazado
 const ANCHO_CARRETERA = 8;
 /** Franja a cada lado de la carretera donde el terreno tiene su misma altitud. */
 const ZONA_LLANA_M = 30;
+/** Radio de la curva al girar en un cruce (m). */
+const RADIO_GIRO = 9;
+
 const COLOR_HORIZONTE = 0xcfe0ea;
 const SOL = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(55), THREE.MathUtils.degToRad(210));
 
@@ -462,6 +465,7 @@ export class EscenaRecorrido {
   private vYo = 0;
   /** Puntos de apoyo (cámara y curvas) para no crear objetos en cada imagen. */
   private puntoAtras: PuntoRuta = { pos: new THREE.Vector3(), dx: 0, dz: 0 };
+  private puntoGiro: PuntoRuta = { pos: new THREE.Vector3(), dx: 0, dz: 0 };
   private puntoAdelante: PuntoRuta = { pos: new THREE.Vector3(), dx: 0, dz: 0 };
   private puntoCurva: PuntoRuta = { pos: new THREE.Vector3(), dx: 0, dz: 0 };
   /** Inclinación lateral suavizada de mi ciclista (rad). */
@@ -470,6 +474,17 @@ export class EscenaRecorrido {
   private readonly FOV_BASE = 55;
   /** Mi posición lateral: a rueda me pongo detrás del de delante. */
   private carrilYo = MI_CARRIL;
+  /**
+   * Giro en un cruce: punto del cruce (m, como `distancia`) y lado (1 derecha, −1 izquierda). Mi
+   * ciclista sale de la carretera en curva por el ramal y la cámara lo sigue (ver `posGiro`).
+   */
+  private giro: { s: number; lado: 1 | -1; carril: number } | null = null;
+  private giroDir = new THREE.Vector3();
+
+  /** Empieza a girar en el cruce que está en `s` (m) hacia ese lado. null: sigue recto. */
+  girarEnCruce(s: number | null, lado: 1 | -1 = 1) {
+    this.giro = s === null ? null : { s, lado, carril: this.carrilYo };
+  }
   private ultimaDist = 0;
   private tUltimaDist = 0;
   private otros = new Map<string, EstadoOtro>();
@@ -2945,6 +2960,30 @@ export class EscenaRecorrido {
   // Posición en la carretera
   // =========================================================================
 
+  /**
+   * Durante el giro en un cruce, la posición y el rumbo de mi ciclista: un cuarto de círculo de
+   * RADIO_GIRO m que empieza RADIO_GIRO m antes del cruce y acaba en el ramal, y luego recto por él.
+   * Escribe en `pos` y `dir`; devuelve false si no hay giro (o aún no ha empezado).
+   */
+  private posGiro(pos: THREE.Vector3, dir: THREE.Vector3) {
+    const g = this.giro;
+    if (!g) return false;
+    const R = RADIO_GIRO;
+    const d = this.sYo - (g.s - R);
+    if (d <= 0) return false;
+    const ini = this.puntoEn(g.s - R, g.carril, this.puntoGiro);
+    const [fx, fz] = [ini.dx, ini.dz];
+    const [rx, rz] = [-fz * g.lado, fx * g.lado]; // hacia el lado del giro
+    const arco = (Math.PI / 2) * R;
+    const t = Math.min(d, arco) / R;
+    const recto = Math.max(0, d - arco);
+    const avance = R * Math.sin(t);
+    const lateral = R * (1 - Math.cos(t)) + recto;
+    pos.set(ini.pos.x + fx * avance + rx * lateral, ini.pos.y, ini.pos.z + fz * avance + rz * lateral);
+    dir.set(fx * Math.cos(t) + rx * Math.sin(t), 0, fz * Math.cos(t) + rz * Math.sin(t));
+    return true;
+  }
+
   /** Punto de la carretera a la distancia s, desplazado lateralmente (escribe en `salida`). */
   private puntoEn(s: number, lateral: number, salida: PuntoRuta) {
     const x = enVuelta(s) / PASO_M;
@@ -3164,16 +3203,23 @@ export class EscenaRecorrido {
     const dzYo = p.dz;
     this.inclinacionYo += (this.inclinacionEn(this.sYo, this.vYo) - this.inclinacionYo) * Math.min(1, dt * 4);
     p.pos.set(pxYo, pyYo, pzYo);
-    this.yo.colocar(p.pos, dxYo, dzYo, pendiente(this.sYo), this.inclinacionYo);
+    let giroX = dxYo;
+    let giroZ = dzYo;
+    const girando = this.posGiro(p.pos, this.giroDir);
+    if (girando) {
+      giroX = this.giroDir.x;
+      giroZ = this.giroDir.z;
+    }
+    this.yo.colocar(p.pos, giroX, giroZ, girando ? 0 : pendiente(this.sYo), this.inclinacionYo);
     // Sprint: muy por encima del FTP; se sienta al bajar (con margen, para que no parpadee)
     const umbral = Math.max(450, 1.5 * (yo.ftp ?? 250));
     if ((yo.potencia ?? 0) >= umbral) this.sprintYo = true;
     else if ((yo.potencia ?? 0) < umbral * 0.8) this.sprintYo = false;
     this.yo.ponerDePie(tocaDePie(pendiente(this.sYo), this.sprintYo, this.vYo, ahora, 0));
     this.yo.pedalear(this.vYo, yo.cadencia, dt);
-    const miX = pxYo;
-    const miY = pyYo;
-    const miZ = pzYo;
+    const miX = p.pos.x;
+    const miY = p.pos.y;
+    const miZ = p.pos.z;
 
     // Otros ciclistas
     for (const [uid, e] of this.otros) {
@@ -3232,7 +3278,11 @@ export class EscenaRecorrido {
     // Cámara en tercera persona: sobre la carretera 6 m por detrás y mirando a la carretera de
     // delante: la cámara se inclina con la carretera, así en las subidas el horizonte baja y se
     // ve la rampa por delante (y en las bajadas, la caída).
-    if (this.vistaCamara === 'lateral') {
+    if (girando) {
+      // En el giro, la cámara va detrás del ciclista siguiendo su rumbo (no el de la carretera)
+      this.detras.set(miX - giroX * 6, miY + 2.3, miZ - giroZ * 6);
+      this.mira.set(miX + giroX * 16, miY + 0.9, miZ + giroZ * 16);
+    } else if (this.vistaCamara === 'lateral') {
       // De lado: a 5 m, hacia el centro de la carretera (en la cuneta hay rocas y plantas), un poco
       // adelantada y mirando al ciclista
       const lado = this.puntoEn(this.sYo + 0.6, this.carrilYo - 5, this.puntoAtras);

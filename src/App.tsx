@@ -47,7 +47,7 @@ import { borrarSesionEnCurso, guardarSesionEnCurso, leerSesionEnCurso, sesionLog
 import { CATALOGO } from './entrenamientos/catalogo';
 import { cargarPropios, guardarPropios } from './entrenamientos/propios';
 import { useCompartidos } from './entrenamientos/compartidos';
-import { desplegar, duracionTotal, potenciaEn, tramoEn, tss, type Entrenamiento, type Tramo } from './entrenamientos/tipos';
+import { desplegar, duracionTotal, finCalentamiento, potenciaEn, tramoEn, tss, type Entrenamiento, type Tramo } from './entrenamientos/tipos';
 import { EMOJI_MS, cargarNombre, guardarNombre, useConectados, useSalida, type Ciclista } from './multijugador/useSalida';
 import { cargarAjustes, guardarAjustes, palancaNovoForce, potenciaDeAjustes, presetNovoForce } from './potenciaVirtual';
 import {
@@ -88,7 +88,7 @@ import { CircuitoElegido, PantallaCircuitos } from './components/PantallaCircuit
 import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
 import { mantenerPantallaEncendida, soltarPantalla } from './pantallaEncendida';
 import { CIRCUITO, LONGITUD_VUELTA_M, pendiente as pendienteRuta, usarCircuito } from './recorrido/perfil';
-import { CIRCUITOS, CRUCES, circuitoPorId, longitudDe } from './recorrido/circuitos';
+import { CIRCUITOS, CRUCES, CRUCE_CAMBIO_M, circuitoPorId, longitudDe } from './recorrido/circuitos';
 import {
   CIELOS,
   cieloSegunHora,
@@ -1353,15 +1353,46 @@ export default function App() {
     : (CRUCES[circuitoId] ?? [])
         .map((c) => ({ cruce: c, metros: c.km * 1000 - enLaVuelta }))
         .find((c) => c.metros > 0 && c.metros <= 600) ?? null;
+  // Giro en curso: a 40 m del cruce elegido, el 3D empieza a preparar la curva por el ramal
+  const [giroCruce, setGiroCruce] = useState<{ s: number; lado: 1 | -1; destino: string; km: number } | null>(null);
+  // Al llegar al circuito nuevo, su escena aparece con un fundido (el nombre del circuito)
+  const [llegadaCruce, setLlegadaCruce] = useState<string | null>(null);
+  useEffect(() => {
+    if (!llegadaCruce) return;
+    const id = setTimeout(() => setLlegadaCruce(null), 8000);
+    return () => clearTimeout(id);
+  }, [llegadaCruce]);
+  useEffect(() => {
+    if (!eleccionCruce) {
+      if (giroCruce) setGiroCruce(null);
+      return;
+    }
+    if (giroCruce?.km === eleccionCruce.km || !proximoCruce || proximoCruce.cruce.km !== eleccionCruce.km) return;
+    if (proximoCruce.metros > 40) return;
+    const destino = proximoCruce.cruce[eleccionCruce.lado];
+    if (!destino) return;
+    setGiroCruce({
+      s: distanciaRef.current + proximoCruce.metros,
+      lado: eleccionCruce.lado === 'derecha' ? 1 : -1,
+      destino: circuitoPorId(destino.circuito).nombre,
+      km: eleccionCruce.km,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eleccionCruce, proximoCruce?.metros]);
   useEffect(() => {
     if (!enRecorrido || !eleccionCruce) return;
     const pasado = enLaVuelta - eleccionCruce.km * 1000;
-    if (pasado < 0) return;
+    // Se cambia de circuito al final del ramal (el 3D ya ha hecho la curva y el fundido a negro)
+    if (pasado < 0 || (pasado < CRUCE_CAMBIO_M && giroCruce)) return;
     const elegido = eleccionCruce;
     setEleccionCruce(null);
+    setGiroCruce(null);
     const salidaCruce = (CRUCES[circuitoId] ?? []).find((c) => c.km === elegido.km)?.[elegido.lado];
     // Se gira solo si se acaba de pasar el cruce (si no, p. ej. tras un salto, se olvida la elección)
-    if (salidaCruce && pasado < 150) pasarACircuito(salidaCruce.circuito, salidaCruce.km * 1000 + pasado);
+    if (salidaCruce && pasado < 150) {
+      setLlegadaCruce(circuitoPorId(salidaCruce.circuito).nombre);
+      pasarACircuito(salidaCruce.circuito, salidaCruce.km * 1000 + pasado);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [grabacion.distanciaM, enRecorrido]);
 
@@ -1432,6 +1463,28 @@ export default function App() {
     setEntrenoActivo({ entreno: e, tramos, total: duracionTotal(tramos), inicioS: grabacion.segundos });
     setIntensidad(100);
     apuntarCortes(grabacion.segundos, tramos);
+  };
+
+  /**
+   * Salta el resto del calentamiento: el entreno sigue donde empieza la parte principal. Las
+   * vueltas y los bloques que ya se hicieron se quedan; los que faltan se adelantan.
+   */
+  const saltarCalentamiento = () => {
+    const a = entrenoActivo;
+    if (!a) return;
+    const fin = finCalentamiento(a.tramos);
+    const ahoraS = grabacion.segundos;
+    if (fin <= 0 || ahoraS - a.inicioS >= fin) return;
+    const inicio = ahoraS - fin;
+    const adelanto = a.inicioS - inicio;
+    setEntrenoActivo({ ...a, inicioS: inicio });
+    cortesRef.current = [
+      ...cortesRef.current.filter((k) => k < ahoraS),
+      ahoraS,
+      ...a.tramos.filter((t) => t.inicio > fin).map((t) => inicio + t.inicio),
+      inicio + a.total,
+    ];
+    bloquesRef.current = bloquesRef.current.map(([i, d, w]): [number, number, number] => (i >= ahoraS ? [i - adelanto, d, w] : [i, d, w]));
   };
 
   /** Al acabar un entrenamiento, seguir rodando libre (el rodillo vuelve a seguir la pendiente). */
@@ -2134,6 +2187,8 @@ export default function App() {
               onElegir: elegirSiguienteCircuito,
               alMomento: !grabacion.hayDatos,
             }}
+            giro={giroCruce}
+            llegadaCruce={llegadaCruce}
             cruce={
               proximoCruce
                 ? {
@@ -2298,6 +2353,8 @@ export default function App() {
                     erg: hayErg,
                     intensidad,
                     onIntensidad: (delta: number) => setIntensidad((v) => Math.max(50, Math.min(150, v + delta))),
+                    calentamientoS: finCalentamiento(entrenoActivo.tramos),
+                    onSaltarCalentamiento: saltarCalentamiento,
                   }
                 : null
             }

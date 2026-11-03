@@ -111,3 +111,29 @@ export function formatoDuracion(s: number) {
   const m = Math.round((s % 3600) / 60);
   return h > 0 ? `${h} h ${m.toString().padStart(2, '0')} min` : `${m} min`;
 }
+
+/**
+ * Segundos de calentamiento al principio (0 si no tiene): las rampas de subida y los bloques
+ * muy suaves y cortos (≤ 60 % del FTP y ≤ 10′) del principio, hasta 25′ (los bloques de zona 2
+ * de los fondos ya son parte del entreno). Si eso es casi todo el
+ * entreno (rodajes suaves), no hay calentamiento que saltar.
+ */
+export function finCalentamiento(tramos: Tramo[]): number {
+  let fin = 0;
+  let soloRampas = 0; // hasta dónde llegan las rampas del principio (sin los bloques suaves)
+  let i = 0;
+  for (; i < tramos.length; i++) {
+    const t = tramos[i];
+    // Rampas de subida que empiezan suaves (las que salen ya fuertes son series, p. ej. «Rampas Sweet Spot»)
+    const sube = t.hasta > t.desde && t.desde <= 65 && t.hasta <= 90;
+    const suave = Math.max(t.desde, t.hasta) <= 60 && t.duracion <= 600;
+    if (t.libre || !(sube || suave) || t.inicio + t.duracion > 1500) break;
+    fin = t.inicio + t.duracion;
+    if (sube && soloRampas === t.inicio) soloRampas = fin;
+  }
+  // Si después no viene nada más duro (rodajes de recuperación), solo cuenta la rampa inicial
+  const siguiente = tramos[i];
+  if (!siguiente || Math.max(siguiente.desde, siguiente.hasta) <= 60) fin = soloRampas;
+  const total = tramos.length ? tramos[tramos.length - 1].inicio + tramos[tramos.length - 1].duracion : 0;
+  return fin >= 120 && fin < total * 0.6 ? fin : 0;
+}
