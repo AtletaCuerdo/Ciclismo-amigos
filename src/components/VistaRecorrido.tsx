@@ -348,6 +348,12 @@ export default function VistaRecorrido({
   nutricion,
 }: Props) {
   const [menuNutricion, setMenuNutricion] = useState(false);
+  // Cruce: una vez elegido, el aviso grande se quita (si se gira, queda solo la cuenta atrás)
+  const [cruceDecidido, setCruceDecidido] = useState(false);
+  const hayCruce = !!cruce;
+  useEffect(() => {
+    if (!hayCruce) setCruceDecidido(false);
+  }, [hayCruce]);
   // Al terminar: finalizar sin más o con las estadísticas sobre una escena
   const [finalizando, setFinalizando] = useState<null | 'elegir' | 'escena'>(null);
   const llevaNutricion = nutricion.despensa.some((x) => x.quedan > 0);
@@ -1092,24 +1098,54 @@ export default function VistaRecorrido({
         </div>
       )}
 
-      {cruce && (
+      {cruce && !cruceDecidido && (
         <div className="aviso-cruce">
           <span className="aviso-cruce-titulo">🔀 Cruce en {Math.round(cruce.metros / 10) * 10} m</span>
           <div className="aviso-cruce-botones">
             {cruce.izquierda && (
-              <button className={cruce.eleccion === 'izquierda' ? 'activo' : ''} onClick={() => cruce.onElegir('izquierda')}>
+              <button
+                className={cruce.eleccion === 'izquierda' ? 'activo' : ''}
+                onClick={() => {
+                  cruce.onElegir('izquierda');
+                  setCruceDecidido(true);
+                }}
+              >
                 ⬅️ {cruce.izquierda}
               </button>
             )}
-            <button className={cruce.eleccion === null ? 'activo' : ''} onClick={() => cruce.onElegir(null)}>
+            <button
+              className={cruce.eleccion === null ? 'activo' : ''}
+              onClick={() => {
+                cruce.onElegir(null);
+                setCruceDecidido(true);
+              }}
+            >
               ⬆️ Seguir
             </button>
             {cruce.derecha && (
-              <button className={cruce.eleccion === 'derecha' ? 'activo' : ''} onClick={() => cruce.onElegir('derecha')}>
+              <button
+                className={cruce.eleccion === 'derecha' ? 'activo' : ''}
+                onClick={() => {
+                  cruce.onElegir('derecha');
+                  setCruceDecidido(true);
+                }}
+              >
                 {cruce.derecha} ➡️
               </button>
             )}
           </div>
+        </div>
+      )}
+      {/* Ya elegido el giro: solo la cuenta atrás (✕ para cambiar de idea); si sigue recto, nada */}
+      {cruce && cruceDecidido && cruce.eleccion && (
+        <div className="aviso-cruce-mini">
+          <span>
+            {cruce.eleccion === 'izquierda' ? `⬅️ ${cruce.izquierda}` : `${cruce.derecha} ➡️`} en{' '}
+            {Math.round(cruce.metros / 10) * 10} m
+          </span>
+          <button className="chat-cerrar" onClick={() => setCruceDecidido(false)} aria-label="Cambiar de idea">
+            ✕
+          </button>
         </div>
       )}
 

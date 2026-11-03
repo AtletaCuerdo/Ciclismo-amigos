@@ -202,6 +202,11 @@ mueve `inicioS` y adelanta las vueltas y bloques que faltan. Giro en los cruces:
 (App) → `escena.girarEnCruce`: curva de 9 m de radio hacia el ramal con la cámara detrás, fundido a negro
 (`.fundido-cruce`) y el cambio de circuito a `CRUCE_CAMBIO_M` (20 m) pasado el cruce; el circuito nuevo aparece desde negro.
 
+04-11 (2): piel negra en iPad: el cargador de glTF de three usa ImageBitmap si el navegador no dice ser Safari (Bluefy)
+y WebKit la decodifica en negro; `cargadorGltf()` (recursos.ts) fuerza TextureLoader en iOS. Cruce: al elegir, el aviso
+grande se quita (`cruceDecidido`); si se gira queda `.aviso-cruce-mini` con la cuenta atrás y ✕. Escena final: plegada
+por defecto con `.resumen-mini` (tiempo, km, W, RideCoins); el panel completo sigue montado (sube a Strava) y se despliega.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

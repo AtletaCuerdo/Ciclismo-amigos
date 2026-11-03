@@ -13,11 +13,10 @@
  *   las piernas siguen a los pedales y los brazos van al manillar.
  */
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as clonarConEsqueleto } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { Avatar, Peinado, Sexo } from './avatar';
 import { EquipoCabeza, GLSL_RECORTE_PELO, medirCabeza, type MedidasCabeza } from './equipamiento';
-import { rutaPublica } from './recursos';
+import { cargadorGltf, rutaPublica } from './recursos';
 import { materialCuadro } from './bici';
 import { enDetalleBajo } from './sdf';
 import { geometriaZapatilla } from './zapatilla';
@@ -50,7 +49,7 @@ export function plantillasHumanas() {
 }
 
 async function cargarGltf(nombre: string) {
-  return new GLTFLoader().loadAsync(rutaPublica(`modelos/ciclista/${nombre}.gltf`));
+  return cargadorGltf().loadAsync(rutaPublica(`modelos/ciclista/${nombre}.gltf`));
 }
 
 /** Textura con las UV de glTF (sin voltear). */

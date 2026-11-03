@@ -3992,8 +3992,61 @@ p {
   position: relative;
   max-width: 820px;
   margin: 0 auto;
-  /* La escena se ve arriba y el resumen sube por encima al desplazarse */
-  padding: calc(48vh + env(safe-area-inset-top)) 12px calc(16px + env(safe-area-inset-bottom));
+  padding: calc(16px + env(safe-area-inset-top)) 12px calc(16px + env(safe-area-inset-bottom));
+}
+/* Plegado: el panel sigue montado (sube a Strava) pero no se ve */
+.resumen-escena.plegado {
+  overflow: hidden;
+}
+.resumen-escena.plegado .resumen-escena-contenido {
+  display: none;
+}
+.resumen-ver-escena {
+  display: block;
+  margin: 10px auto 0;
+}
+.resumen-mini {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(560px, calc(100% - 24px));
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(11, 18, 32, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #f1f5f9;
+  animation: escena-aparece 1.2s ease-out both;
+}
+.resumen-mini-datos {
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+  text-align: center;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+.resumen-mini-datos span {
+  display: grid;
+}
+.resumen-mini-datos strong {
+  font-size: 20px;
+  color: #fff;
+}
+.resumen-mini-monedas strong {
+  color: #fbbf24;
+}
+.resumen-mini-botones {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+.resumen-mini-botones button {
+  min-height: 44px;
 }
 .panel.resumen.sobre-escena {
   background: rgba(17, 28, 48, 0.9);
@@ -4197,4 +4250,25 @@ p {
 .hud-entreno-cabecera {
   flex-wrap: wrap;
   align-items: center;
+}
+
+/* Cruce ya elegido: solo la cuenta atrás, pequeña */
+.aviso-cruce-mini {
+  position: absolute;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 14px;
+  border-radius: 999px;
+  background: rgba(15, 17, 21, 0.75);
+  border: 1px solid rgba(34, 211, 238, 0.5);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  white-space: nowrap;
 }

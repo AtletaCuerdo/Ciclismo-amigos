@@ -74,6 +74,8 @@ export function ResumenEntreno({
   const r = entreno.resumen;
   const ref = useRef<HTMLElement>(null);
   const [ftpAceptado, setFtpAceptado] = useState(false);
+  // Con escena, primero se ve la escena (las estadísticas, plegadas)
+  const [plegado, setPlegado] = useState(true);
   const [nuevos, setNuevos] = useState<Logro[]>([]);
   const [xp, setXp] = useState<{ ganados: number; nivel: number; sube: boolean } | null>(null);
 
@@ -240,10 +242,49 @@ export function ResumenEntreno({
     </section>
   );
   if (!escena) return panel;
+  // Con escena: se ve entera, con una tarjeta pequeña abajo; las estadísticas se despliegan al
+  // pedirlas (el panel sigue montado aunque esté plegado: así se sube igual a Strava)
   return (
-    <div className="resumen-escena">
+    <div className={`resumen-escena ${plegado ? 'plegado' : ''}`}>
       <EscenaFondo tipo={escena} colores={colores ?? { maillot: '#22d3ee', piel: '#e0ac69', pelo: '#3b2a1e' }} />
-      <div className="resumen-escena-contenido">{panel}</div>
+      {plegado && (
+        <div className="resumen-mini">
+          <div className="resumen-mini-datos">
+            <span>
+              <strong>{formatearTiempo(r.duracionS)}</strong>
+              tiempo
+            </span>
+            <span>
+              <strong>{(r.distanciaM / 1000).toFixed(1).replace('.', ',')}</strong>
+              km
+            </span>
+            {r.potenciaMedia !== undefined && (
+              <span>
+                <strong>{Math.round(r.potenciaMedia)}</strong>W medios
+              </span>
+            )}
+            {r.monedas !== undefined && (
+              <span className="resumen-mini-monedas">
+                <strong>+{r.monedas}</strong>🪙 RideCoins
+              </span>
+            )}
+          </div>
+          <div className="resumen-mini-botones">
+            <button className="boton-principal" onClick={() => setPlegado(false)}>
+              📊 Ver estadísticas
+            </button>
+            <button className="boton-secundario" onClick={onCerrar}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="resumen-escena-contenido">
+        {panel}
+        <button className="boton-secundario resumen-ver-escena" onClick={() => setPlegado(true)}>
+          🎬 Volver a la escena
+        </button>
+      </div>
     </div>
   );
 }

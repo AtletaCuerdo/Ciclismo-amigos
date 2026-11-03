@@ -8,6 +8,28 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 
+/** iPhone o iPad (el iPad moderno se presenta como Mac con pantalla táctil). */
+const enIos =
+  typeof navigator !== 'undefined' &&
+  (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+/**
+ * Cargador de glTF. En iPhone/iPad las texturas se cargan como imágenes normales: el cargador
+ * de three.js usa ImageBitmap si no reconoce Safari (y Bluefy no dice que lo sea), y WebKit las
+ * decodifica en negro (la piel del ciclista salía negra fuera cual fuera el tono elegido).
+ */
+export function cargadorGltf() {
+  const l = new GLTFLoader();
+  if (enIos) {
+    l.register((parser) => {
+      const p = parser as unknown as { textureLoader: THREE.Loader; options: { manager: THREE.LoadingManager; crossOrigin: string } };
+      p.textureLoader = new THREE.TextureLoader(p.options.manager).setCrossOrigin(p.options.crossOrigin);
+      return { name: 'texturas_ios' };
+    });
+  }
+  return l;
+}
+
 /** Ruta pública (respeta la base de la web, BASE_URL). */
 export const rutaPublica = (ruta: string) => `${import.meta.env.BASE_URL}${ruta}`;
 
@@ -84,7 +106,7 @@ export function cargarModelo(nombre: string): Promise<ParteModelo[]> {
   if (!p) {
     // «realistas/…»: modelos escaneados de Poly Haven (GLB simplificado con sus texturas dentro)
     const ruta = nombre.startsWith('realistas/') ? `modelos/${nombre}.glb` : `modelos/naturaleza/${nombre}.gltf`;
-    p = new GLTFLoader().loadAsync(rutaPublica(ruta)).then((gltf) => {
+    p = cargadorGltf().loadAsync(rutaPublica(ruta)).then((gltf) => {
       const partes: ParteModelo[] = [];
       gltf.scene.updateMatrixWorld(true);
       gltf.scene.traverse((o) => {
