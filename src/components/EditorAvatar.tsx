@@ -12,6 +12,7 @@ import {
   type Avatar,
   type Perfil,
 } from '../recorrido/avatar';
+import { materialPorId, tieneMaterial, type TipoMaterial } from '../entrenamiento/ridecoins';
 
 // La vista previa usa Three.js: se descarga solo al abrir el editor
 const VistaPreviaAvatar = lazy(() => import('./VistaPreviaAvatar'));
@@ -22,6 +23,10 @@ interface Props {
   /** true si Firebase rechaza el avatar (faltan las reglas nuevas). */
   avatarRechazado: boolean;
   onVolver: () => void;
+  /** RideCoins disponibles y compra de material (bici, ruedas, casco). */
+  saldo: number;
+  /** Compra el material y lo pone a la vez (`avatar`: lo que cambia en el ciclista). */
+  onComprarMaterial: (id: string, avatar: Partial<Avatar>) => void;
 }
 
 type ClaveColor = 'maillot' | 'franja' | 'culotte' | 'casco' | 'bici' | 'bici2';
@@ -40,27 +45,62 @@ function Opciones<T extends string>({
   opciones,
   valor,
   onElegir,
+  precio,
 }: {
   opciones: { id: T; nombre: string; descripcion?: string }[];
   valor: T;
   onElegir: (v: T) => void;
+  /** Material que aún no se tiene: su precio en RideCoins (null o undefined: ya es tuyo). */
+  precio?: (v: T) => number | null;
 }) {
   return (
     <div className="opciones">
-      {opciones.map((o) => (
-        <button key={o.id} className={`opcion${valor === o.id ? ' elegida' : ''}`} onClick={() => onElegir(o.id)}>
-          {o.nombre}
-          {o.descripcion && <small>{o.descripcion}</small>}
-        </button>
-      ))}
+      {opciones.map((o) => {
+        const p = precio?.(o.id) ?? null;
+        return (
+          <button
+            key={o.id}
+            className={`opcion${valor === o.id ? ' elegida' : ''}${p !== null ? ' bloqueada' : ''}`}
+            onClick={() => onElegir(o.id)}
+          >
+            {o.nombre}
+            {o.descripcion && <small>{o.descripcion}</small>}
+            {p !== null && <small className="precio-material">🔒 🪙 {p}</small>}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
 /** Personalización completa del ciclista, con vista previa 3D. */
-export function EditorAvatar({ perfil, onCambiar, avatarRechazado, onVolver }: Props) {
+export function EditorAvatar({ perfil, onCambiar, avatarRechazado, onVolver, saldo, onComprarMaterial }: Props) {
   const { avatar } = perfil;
   const cambiar = (parcial: Partial<Avatar>) => onCambiar({ ...perfil, avatar: { ...avatar, ...parcial } });
+  const precio = (tipo: TipoMaterial) => (v: string) =>
+    tieneMaterial(perfil.despensa, tipo, v) ? null : (materialPorId(`${tipo}:${v}`)?.precio ?? null);
+  /** Al azar, pero sin ponerte material que no tienes (se queda el que llevas). */
+  const alAzar = () => {
+    const a = avatarAleatorio();
+    const d = perfil.despensa;
+    return {
+      ...a,
+      modelo: tieneMaterial(d, 'bici', a.modelo) ? a.modelo : avatar.modelo,
+      ruedas: tieneMaterial(d, 'ruedas', a.ruedas) ? a.ruedas : avatar.ruedas,
+      cascoModelo: tieneMaterial(d, 'casco', a.cascoModelo) ? a.cascoModelo : avatar.cascoModelo,
+    };
+  };
+  /** Elige el material si ya es tuyo; si no, ofrece comprarlo con RideCoins y lo pone. */
+  const elegirMaterial = (tipo: TipoMaterial, v: string, parcial: Partial<Avatar>) => {
+    const m = materialPorId(`${tipo}:${v}`);
+    if (!m || tieneMaterial(perfil.despensa, tipo, v)) return cambiar(parcial);
+    if (saldo < m.precio) {
+      window.alert(`${m.nombre}: ${m.precio} RideCoins. Tienes ${saldo}: te faltan ${m.precio - saldo}. ¡A rodar!`);
+      return;
+    }
+    if (!window.confirm(`¿Comprar ${m.nombre} por ${m.precio} RideCoins? (${m.efecto}). Te quedarán ${saldo - m.precio}.`)) return;
+    onComprarMaterial(m.id, parcial);
+  };
   const [textoFtp, setTextoFtp] = useState(String(perfil.ftp));
 
   return (
@@ -70,7 +110,7 @@ export function EditorAvatar({ perfil, onCambiar, avatarRechazado, onVolver }: P
           ← Inicio
         </button>
         <h2>Tu ciclista</h2>
-        <button className="boton-secundario" onClick={() => cambiar(avatarAleatorio())}>
+        <button className="boton-secundario" onClick={() => cambiar(alAzar())}>
           🎲 Al azar
         </button>
       </div>
@@ -132,7 +172,12 @@ export function EditorAvatar({ perfil, onCambiar, avatarRechazado, onVolver }: P
           )}
 
           <h3>Casco</h3>
-          <Opciones opciones={CASCOS} valor={avatar.cascoModelo} onElegir={(cascoModelo) => cambiar({ cascoModelo })} />
+          <Opciones
+            opciones={CASCOS}
+            valor={avatar.cascoModelo}
+            precio={precio('casco')}
+            onElegir={(cascoModelo) => elegirMaterial('casco', cascoModelo, { cascoModelo })}
+          />
 
           <h3>Equipaciones</h3>
           <div className="equipaciones">
@@ -162,7 +207,12 @@ export function EditorAvatar({ perfil, onCambiar, avatarRechazado, onVolver }: P
           </div>
 
           <h3>Bici</h3>
-          <Opciones opciones={MODELOS} valor={avatar.modelo} onElegir={(modelo) => cambiar({ modelo })} />
+          <Opciones
+            opciones={MODELOS}
+            valor={avatar.modelo}
+            precio={precio('bici')}
+            onElegir={(modelo) => elegirMaterial('bici', modelo, { modelo })}
+          />
 
           <h3>Marca del cuadro</h3>
           <Opciones opciones={MARCAS} valor={avatar.marca} onElegir={(marca) => cambiar({ marca })} />
@@ -174,7 +224,8 @@ export function EditorAvatar({ perfil, onCambiar, avatarRechazado, onVolver }: P
               descripcion: r.id === 'lenticular' ? 'Trasera lenticular, delantera de perfil alto' : undefined,
             }))}
             valor={avatar.ruedas}
-            onElegir={(ruedas) => cambiar({ ruedas })}
+            precio={precio('ruedas')}
+            onElegir={(ruedas) => elegirMaterial('ruedas', ruedas, { ruedas })}
           />
 
           <h3>Datos para entrenar</h3>

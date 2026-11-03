@@ -4,6 +4,7 @@ import { descargarTcx } from '../entrenamiento/tcx';
 import { BotonStrava, textosStrava } from './Strava';
 import type { EntrenoGuardado } from '../entrenamiento/tipos';
 import { formatearTiempo } from './Metrica';
+import { EvolucionVatios } from './EvolucionVatios';
 
 interface Props {
   /** Cambia cada vez que se guarda un entrenamiento, para recargar la lista. */
@@ -62,6 +63,8 @@ export function Historial({ version }: Props) {
   );
 
   return (
+    <>
+    {lista.length > 0 && <EvolucionVatios entrenos={lista} />}
     <section className="panel">
       <h2>Historial</h2>
       <p className="detalle">Se guarda solo en este navegador y en este dispositivo.</p>
@@ -134,5 +137,6 @@ export function Historial({ version }: Props) {
         })}
       </ul>
     </section>
+    </>
   );
 }

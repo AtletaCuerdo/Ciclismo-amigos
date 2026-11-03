@@ -29,6 +29,10 @@ import {
   NUTRICION,
   calcularMonedas,
   comprar,
+  comprarMaterial,
+  materialPorId,
+  regalarMaterial,
+  tieneMaterial,
   existencias,
   monedasGanadas,
   nutricionPorId,
@@ -37,11 +41,12 @@ import {
   type Nutricion,
 } from './entrenamiento/ridecoins';
 import { PantallaTienda } from './components/PantallaTienda';
+import { AsistenteInicio, asistenteVisto } from './components/AsistenteInicio';
 import { RodilloAnt, usbDisponible, type EstadoAnt } from './ant/rodilloAnt';
 import type { EscenaFinal } from './components/EscenaFinal';
 import { tituloRueda, type Entreno } from './entrenamiento/tipos';
 import { useGrabacion, type ValoresActuales } from './entrenamiento/useGrabacion';
-import { mejorHoraCadencia, muestrasDeCortes } from './entrenamiento/resumen';
+import { mejorHoraCadencia, mejoresVatios, muestrasDeCortes } from './entrenamiento/resumen';
 import { conNivel } from './entrenamiento/nivelPublico';
 import { borrarSesionEnCurso, guardarSesionEnCurso, leerSesionEnCurso, sesionLogrosVacia, type SesionEnCurso } from './entrenamiento/sesionEnCurso';
 import { CATALOGO } from './entrenamientos/catalogo';
@@ -139,6 +144,7 @@ const CLAVE_CIRCUITO = 'rodillos.circuito';
 /** Grupetas al empezar: vienen puestas salvo que el ciclista las quite (clave nueva: antes venían quitadas). */
 const CLAVE_GRUPETAS = 'rodillos.grupetas2';
 /** De dónde se cogen los vatios y la cadencia cuando hay varios sensores (p. ej. D100 + pedales). */
+const CLAVE_AUTOPAUSA = 'rodillos.autoPausa';
 const CLAVE_FUENTES = 'rodillos.fuentes';
 type FuenteVatios = 'auto' | 'rodillo' | 'pedales';
 type FuenteCadencia = 'auto' | 'pedales' | 'sensor' | 'rodillo';
@@ -655,6 +661,38 @@ export default function App() {
   // ---- Física del recorrido y control del rodillo (10 veces por segundo) ----
   const corriendoRef = useRef(false);
   corriendoRef.current = grabacion.corriendo;
+
+  // ---- Pausa y arranque automáticos: sin pedalear unos segundos se pausa y al volver sigue ----
+  const [autoPausa, setAutoPausa] = useState(() => leerLocal(CLAVE_AUTOPAUSA) !== 'no');
+  useEffect(() => guardarLocal(CLAVE_AUTOPAUSA, autoPausa ? 'si' : 'no'), [autoPausa]);
+  const pausadoSoloRef = useRef(false);
+  const grabacionRef = useRef(grabacion);
+  grabacionRef.current = grabacion;
+  useEffect(() => {
+    if (!enRecorrido || !autoPausa) return;
+    let quieto = 0;
+    const id = setInterval(() => {
+      const g = grabacionRef.current;
+      const w = actualRef.current.potencia ?? 0;
+      const cad = actualRef.current.cadencia ?? 0;
+      if (g.corriendo) {
+        pausadoSoloRef.current = false;
+        // Bajando se puede ir sin pedalear: solo cuenta si la bici casi se ha parado
+        const bajando = (pendienteRef.current ?? 0) < -2;
+        const parado = w < 15 && cad < 10 && (!bajando || velVirtualRef.current < 5) && !pegadoRef.current;
+        quieto = parado ? quieto + 1 : 0;
+        if (quieto >= 5) {
+          quieto = 0;
+          g.pausar();
+          pausadoSoloRef.current = true;
+        }
+      } else if (pausadoSoloRef.current && g.hayDatos && w > 40) {
+        pausadoSoloRef.current = false;
+        g.iniciar();
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [enRecorrido, autoPausa]);
   const pesoRef = useRef(perfil.pesoKg);
   pesoRef.current = perfil.pesoKg;
   // Aerodinámica y peso de la bici según el equipo elegido (bici, casco y ruedas)
@@ -1515,6 +1553,9 @@ export default function App() {
       const cadencia = mejorHoraCadencia(entreno.muestras);
       if (cadencia) entreno.resumen.mejorHoraCadencia = Math.round(cadencia * 10) / 10;
       if (nutricionSesionRef.current.length) entreno.resumen.nutricion = [...nutricionSesionRef.current];
+      const mejores = mejoresVatios(entreno.muestras);
+      if (mejores.length) entreno.resumen.mejores = mejores.map((m): [number, number] => [m.s, m.w]);
+      entreno.resumen.ftp = perfil.ftp;
     }
     const segundosConAmigo = segundosAmigoRef.current;
     const completados = logrosSesionRef.current.completados.length;
@@ -1543,7 +1584,15 @@ export default function App() {
       test?.estimaFtp ??
       (test?.categoria === 'test' ? { ventanaS: 60, factor: 0.75, texto: '75 % de tu mejor minuto' } : undefined);
     const w = est ? Math.round(mejorMedia(entreno, est.ventanaS) * est.factor) : 0;
-    const ftpSugerido = est && w > 0 ? { w, texto: est.texto } : undefined;
+    // Sin test: si el 95 % de tu mejor 20′ de hoy supera tu FTP, se sugiere subirlo
+    const mejor20 = entreno.resumen.mejores?.find(([seg]) => seg === 1200)?.[1] ?? 0;
+    const ftpPor20 = Math.round(mejor20 * 0.95);
+    const ftpSugerido =
+      est && w > 0
+        ? { w, texto: est.texto }
+        : ftpPor20 > perfil.ftp
+          ? { w: ftpPor20, texto: '95 % de tu mejor media de 20′ de hoy: puede que tu FTP haya subido' }
+          : undefined;
     const nombreEntreno = sesion.nombres.length ? [...new Set(sesion.nombres)].join(' + ') : undefined;
     // RideCoins de la sesión (ya fuera del recorrido: leer el historial tarda un momento)
     const monedas = calcularMonedas(entreno.muestras, entreno.inicio, {
@@ -1659,10 +1708,17 @@ export default function App() {
 
   // ---- RideCoins: saldo (lo ganado en el historial menos lo gastado), tienda y nutrición ----
   const [ganadas, setGanadas] = useState(0);
+  // Sesiones guardadas (null: aún no se sabe): sin ninguna, sale el asistente de primera vez
+  const [numSesiones, setNumSesiones] = useState<number | null>(null);
+  const [verAsistente, setVerAsistente] = useState(() => !asistenteVisto());
   useEffect(() => {
     let vivo = true;
     listarEntrenos()
-      .then((lista) => vivo && setGanadas(monedasGanadas(lista)))
+      .then((lista) => {
+        if (!vivo) return;
+        setGanadas(monedasGanadas(lista));
+        setNumSesiones(lista.length);
+      })
       .catch(() => undefined);
     return () => {
       vivo = false;
@@ -1673,6 +1729,23 @@ export default function App() {
     if (saldo < nutricionPorId(id).precio) return;
     cambiarPerfil({ ...perfil, despensa: comprar(perfil.despensa, id) });
   };
+  /** Compra material (y, desde el editor, lo pone en el ciclista en el mismo cambio). */
+  const comprarMaterialRef = useRef((_id: string, _avatar?: Partial<Avatar>) => {});
+  comprarMaterialRef.current = (id: string, avatar?: Partial<Avatar>) => {
+    const m = materialPorId(id);
+    if (!m || saldo < m.precio) return;
+    const p = perfilRef.current;
+    cambiarPerfil({ ...p, avatar: { ...p.avatar, ...avatar }, despensa: comprarMaterial(p.despensa, id) });
+  };
+  // Lo que ya se llevaba antes de existir la tienda se regala (sin gastar RideCoins)
+  useEffect(() => {
+    const a = perfil.avatar;
+    const usados = [`bici:${a.modelo}`, `ruedas:${a.ruedas}`, `casco:${a.cascoModelo}`];
+    const d = regalarMaterial(perfil.despensa, usados);
+    if ((d.material?.length ?? 0) !== (perfil.despensa?.material?.length ?? 0)) cambiarPerfil({ ...perfil, despensa: d });
+    // Solo al abrir la web y al entrar con la cuenta (después, lo elegido ya se ha comprado)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usuario?.uid]);
   const tomarNutricion = (n: Nutricion) => {
     if (existencias(perfil.despensa, n.id) <= 0 || pegadoRef.current) return;
     if (efecto && Date.now() < efecto.hasta) return;
@@ -1812,6 +1885,48 @@ export default function App() {
               </button>
             </section>
           )}
+          {verAsistente && numSesiones === 0 && !enRecorrido && (
+            <AsistenteInicio
+              conexiones={
+                <div className="rejilla-conexion">
+                  {tarjetas
+                    .filter((t) => t.fuente === 'ftms' || t.fuente === 'pm')
+                    .map(({ fuente, titulo, detalle }) => (
+                      <TarjetaConexion
+                        key={fuente}
+                        titulo={titulo}
+                        detalle={detalle}
+                        info={conexiones[fuente]}
+                        deshabilitado={sinBluetooth}
+                        recordado={sensores[fuente].recordado}
+                        onConectarRecordado={() => void sensores[fuente].conectar(true)}
+                        onConectar={() => void sensores[fuente].conectar()}
+                        onDesconectar={() => sensores[fuente].desconectar()}
+                        onBuscarTodos={() => void sensores[fuente].conectar(false, true)}
+                      />
+                    ))}
+                </div>
+              }
+              rodilloListo={potenciaSensores.valor !== undefined}
+              perfil={perfil}
+              onCambiarPerfil={cambiarPerfil}
+              onRodarLibre={() => {
+                setVerAsistente(false);
+                rodarLibre();
+              }}
+              onTest={() => {
+                setVerAsistente(false);
+                const test = CATALOGO.find((e) => e.id === 'test-rampa');
+                if (test) empezarEntreno(test);
+              }}
+              onEntrenoCorto={() => {
+                setVerAsistente(false);
+                const corto = CATALOGO.find((e) => e.categoria === 'rapido');
+                if (corto) empezarEntreno(corto);
+              }}
+              onCerrar={() => setVerAsistente(false)}
+            />
+          )}
           <section className="inicio-cabecera">
             <div className="tarjeta-ciclista">
               <Suspense fallback={<div className="vista-previa-avatar pequena cargando">Cargando…</div>}>
@@ -1883,7 +1998,7 @@ export default function App() {
             <button className="accion accion-tienda" onClick={() => setPantalla('tienda')}>
               <span className="accion-icono" aria-hidden>🪙</span>
               <strong>Tienda · {saldo.toLocaleString('es-ES')} RideCoins</strong>
-              <span>Gana RideCoins rodando y cámbialos por geles y guayabas que te dan velocidad unos minutos</span>
+              <span>Gana RideCoins rodando y cámbialos por geles, ruedas, cascos y bicis más rápidas</span>
             </button>
             <button className="accion accion-rankings" onClick={() => setPantalla('rankings')}>
               <span className="accion-icono" aria-hidden>🏆</span>
@@ -2011,13 +2126,40 @@ export default function App() {
 
       {/* ================= OTRAS PANTALLAS ================= */}
       {pantalla === 'avatar' && (
-        <EditorAvatar perfil={perfil} onCambiar={cambiarPerfil} avatarRechazado={salida.avatarRechazado} onVolver={volver} />
+        <EditorAvatar
+          perfil={perfil}
+          onCambiar={cambiarPerfil}
+          avatarRechazado={salida.avatarRechazado}
+          onVolver={volver}
+          saldo={saldo}
+          onComprarMaterial={(id, avatar) => comprarMaterialRef.current(id, avatar)}
+        />
       )}
 
       {pantalla === 'rankings' && <PantallaRankings onVolver={volver} />}
       {pantalla === 'admin' && soyAdmin && <PantallaAdmin onVolver={volver} />}
       {pantalla === 'tienda' && (
-        <PantallaTienda saldo={saldo} despensa={perfil.despensa} onComprar={comprarNutricion} onVolver={volver} />
+        <PantallaTienda
+          saldo={saldo}
+          despensa={perfil.despensa}
+          onComprar={comprarNutricion}
+          onVolver={volver}
+          avatar={perfil.avatar}
+          onMaterial={(m) => {
+            const poner: Partial<Avatar> =
+              m.tipo === 'bici'
+                ? { modelo: m.valor as Avatar['modelo'] }
+                : m.tipo === 'ruedas'
+                  ? { ruedas: m.valor as Avatar['ruedas'] }
+                  : { cascoModelo: m.valor as Avatar['cascoModelo'] };
+            if (tieneMaterial(perfil.despensa, m.tipo, m.valor)) {
+              cambiarPerfil({ ...perfil, avatar: { ...perfil.avatar, ...poner } });
+              return;
+            }
+            if (!window.confirm(`¿Comprar ${m.nombre} por ${m.precio} RideCoins? Te lo pones ya y es tuyo para siempre.`)) return;
+            comprarMaterialRef.current(m.id, poner);
+          }}
+        />
       )}
       {pantalla === 'resumenes' && <PantallaResumenes onVolver={volver} />}
       {pantalla === 'circuitos' && (
@@ -2133,6 +2275,17 @@ export default function App() {
           {conexiones.ftms.estado === 'conectado' && (
             <ControlesRodillo rodillo={sensores.ftms} rango={rango} onModo={(p) => (pendienteRef.current = p)} />
           )}
+          <section className="panel">
+            <h2>Pausa automática</h2>
+            <label className="casilla">
+              <input type="checkbox" checked={autoPausa} onChange={(e) => setAutoPausa(e.target.checked)} />
+              Pausar la sesión si dejas de pedalear 5 segundos y seguir sola al volver a pedalear
+            </label>
+            <p className="detalle">
+              Así, si paras a beber o a por algo, ese rato no baja tu velocidad media ni cuenta en Strava. En las
+              bajadas solo se pausa si la bici casi se para.
+            </p>
+          </section>
           <section className="panel">
             <h2>Vatios y cadencia</h2>
             <p className="detalle">

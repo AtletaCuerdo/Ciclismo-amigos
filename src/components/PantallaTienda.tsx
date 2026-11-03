@@ -2,7 +2,8 @@
  * 🪙 Tienda: gastar RideCoins en nutrición para tomarla durante la sesión.
  * Más adelante: bici, ruedas, casco, maillot y avatar.
  */
-import { NUTRICION, existencias, type Despensa, type IdNutricion } from '../entrenamiento/ridecoins';
+import { MATERIAL, NUTRICION, existencias, tieneMaterial, type Despensa, type IdNutricion, type Material } from '../entrenamiento/ridecoins';
+import type { Avatar } from '../recorrido/avatar';
 
 const pct = (x: number) => `${(x * 100).toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`;
 
@@ -11,12 +12,21 @@ export function PantallaTienda({
   despensa,
   onComprar,
   onVolver,
+  avatar,
+  onMaterial,
 }: {
   saldo: number;
   despensa?: Despensa;
   onComprar: (id: IdNutricion) => void;
   onVolver: () => void;
+  avatar: Avatar;
+  /** Compra (si hace falta) y pone ese material en tu ciclista. */
+  onMaterial: (m: Material) => void;
 }) {
+  const puesto = (m: Material) =>
+    (m.tipo === 'bici' && avatar.modelo === m.valor) ||
+    (m.tipo === 'ruedas' && avatar.ruedas === m.valor) ||
+    (m.tipo === 'casco' && avatar.cascoModelo === m.valor);
   return (
     <section className="panel tienda">
       <div className="cabecera-panel">
@@ -56,6 +66,41 @@ export function PantallaTienda({
               <button className="boton-principal" disabled={saldo < n.precio} onClick={() => onComprar(n.id)}>
                 🪙 {n.precio}
               </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <h3>Material</h3>
+      <p className="detalle">
+        Se compra una vez y es tuyo para siempre. La bici de ruta, las ruedas de perfil bajo y el casco de ruta son
+        gratis. Lo aerodinámico te hace ir algo más rápido con los mismos vatios, igual que en la carretera.
+      </p>
+      <div className="tienda-lista">
+        {MATERIAL.map((m) => {
+          const tuyo = tieneMaterial(despensa, m.tipo, m.valor);
+          const lleva = puesto(m);
+          return (
+            <div key={m.id} className="tienda-producto">
+              <span className="tienda-emoji" aria-hidden>
+                {m.tipo === 'bici' ? '🚲' : m.tipo === 'ruedas' ? '🛞' : '⛑️'}
+              </span>
+              <div className="tienda-info">
+                <strong>{m.nombre}</strong>
+                <span className="detalle">{m.efecto}</span>
+                {tuyo && <span className="tienda-tengo">{lleva ? 'Lo llevas puesto' : 'Es tuyo'}</span>}
+              </div>
+              {tuyo ? (
+                !lleva && (
+                  <button className="boton-secundario" onClick={() => onMaterial(m)}>
+                    Ponérmelo
+                  </button>
+                )
+              ) : (
+                <button className="boton-principal" disabled={saldo < m.precio} onClick={() => onMaterial(m)}>
+                  🪙 {m.precio}
+                </button>
+              )}
             </div>
           );
         })}

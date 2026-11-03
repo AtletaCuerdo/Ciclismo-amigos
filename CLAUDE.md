@@ -180,7 +180,7 @@ de antes cuentan 1/min). Tienda (`PantallaTienda.tsx`) con 5 nutriciones (guayab
 suben la velocidad virtual unos minutos (también la distancia grabada y Strava; no se suman; pegado no sirve). Lo
 comprado y gastado va en `perfil.despensa` (contadores que solo suben; al sincronizar gana el mayor): **sin reglas
 nuevas**. Al terminar: «Finalizar» o «Finalizar y ver estadísticas» sobre una escena SVG animada (`EscenaFinal.tsx`:
-cervezas, cama con Strava o fisio). Pendiente: tienda de material.
+cervezas, cama con Strava o fisio). Tienda de material: hecha el 04-11.
 
 01-11: escenas finales rehechas en estilo cinematográfico (siluetas a contraluz, luz cálida, movimientos lentos;
 sigue siendo SVG, sin GPU). Gesto de comer: `Ciclista3D.comer()` (3 s; `escena.miComer()`), la mano derecha va a
@@ -207,10 +207,24 @@ y WebKit la decodifica en negro; `cargadorGltf()` (recursos.ts) fuerza TextureLo
 grande se quita (`cruceDecidido`); si se gira queda `.aviso-cruce-mini` con la cuenta atrás y ✕. Escena final: plegada
 por defecto con `.resumen-mini` (tiempo, km, W, RideCoins); el panel completo sigue montado (sube a Strava) y se despliega.
 
+04-11 (3): pausa automática (App, clave `rodillos.autoPausa`, casilla en Ajustes): < 15 W y < 10 rpm 5 s seguidos
+(en bajada, solo si la bici casi se para) pausa; si la pausó ella, sigue sola con > 40 W. «Tu evolución» en el historial
+(`EvolucionVatios.tsx`): mejores 5′/20′/60′ y FTP por mes (12 meses); las sesiones guardan `resumen.mejores` y
+`resumen.ftp`, las de antes se calculan desde sus muestras y se guardan en `rodillos.mejoresCache`; al terminar, si el
+95 % del mejor 20′ supera el FTP, se propone subirlo. Asistente de primera vez (`AsistenteInicio.tsx`, sin sesiones;
+`rodillos.asistenteVisto`). Material en la tienda (`MATERIAL` en ridecoins.ts, `despensa.material`; gratis: bici de ruta,
+ruedas de perfil bajo y casco de ruta; lo que ya se llevaba se regala con `regalarMaterial`); en el editor sale 🔒 con el
+precio y se compra y pone en un solo cambio.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
 ### Próximos pasos
+- Pendientes propuestas al usuario el 04-11 (las dejó para más adelante): pitidos 3-2-1 en los cambios de bloque
+  de los entrenos (con opción de quitarlos); retos de la semana con RideCoins (3 sesiones, 100 km, salida con un
+  amigo); que el entreno del día puesto en TriCoach Entrenos salga solo en RideCrew y se marque hecho allí (unir
+  las webs con el Worker; comprobar antes que no añade pasos al deportista); carreras de grupo sobre las salidas
+  programadas (salida a la vez, meta a X km, clasificación en el chat; necesita reglas nuevas).
 - Probar en el iPad el paso 4 (memoria y fps con los modelos escaneados).
 - Posible cambio de nombre de la web (el usuario tiene opciones; ver niveles: solo nombre visible,
   renombrar el repositorio o dominio propio).

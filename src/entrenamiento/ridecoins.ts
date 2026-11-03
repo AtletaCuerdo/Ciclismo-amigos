@@ -39,9 +39,64 @@ export interface Despensa {
   /** Unidades compradas y tomadas de cada producto, desde siempre. */
   compradas: Partial<Record<IdNutricion, number>>;
   usadas: Partial<Record<IdNutricion, number>>;
+  /** Material comprado (ids de MATERIAL): se tiene para siempre. */
+  material?: string[];
 }
 
 export const despensaVacia = (): Despensa => ({ gastado: 0, compradas: {}, usadas: {} });
+
+// ---------------------------------------------------------------------------
+// Material: bicis, ruedas y cascos. Lo básico es gratis; lo demás se compra una vez.
+// ---------------------------------------------------------------------------
+
+export type TipoMaterial = 'bici' | 'ruedas' | 'casco';
+
+export interface Material {
+  /** «tipo:valor», con el valor del avatar (modelo, ruedas o cascoModelo). */
+  id: string;
+  tipo: TipoMaterial;
+  valor: string;
+  nombre: string;
+  precio: number;
+  /** Qué cambia al rodar (los efectos están en fisica.ts). */
+  efecto: string;
+}
+
+export const MATERIAL: Material[] = [
+  { id: 'ruedas:medio', tipo: 'ruedas', valor: 'medio', nombre: 'Ruedas de perfil medio', precio: 150, efecto: '−1,5 % de resistencia del aire' },
+  { id: 'ruedas:alto', tipo: 'ruedas', valor: 'alto', nombre: 'Ruedas de perfil alto', precio: 300, efecto: '−2,5 % de resistencia del aire' },
+  { id: 'ruedas:lenticular', tipo: 'ruedas', valor: 'lenticular', nombre: 'Rueda lenticular', precio: 450, efecto: '−3,5 % de resistencia del aire' },
+  { id: 'casco:aero', tipo: 'casco', valor: 'aero', nombre: 'Casco aero de contrarreloj', precio: 250, efecto: '−3 % de resistencia del aire' },
+  { id: 'casco:clasico', tipo: 'casco', valor: 'clasico', nombre: 'Casco clásico con visera', precio: 80, efecto: 'Estético (+1 % de aire)' },
+  { id: 'casco:gorra', tipo: 'casco', valor: 'gorra', nombre: 'Gorra retro', precio: 80, efecto: 'Estético (+2 % de aire)' },
+  { id: 'bici:escaladora', tipo: 'bici', valor: 'escaladora', nombre: 'Bici escaladora', precio: 400, efecto: '1 kg menos: mejor en las subidas' },
+  { id: 'bici:aero', tipo: 'bici', valor: 'aero', nombre: 'Bici de ruta aero', precio: 500, efecto: '−5 % de resistencia del aire' },
+  { id: 'bici:cabra', tipo: 'bici', valor: 'cabra', nombre: 'Cabra de triatlón', precio: 700, efecto: '−17 % de aire (postura acoplada)' },
+];
+
+const IDS_MATERIAL = new Set(MATERIAL.map((m) => m.id));
+export const materialPorId = (id: string) => MATERIAL.find((m) => m.id === id);
+
+/** Lo que se tiene sin comprar: la bici de ruta, las ruedas de perfil bajo y el casco de ruta. */
+export const materialGratis = (tipo: TipoMaterial, valor: string) =>
+  (tipo === 'bici' && valor === 'ruta') || (tipo === 'ruedas' && valor === 'bajo') || (tipo === 'casco' && valor === 'ruta');
+
+export const tieneMaterial = (d: Despensa | undefined, tipo: TipoMaterial, valor: string) =>
+  materialGratis(tipo, valor) || !!d?.material?.includes(`${tipo}:${valor}`);
+
+export function comprarMaterial(d: Despensa | undefined, id: string): Despensa {
+  const x = normalizarDespensa(d);
+  const m = materialPorId(id);
+  if (!m || x.material?.includes(id)) return x;
+  return { ...x, gastado: x.gastado + m.precio, material: [...(x.material ?? []), id] };
+}
+
+/** Se regala lo que ya se llevaba antes de existir la tienda (sin gastar nada). */
+export function regalarMaterial(d: Despensa | undefined, ids: string[]): Despensa {
+  const x = normalizarDespensa(d);
+  const nuevos = ids.filter((id) => IDS_MATERIAL.has(id) && !x.material?.includes(id));
+  return nuevos.length ? { ...x, material: [...(x.material ?? []), ...nuevos] } : x;
+}
 
 const contador = (x: unknown) => (Number.isFinite(Number(x)) ? Math.max(0, Math.round(Number(x))) : 0);
 
@@ -56,7 +111,13 @@ export function normalizarDespensa(x: unknown): Despensa {
     }
     return r;
   };
-  return { gastado: contador(d.gastado), compradas: lista(d.compradas), usadas: lista(d.usadas) };
+  const material = Array.isArray(d.material) ? d.material.filter((m): m is string => IDS_MATERIAL.has(m as string)) : [];
+  return {
+    gastado: contador(d.gastado),
+    compradas: lista(d.compradas),
+    usadas: lista(d.usadas),
+    ...(material.length ? { material: [...new Set(material)].sort() } : {}),
+  };
 }
 
 /** Junta la despensa de dos aparatos: los contadores solo suben, así que gana el mayor. */
@@ -71,7 +132,13 @@ export function mezclarDespensa(a?: Despensa, b?: Despensa): Despensa {
     }
     return r;
   };
-  return { gastado: Math.max(x.gastado, y.gastado), compradas: max(x.compradas, y.compradas), usadas: max(x.usadas, y.usadas) };
+  const material = [...new Set([...(x.material ?? []), ...(y.material ?? [])])].sort();
+  return {
+    gastado: Math.max(x.gastado, y.gastado),
+    compradas: max(x.compradas, y.compradas),
+    usadas: max(x.usadas, y.usadas),
+    ...(material.length ? { material } : {}),
+  };
 }
 
 export const existencias = (d: Despensa | undefined, id: IdNutricion) =>

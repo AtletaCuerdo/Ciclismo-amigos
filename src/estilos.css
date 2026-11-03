@@ -4272,3 +4272,159 @@ p {
   font-size: 15px;
   white-space: nowrap;
 }
+
+/* ---------- Tu evolución (historial) ---------- */
+.evolucion-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 6px 0 4px;
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+.evolucion-leyenda span,
+.evolucion-tooltip span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.evolucion-leyenda i,
+.evolucion-tooltip i {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  display: inline-block;
+}
+.evolucion-leyenda i.ftp,
+.evolucion-tooltip i.ftp {
+  height: 0;
+  border-top: 2px dashed;
+  background: none;
+}
+.evolucion-grafica {
+  position: relative;
+}
+.evolucion-grafica svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.evolucion-rejilla {
+  stroke: rgba(148, 163, 184, 0.18);
+  stroke-width: 1;
+}
+.evolucion-cursor {
+  stroke: rgba(226, 232, 240, 0.45);
+  stroke-width: 1;
+}
+.evolucion-eje {
+  fill: var(--texto-suave);
+  font-size: 11px;
+}
+.evolucion-etiqueta {
+  fill: #e2e8f0;
+  font-size: 11px;
+  font-weight: 600;
+}
+.evolucion-tooltip {
+  position: absolute;
+  top: 6px;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #0b1220;
+  border: 1px solid var(--borde);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+}
+.evolucion-tabla {
+  overflow-x: auto;
+}
+.evolucion-tabla table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.evolucion-tabla th,
+.evolucion-tabla td {
+  padding: 6px 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--borde);
+}
+.evolucion-tabla th:first-child,
+.evolucion-tabla td:first-child {
+  text-align: left;
+}
+
+/* ---------- Asistente de primera vez ---------- */
+.asistente {
+  border-color: rgba(34, 211, 238, 0.5);
+}
+.asistente-pasos {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 6px 0 14px;
+  padding: 0;
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+.asistente-pasos li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.asistente-pasos span {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--borde);
+  font-size: 12px;
+  font-weight: 700;
+}
+.asistente-pasos li.actual {
+  color: #fff;
+  font-weight: 700;
+}
+.asistente-pasos li.actual span {
+  background: var(--degradado);
+  color: var(--texto-sobre-acento);
+  border: none;
+}
+.asistente-pasos li.hecho span {
+  background: #4ade80;
+  color: #0b1220;
+  border: none;
+}
+.asistente-botones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.asistente-botones button {
+  min-height: 44px;
+}
+.asistente-opciones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+.asistente-opciones .accion {
+  min-height: 120px;
+}
+
+.opcion.bloqueada {
+  opacity: 0.78;
+}
+.precio-material {
+  color: #fbbf24;
+  font-weight: 700;
+}

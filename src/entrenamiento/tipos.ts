@@ -59,6 +59,9 @@ export interface Resumen {
   monedasDetalle?: [string, number][];
   /** Nutrición tomada durante la sesión (ids). */
   nutricion?: string[];
+  /** Mejores vatios de la sesión ([segundos, W]) y FTP que tenía el ciclista: para «Tu evolución». */
+  mejores?: [number, number][];
+  ftp?: number;
 }
 
 /** Título según el porcentaje del tiempo que se ha ido a rueda (para las risas del grupo). */
