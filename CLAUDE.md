@@ -186,6 +186,10 @@ cervezas, cama con Strava o fisio). Pendiente: tienda de material.
 sigue siendo SVG, sin GPU). Gesto de comer: `Ciclista3D.comer()` (3 s; `escena.miComer()`), la mano derecha va a
 la boca con un gel naranja (`JineteHumano.posar(…, comer)`). Ojo: `dirMundo` devuelve direcciones de 1 m.
 
+03-11: Elite Bluetooth antiguos (Real Turbo Muin B+; nombre «TM»): anuncian solo CSC 0x1816 y su servicio propio
+`347b0001-…`, pero tienen Cycling Power 0x1818. `Potenciometro.opcionesBusqueda` busca también por ese servicio y saca la
+cadencia del CSC del mismo aparato. La resistencia no se controla (protocolo propio de Elite): rodar en «vatios libres».
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

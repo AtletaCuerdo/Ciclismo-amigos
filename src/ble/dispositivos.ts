@@ -237,33 +237,68 @@ export class RodilloFtms extends SensorBle {
 // 2. Potenciómetro (Cycling Power Service)
 // ---------------------------------------------------------------------------
 
+/**
+ * Servicio propio de Elite en sus rodillos Bluetooth antiguos (Real Turbo Muin B+, Qubo Digital
+ * Smart B+…). Esos rodillos tienen el servicio de potencia estándar, pero al buscar solo anuncian
+ * el de velocidad/cadencia y este: si se busca por potencia, el navegador no los enseña.
+ */
+const ELITE_ANTIGUO = '347b0001-7635-408b-8918-8ff3949ce592';
+
 export class Potenciometro extends SensorBle {
   private biela = new CalculadoraRevoluciones(65536, 1024);
+  private bielaCsc = new CalculadoraRevoluciones(65536, 1024);
+  /** El servicio de potencia no trae la cadencia: se saca del de velocidad/cadencia del mismo aparato. */
+  private cadenciaDePotencia = false;
 
   constructor(
     eventos: EventosSensor,
-    private readonly onDatos: (d: { potencia: number; cadencia?: number }) => void,
+    private readonly onDatos: (d: { potencia?: number; cadencia?: number }) => void,
   ) {
     super('Potenciómetro', UUID.CYCLING_POWER, eventos);
   }
 
+  /** Potenciómetros y rodillos con potencia, y los Elite antiguos que no la anuncian. */
+  protected opcionesBusqueda(): RequestDeviceOptions {
+    return {
+      filters: [{ services: [UUID.CYCLING_POWER] }, { services: [ELITE_ANTIGUO] }],
+      optionalServices: [UUID.CSC],
+    };
+  }
+
   protected async configurar(server: BluetoothRemoteGATTServer) {
     this.biela.reiniciar();
-    const servicio = await server.getPrimaryService(UUID.CYCLING_POWER);
+    this.bielaCsc.reiniciar();
+    this.cadenciaDePotencia = false;
+    const servicio = await server.getPrimaryService(UUID.CYCLING_POWER).catch(() => {
+      throw new Error('Este aparato no da vatios por Bluetooth. Conéctalo como sensor de velocidad/cadencia.');
+    });
     const c = await servicio.getCharacteristic(UUID.CYCLING_POWER_MEASUREMENT);
     await this.suscribir(c, (dv) => {
       const d = parsearCyclingPower(dv);
       let cadencia: number | undefined;
       if (d.biela) {
+        this.cadenciaDePotencia = true;
         const rps = this.biela.actualizar(d.biela.revs, d.biela.tiempo);
         if (rps !== undefined) cadencia = rps * 60;
       }
       this.onDatos({ potencia: d.potencia, cadencia });
     });
+    // Elite antiguos: la cadencia va por el servicio de velocidad/cadencia
+    const csc = await server.getPrimaryService(UUID.CSC).catch(() => null);
+    const medida = await csc?.getCharacteristic(UUID.CSC_MEASUREMENT).catch(() => null);
+    if (medida) {
+      await this.suscribir(medida, (dv) => {
+        const d = parsearCsc(dv);
+        if (this.cadenciaDePotencia || !d.biela) return;
+        const rps = this.bielaCsc.actualizar(d.biela.revs, d.biela.tiempo);
+        if (rps !== undefined) this.onDatos({ cadencia: rps * 60 });
+      }).catch(() => undefined);
+    }
   }
 
   protected alDesconectar() {
     this.biela.reiniciar();
+    this.bielaCsc.reiniciar();
   }
 }
 
