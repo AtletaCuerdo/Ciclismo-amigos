@@ -37,6 +37,7 @@ import {
   type Nutricion,
 } from './entrenamiento/ridecoins';
 import { PantallaTienda } from './components/PantallaTienda';
+import { RodilloAnt, usbDisponible, type EstadoAnt } from './ant/rodilloAnt';
 import type { EscenaFinal } from './components/EscenaFinal';
 import { tituloRueda, type Entreno } from './entrenamiento/tipos';
 import { useGrabacion, type ValoresActuales } from './entrenamiento/useGrabacion';
@@ -466,6 +467,31 @@ export default function App() {
   }, [sensores]);
 
   useEffect(() => guardarAjustes(ajustes), [ajustes]);
+
+  // ---- Rodillo por ANT+ FE-C con adaptador USB (rodillos que por Bluetooth no se dejan controlar) ----
+  const [conexionAnt, setConexionAnt] = useState<{ estado: EstadoAnt; nombre?: string; error: string | null }>({
+    estado: 'desconectado',
+    error: null,
+  });
+  const [rodilloAnt] = useState(
+    () =>
+      new RodilloAnt({
+        onEstado: (estado, nombre) => setConexionAnt((c) => ({ ...c, estado, nombre })),
+        onError: (error) => setConexionAnt((c) => ({ ...c, error })),
+        // Sus datos cuentan como los del rodillo
+        onDatos: (d) =>
+          setDatos((x) => {
+            const t = Date.now();
+            const nuevo = { ...x.ftms };
+            for (const [k, v] of Object.entries(d)) if (v !== undefined && Number.isFinite(v)) nuevo[k as NombreMetrica] = { v, t };
+            return { ...x, ftms: nuevo };
+          }),
+        onLog: (texto, tipo) =>
+          setLog((l) => [{ id: ++contadorLog, hora: new Date().toLocaleTimeString('es-ES'), texto, tipo }, ...l].slice(0, 300)),
+      }),
+  );
+  useEffect(() => () => rodilloAnt.desconectar(), [rodilloAnt]);
+  rodilloAnt.pesoKg = perfil.pesoKg;
   const [fuentes, setFuentes] = useState<{ vatios: FuenteVatios; cadencia: FuenteCadencia }>(() => {
     try {
       return { vatios: 'auto', cadencia: 'auto', ...JSON.parse(leerLocal(CLAVE_FUENTES) ?? '{}') };
@@ -796,7 +822,7 @@ export default function App() {
       const eventosCrono = cronoRef.current.actualizar(posicionAhora(), t, corriendoRef.current && !pegadoRef.current);
       if (eventosCrono.length) alEventosCronoRef.current(eventosCrono);
 
-      const rodillo = sensores.ftms;
+      const rodillo = rodilloAnt.tieneControl ? rodilloAnt : sensores.ftms;
       if (!rodillo.tieneControl) {
         // Sin conexión (p. ej. el iPad se quedó colgado unos segundos y el rodillo se reconectó):
         // al volver hay que mandarle otra vez lo que toca, aunque no haya cambiado
@@ -1567,7 +1593,7 @@ export default function App() {
   // ---- Avisos de compatibilidad ----
   const sinBluetooth = !bluetoothDisponible();
   const sinHttps = typeof window !== 'undefined' && !window.isSecureContext;
-  const hayErg = sensores.ftms.tieneControl;
+  const hayErg = sensores.ftms.tieneControl || rodilloAnt.tieneControl;
 
   const tarjetas: { fuente: Fuente; titulo: string; detalle: string }[] = [
     { fuente: 'ftms', titulo: 'Rodillo inteligente', detalle: 'FTMS · servicio 0x1826' },
@@ -1851,9 +1877,28 @@ export default function App() {
                   // Llamada directa en el clic: requestDevice exige gesto del usuario
                   onConectar={() => void sensores[fuente].conectar()}
                   onDesconectar={() => sensores[fuente].desconectar()}
+                  onBuscarTodos={() => void sensores[fuente].conectar(false, true)}
                 />
               ))}
             </div>
+            {usbDisponible() && (
+              <div className="rejilla-conexion">
+                <TarjetaConexion
+                  titulo="Rodillo ANT+ (adaptador USB)"
+                  detalle="Para rodillos que solo se dejan controlar por ANT+ FE-C (p. ej. Elite B+). Cierra Zwift antes."
+                  info={{
+                    estado: conexionAnt.estado === 'buscando' ? 'conectando' : conexionAnt.estado,
+                    nombre: conexionAnt.nombre,
+                    error:
+                      conexionAnt.error ??
+                      (conexionAnt.estado === 'buscando' ? 'Adaptador listo: pedalea para que el rodillo se despierte…' : null),
+                  }}
+                  deshabilitado={false}
+                  onConectar={() => void rodilloAnt.conectar()}
+                  onDesconectar={() => rodilloAnt.desconectar()}
+                />
+              </div>
+            )}
             <div className="cambios-virtuales">
               <label className="casilla">
                 <input

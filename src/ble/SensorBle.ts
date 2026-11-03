@@ -136,7 +136,18 @@ export abstract class SensorBle {
    * Debe llamarse directamente desde el manejador de un clic:
    * requestDevice exige un gesto del usuario y por eso es lo primero que se hace.
    */
-  async conectar(soloRecordado = false): Promise<void> {
+  /**
+   * Lista con todos los aparatos Bluetooth cercanos (para los que no anuncian bien su servicio):
+   * se pide acceso a todos los servicios que podría usar este sensor.
+   */
+  private busquedaTodos(): RequestDeviceOptions {
+    const normal = this.opcionesBusqueda() as RequestDeviceOptions & { filters?: BluetoothLEScanFilter[] };
+    const servicios = new Set<BluetoothServiceUUID>([this.servicio, ...(normal.optionalServices ?? [])]);
+    for (const f of normal.filters ?? []) for (const sv of f.services ?? []) servicios.add(sv);
+    return { acceptAllDevices: true, optionalServices: [...servicios] };
+  }
+
+  async conectar(soloRecordado = false, todos = false): Promise<void> {
     if (!bluetoothDisponible()) {
       this.eventos.onError('Este navegador no soporta Web Bluetooth.');
       return;
@@ -145,7 +156,9 @@ export abstract class SensorBle {
     const nombre = soloRecordado ? this.recordado : null;
     try {
       try {
-        device = await navigator.bluetooth.requestDevice(nombre ? this.busquedaRecordado(nombre) : this.opcionesBusqueda());
+        device = await navigator.bluetooth.requestDevice(
+          todos ? this.busquedaTodos() : nombre ? this.busquedaRecordado(nombre) : this.opcionesBusqueda(),
+        );
       } catch (e) {
         // Si la búsqueda del aparato recordado falla (no por cancelar), se ofrece la lista normal
         if (!nombre || esCancelacion(e)) throw e;

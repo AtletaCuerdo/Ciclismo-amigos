@@ -23,6 +23,8 @@ interface Props {
   onConectarRecordado?: () => void;
   onConectar: () => void;
   onDesconectar: () => void;
+  /** «No sale mi aparato»: lista con todos los aparatos cercanos. */
+  onBuscarTodos?: () => void;
 }
 
 /** Botón grande de conexión con su estado y los posibles errores. */
@@ -35,6 +37,7 @@ export function TarjetaConexion({
   onConectarRecordado,
   onConectar,
   onDesconectar,
+  onBuscarTodos,
 }: Props) {
   const ocupado = info.estado === 'conectando';
   const activo = info.estado === 'conectado' || info.estado === 'reconectando';
@@ -61,6 +64,11 @@ export function TarjetaConexion({
       )}
       <div className="detalle">{!activo && recordado ? 'O pulsa arriba para elegir otro' : detalle}</div>
       {info.error && <div className="error-conexion">{info.error}</div>}
+      {!activo && onBuscarTodos && (
+        <button className="enlace-todos" onClick={onBuscarTodos} disabled={deshabilitado || ocupado}>
+          ¿No sale tu aparato? Ver todos
+        </button>
+      )}
       {activo && (
         <button className="boton-secundario" onClick={onDesconectar}>
           Desconectar

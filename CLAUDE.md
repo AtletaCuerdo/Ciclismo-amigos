@@ -190,6 +190,12 @@ la boca con un gel naranja (`JineteHumano.posar(…, comer)`). Ojo: `dirMundo` d
 `347b0001-…`, pero tienen Cycling Power 0x1818. `Potenciometro.opcionesBusqueda` busca también por ese servicio y saca la
 cadencia del CSC del mismo aparato. La resistencia no se controla (protocolo propio de Elite): rodar en «vatios libres».
 
+03-11 (2): rodillo por ANT+ FE-C con adaptador USB (`src/ant/rodilloAnt.ts`, WebUSB, vendedor Dynastream 0x0fcf):
+vatios/cadencia/velocidad (páginas 16 y 25), ERG (49), pendiente (51), rebufo (50) y peso (55). Sus datos entran como
+fuente `ftms`; en el bucle del rodillo manda el ANT+ si está conectado. Solo Chrome en ordenador/Android (no iOS);
+en Windows hace falta WinUSB con Zadig. Sin probar con el aparato. En cada tarjeta Bluetooth, «¿No sale tu aparato?
+Ver todos» abre la lista con `acceptAllDevices`.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
