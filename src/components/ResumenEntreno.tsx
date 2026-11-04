@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { compartirTcx, descargarTcx, puedeCompartir } from '../entrenamiento/tcx';
 import { tituloRueda, type Entreno } from '../entrenamiento/tipos';
 import { Metrica, formatearTiempo } from './Metrica';
@@ -11,6 +11,9 @@ import { guardarMiNivel } from '../entrenamiento/nivelPublico';
 import { mediasDeBloques, mejoresVatios } from '../entrenamiento/resumen';
 import { nutricionPorId, type IdNutricion } from '../entrenamiento/ridecoins';
 import { EscenaFondo, type EscenaFinal } from './EscenaFinal';
+import { analizarFc } from '../entrenamiento/analisisFc';
+import { AnalisisFrecuencia } from './AnalisisFrecuencia';
+import type { EntrenoGuardado } from '../entrenamiento/tipos';
 
 interface Props {
   entreno: Entreno;
@@ -77,6 +80,13 @@ export function ResumenEntreno({
   // Con escena, primero se ve la escena (las estadísticas, plegadas)
   const [plegado, setPlegado] = useState(true);
   const [nuevos, setNuevos] = useState<Logro[]>([]);
+  // Sesiones de antes (para comparar el pulso con la última vez que se hizo lo mismo)
+  const [anteriores, setAnteriores] = useState<EntrenoGuardado[]>([]);
+  const [pestana, setPestana] = useState<'datos' | 'fc'>('datos');
+  const analisis = useMemo(
+    () => analizarFc(entreno.muestras, entreno.resumen.bloques, anteriores),
+    [entreno, anteriores],
+  );
   const [xp, setXp] = useState<{ ganados: number; nivel: number; sube: boolean } | null>(null);
 
   // Logros conseguidos con esta sesión
@@ -86,6 +96,7 @@ export function ResumenEntreno({
       .catch(() => [])
       .then((lista) => {
         const conEsta = lista.some((g) => g.id === entreno.id) ? lista : [entreno, ...lista];
+        if (vivo) setAnteriores(lista.filter((g) => g.id !== entreno.id));
         // Solo si sigue montado: logrosNuevos los marca como vistos
         if (!vivo) return;
         setNuevos(logrosNuevos(conEsta));
@@ -115,6 +126,19 @@ export function ResumenEntreno({
         </button>
       </div>
 
+      {analisis && (
+        <div className="pestanas-resumen" role="tablist">
+          <button role="tab" aria-selected={pestana === 'datos'} className={pestana === 'datos' ? 'activa' : ''} onClick={() => setPestana('datos')}>
+            📊 Estadísticas
+          </button>
+          <button role="tab" aria-selected={pestana === 'fc'} className={pestana === 'fc' ? 'activa' : ''} onClick={() => setPestana('fc')}>
+            ❤️ Análisis de frecuencia cardiaca
+          </button>
+        </div>
+      )}
+      {analisis && pestana === 'fc' && <AnalisisFrecuencia a={analisis} />}
+      {/* Los datos se ocultan sin desmontarse: así la subida a Strava sigue su curso */}
+      <div hidden={!!analisis && pestana === 'fc'}>
       {xp && (
         <div className={`aviso-xp ${xp.sube ? 'sube' : ''}`} role="status">
           {xp.sube ? (
@@ -239,6 +263,7 @@ export function ResumenEntreno({
       </ol>
       )}
       <BotonesTcx entreno={entreno} />
+      </div>
     </section>
   );
   if (!escena) return panel;

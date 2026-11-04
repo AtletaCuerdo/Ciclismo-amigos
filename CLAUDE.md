@@ -225,6 +225,17 @@ escaladora +1 %, aero −1 %, cabra −3 %. A 250 W y 75 kg: llano 38,6 / 38,5 /
 FC máxima en Ajustes (`perfil.fcMax`, se valida en `edadSexo`; sin ella, Tanaka con la edad o 190). Sobre la gráfica del
 entreno, vatios reales (media de 5 s) y pulso (40-100 % de la FC máx.) de `trazaRef` (App); al tocarla se amplía.
 
+05-11 (2): pestaña «❤️ Análisis de frecuencia cardiaca» en el resumen (`entrenamiento/analisisFc.ts` +
+`components/AnalisisFrecuencia.tsx`; solo con pulso en ≥ 70 % y ≥ 10 min). Series: los bloques principales
+(`resumen.bloques`) con el mismo objetivo (±4 %) y duración (±15 %); el grupo más numeroso (≥ 3); por serie, pulso medio
+de la segunda mitad; regresión lineal frente al nº de serie con prueba t de la pendiente (p < 0,05); recuperación
+= lo que baja el pulso entre 50 y 65 s después de un bloque seguido de descanso; desacople Pa:Hr primera/segunda
+mitad. Sin series: desacople aeróbico de toda la sesión (≥ 20 min). Veredicto (muy bien / bien / atención / fatiga) y
+recomendaciones; `resumen.fc` (clave «W×s» y vatios por pulsación) para comparar con la próxima vez que se haga lo
+mismo. Probado con la sesión del 04-11 (20 series de 2′ a 216 W: deriva +0,3 ppm, no significativa, desacople 0,3 %).
+La gráfica de pulso de Strava va por km (en las subidas virtuales se va lento y se aprietan los minutos); la del
+Garmin, por tiempo: los datos son los mismos.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

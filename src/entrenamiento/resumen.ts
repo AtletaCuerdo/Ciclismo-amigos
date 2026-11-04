@@ -89,7 +89,7 @@ export function muestrasDeCortes(muestras: Muestra[], cortesS: number[]): number
 }
 
 /** Segundos en marcha al llegar a cada muestra (tiempo real entre muestras, sin las pausas). */
-function segundosEnMarcha(muestras: Muestra[]): number[] {
+export function segundosEnMarcha(muestras: Muestra[]): number[] {
   const enMarcha: number[] = [];
   let s = 0;
   for (let i = 0; i < muestras.length; i++) {

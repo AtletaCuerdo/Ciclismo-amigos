@@ -4490,3 +4490,79 @@ p {
   stroke: #ff4d6d;
   stroke-width: 2.2;
 }
+
+/* ---------- Resumen: pestañas y análisis de frecuencia cardiaca ---------- */
+.pestanas-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 12px;
+}
+.pestanas-resumen button {
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--borde);
+  background: transparent;
+  color: var(--texto-suave);
+  font-weight: 700;
+  cursor: pointer;
+}
+.pestanas-resumen button.activa {
+  background: var(--degradado);
+  color: var(--texto-sobre-acento);
+  border-color: transparent;
+}
+.analisis-veredicto {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--borde);
+  margin-bottom: 12px;
+}
+.analisis-veredicto strong {
+  font-size: 18px;
+}
+.analisis-estado {
+  font-size: 13px;
+  font-weight: 700;
+}
+.analisis-veredicto.bueno {
+  background: rgba(74, 222, 128, 0.1);
+  border-color: rgba(74, 222, 128, 0.45);
+}
+.analisis-veredicto.aviso {
+  background: rgba(250, 204, 21, 0.1);
+  border-color: rgba(250, 204, 21, 0.45);
+}
+.analisis-veredicto.serio {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.5);
+}
+.analisis-cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.analisis-cifras div {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(127, 127, 127, 0.08);
+}
+.analisis-cifras strong {
+  font-size: 20px;
+}
+.analisis-cifras span {
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+.analisis-lista {
+  margin: 4px 0 10px;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+}

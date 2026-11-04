@@ -62,6 +62,8 @@ export interface Resumen {
   /** Mejores vatios de la sesión ([segundos, W]) y FTP que tenía el ciclista: para «Tu evolución». */
   mejores?: [number, number][];
   ftp?: number;
+  /** Huella del análisis de pulso (series principales y vatios por pulsación), para comparar con próximas sesiones. */
+  fc?: { clave: string; ef: number };
 }
 
 /** Título según el porcentaje del tiempo que se ha ido a rueda (para las risas del grupo). */

@@ -41,6 +41,7 @@ import {
   type Nutricion,
 } from './entrenamiento/ridecoins';
 import { PantallaTienda } from './components/PantallaTienda';
+import { analizarFc } from './entrenamiento/analisisFc';
 import { AsistenteInicio, asistenteVisto } from './components/AsistenteInicio';
 import { RodilloAnt, usbDisponible, type EstadoAnt } from './ant/rodilloAnt';
 import type { EscenaFinal } from './components/EscenaFinal';
@@ -1619,12 +1620,16 @@ export default function App() {
           : undefined;
     const nombreEntreno = sesion.nombres.length ? [...new Set(sesion.nombres)].join(' + ') : undefined;
     // RideCoins de la sesión (ya fuera del recorrido: leer el historial tarda un momento)
+    const anteriores = await listarEntrenos().catch(() => []);
     const monedas = calcularMonedas(entreno.muestras, entreno.inicio, {
       ftp: perfil.ftp,
       entrenosCompletados: completados,
       segundosConAmigo,
-      anteriores: await listarEntrenos().catch(() => []),
+      anteriores,
     });
+    // Huella del análisis de pulso, para compararla con la próxima vez que se haga lo mismo
+    const huella = analizarFc(entreno.muestras, entreno.resumen.bloques, anteriores)?.huella;
+    if (huella) entreno.resumen.fc = { clave: huella.clave, ef: Math.round(huella.ef * 1000) / 1000 };
     entreno.resumen.monedas = monedas.total;
     if (monedas.detalle.length) entreno.resumen.monedasDetalle = monedas.detalle;
     setTerminado({ entreno, error: null, ftpSugerido, nombreEntreno, escena });
