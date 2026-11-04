@@ -3,7 +3,7 @@
  * marcador (HUD) y el perfil de la vuelta. Se carga de forma diferida.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { guardarCalidad, type Avatar, type Calidad } from '../recorrido/avatar';
+import { colorPulso, guardarCalidad, type Avatar, type Calidad } from '../recorrido/avatar';
 import { EscenaRecorrido, type DatosYo, type OtroCiclista, type VistaCamara } from '../recorrido/escena';
 import {
   ALTITUD_MAX,
@@ -121,6 +121,8 @@ interface Props {
     eleccion: 'izquierda' | 'derecha' | null;
     onElegir: (lado: 'izquierda' | 'derecha' | null) => void;
   } | null;
+  /** FC máxima (para el color del pulso por zonas). */
+  fcMax: number;
   /** Giro en un cruce ya elegido: punto del cruce (m), lado y nombre del circuito al que se va. */
   giro: { s: number; lado: 1 | -1; destino: string } | null;
   /** Se llega girando desde un cruce: la escena aparece con un fundido desde negro. */
@@ -169,6 +171,11 @@ interface Props {
     /** Segundos de calentamiento al principio (0 si no tiene) y cómo saltárselo. */
     calentamientoS: number;
     onSaltarCalentamiento: () => void;
+    /** Pasa al bloque siguiente (sin cambiar el entreno). */
+    onSaltarBloque: () => void;
+    /** Vatios y pulso de cada segundo del entreno, para dibujarlos sobre la gráfica. */
+    traza: { t: number; w?: number; hr?: number }[];
+    fcMax: number;
   } | null;
   /** Todos los entrenamientos (para elegir otro sin salir del recorrido). */
   entrenamientos: Entrenamiento[];
@@ -207,6 +214,8 @@ function PanelEntreno({
   onLibre: () => void;
 }) {
   const t = e.segundos;
+  // La gráfica se amplía al tocarla (para ver bien el pulso de las últimas series)
+  const [grande, setGrande] = useState(false);
   const i = e.tramos.findIndex((x) => t >= x.inicio && t < x.inicio + x.duracion);
   const actual = e.tramos[i];
   const siguiente = i >= 0 ? e.tramos[i + 1] : undefined;
@@ -270,7 +279,27 @@ function PanelEntreno({
           </div>
         )
       )}
-      <GraficaEntrenamiento tramos={e.tramos} progreso={t} alto={42} className="en-hud" />
+      <button
+        className={`hud-grafica ${grande ? 'grande' : ''}`}
+        onClick={() => setGrande((g) => !g)}
+        title={grande ? 'Hacer la gráfica pequeña' : 'Ampliar la gráfica (vatios y pulso)'}
+      >
+        <GraficaEntrenamiento
+          tramos={e.tramos}
+          progreso={t}
+          alto={grande ? 120 : 42}
+          className="en-hud"
+          traza={e.traza}
+          ftp={undefined}
+          ftpTraza={(e.ftp * e.intensidad) / 100}
+          fcMax={e.fcMax}
+        />
+        {e.traza.some((p) => p.hr) && (
+          <span className="hud-grafica-leyenda">
+            <i className="w" /> vatios <i className="hr" /> pulso
+          </span>
+        )}
+      </button>
       {!acabado && (
         <div className="hud-entreno-mandos">
           <div className="hud-intensidad" title="Sube o baja todos los vatios del entreno sin cancelarlo">
@@ -282,6 +311,9 @@ function PanelEntreno({
               +
             </button>
           </div>
+          <button className="hud-entreno-boton" onClick={e.onSaltarBloque} title="Pasar al bloque siguiente">
+            ⏭ Saltar bloque
+          </button>
           <button className="hud-entreno-boton" onClick={onCambiar}>
             🔁 Cambiar
           </button>
@@ -312,6 +344,7 @@ const VISTAS: { id: VistaCamara; nombre: string }[] = [
 const km = (m: number, dec = 1) => (m / 1000).toFixed(dec).replace('.', ',');
 
 export default function VistaRecorrido({
+  fcMax,
   giro,
   llegadaCruce,
   juntos,
@@ -622,7 +655,7 @@ export default function VistaRecorrido({
               </div>
             )}
             <div className="hud-dato">
-              <span className="hud-valor pulso">
+              <span className="hud-valor pulso" style={yo.pulso ? { color: colorPulso(yo.pulso, fcMax) } : undefined}>
                 {yo.pulso ?? '--'}
                 <small> ppm</small>
               </span>

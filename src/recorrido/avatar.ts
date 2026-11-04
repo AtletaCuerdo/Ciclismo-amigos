@@ -72,17 +72,38 @@ export interface Perfil {
   /** Edad y sexo: solo para calcular las calorías por pulso. */
   edad?: number;
   sexo?: 'hombre' | 'mujer';
+  /** Frecuencia cardiaca máxima (ppm), para las zonas de pulso. Sin ella se estima con la edad. */
+  fcMax?: number;
   /** RideCoins gastados y nutrición comprada y tomada (ver ridecoins.ts). */
   despensa?: Despensa;
 }
 
-/** Edad y sexo válidos de un perfil guardado (lo demás se descarta). */
-export function edadSexo(g: { edad?: unknown; sexo?: unknown }): Pick<Perfil, 'edad' | 'sexo'> {
+/** Edad, sexo y FC máxima válidos de un perfil guardado (lo demás se descarta). */
+export function edadSexo(g: { edad?: unknown; sexo?: unknown; fcMax?: unknown }): Pick<Perfil, 'edad' | 'sexo' | 'fcMax'> {
   const edad = Number(g.edad);
+  const fc = Number(g.fcMax);
   return {
     ...(edad >= 10 && edad <= 100 ? { edad: Math.round(edad) } : {}),
     ...(g.sexo === 'hombre' || g.sexo === 'mujer' ? { sexo: g.sexo } : {}),
+    ...(fc >= 120 && fc <= 230 ? { fcMax: Math.round(fc) } : {}),
   };
+}
+
+/** FC máxima: la del perfil o, si no está, la estimada por la edad (Tanaka: 208 − 0,7 × edad). */
+export const fcMaxima = (p: Pick<Perfil, 'edad' | 'fcMax'>) => p.fcMax ?? (p.edad ? Math.round(208 - 0.7 * p.edad) : 190);
+
+/**
+ * Color del pulso por zonas (% de la FC máxima): azul, verde, amarillo, naranja, rojo y, casi al
+ * máximo, morado.
+ */
+export function colorPulso(ppm: number, fcMax: number) {
+  const pct = ppm / fcMax;
+  if (pct < 0.6) return '#60a5fa'; // Z1 muy suave
+  if (pct < 0.7) return '#4ade80'; // Z2 resistencia
+  if (pct < 0.8) return '#facc15'; // Z3 tempo
+  if (pct < 0.9) return '#fb923c'; // Z4 umbral
+  if (pct < 0.97) return '#ef4444'; // Z5 máximo
+  return '#c026d3'; // al límite
 }
 
 export const MODELOS: { id: ModeloBici; nombre: string; descripcion: string }[] = [

@@ -219,6 +219,12 @@ Bicis en las subidas (`SUBIDA_BICI` en fisica.ts, sobre los vatios desde el 2 % 
 escaladora +1 %, aero −1 %, cabra −3 %. A 250 W y 75 kg: llano 38,6 / 38,5 / 39,3 / 41,0 km/h; al 7 %: 14,4 / 14,6 /
 14,2 / 13,9 km/h (ruta / escaladora / aero / cabra).
 
+05-11: «⏭ Saltar bloque» en los mandos del entreno (`saltarBloque` → `saltarHasta(fin)` en App, el mismo que usa
+«Saltar calentamiento»: mueve `inicioS`, recorta el bloque a medias y adelanta vueltas y bloques). Pulso por zonas
+(`colorPulso` en avatar.ts, % de `fcMaxima`: azul <60, verde <70, amarillo <80, naranja <90, rojo <97, morado);
+FC máxima en Ajustes (`perfil.fcMax`, se valida en `edadSexo`; sin ella, Tanaka con la edad o 190). Sobre la gráfica del
+entreno, vatios reales (media de 5 s) y pulso (40-100 % de la FC máx.) de `trazaRef` (App); al tocarla se amplía.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

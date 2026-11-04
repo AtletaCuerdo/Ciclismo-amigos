@@ -4,7 +4,7 @@
  * en el recorrido. Se guarda en el perfil (y en la cuenta, si el usuario ha entrado).
  */
 import { useState } from 'react';
-import type { Perfil } from '../recorrido/avatar';
+import { fcMaxima, type Perfil } from '../recorrido/avatar';
 import { colorZona } from './GraficaEntrenamiento';
 
 const ZONAS: { nombre: string; desde: number; hasta?: number }[] = [
@@ -20,6 +20,7 @@ export function PanelFtp({ perfil, onCambiar }: { perfil: Perfil; onCambiar: (p:
   const [ftp, setFtp] = useState(String(perfil.ftp));
   const [peso, setPeso] = useState(String(perfil.pesoKg));
   const [edad, setEdad] = useState(perfil.edad ? String(perfil.edad) : '');
+  const [fc, setFc] = useState(perfil.fcMax ? String(perfil.fcMax) : '');
   const w = (pct: number) => Math.round((pct * perfil.ftp) / 100);
 
   return (
@@ -96,7 +97,28 @@ export function PanelFtp({ perfil, onCambiar }: { perfil: Perfil; onCambiar: (p:
             <option value="mujer">Mujer</option>
           </select>
         </label>
+        <label className="campo-ftp">
+          <span>FC máx.</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={fc}
+            placeholder={String(fcMaxima(perfil))}
+            onChange={(e) => {
+              setFc(e.target.value);
+              const v = Number(e.target.value);
+              if (v >= 120 && v <= 230) onCambiar({ ...perfil, fcMax: Math.round(v) });
+              else if (e.target.value.trim() === '') onCambiar({ ...perfil, fcMax: undefined });
+            }}
+            onBlur={() => setFc(perfil.fcMax ? String(perfil.fcMax) : '')}
+          />
+          <span>ppm</span>
+        </label>
       </div>
+      <p className="detalle">
+        La FC máxima colorea tu pulso por zonas mientras ruedas (azul, verde, amarillo, naranja, rojo y morado al límite).
+        Si la dejas vacía, se estima con tu edad{perfil.fcMax ? '' : `: ${fcMaxima(perfil)} ppm`}.
+      </p>
       <p className="detalle">
         Calorías: con tu edad y tu sexo, y llevando pulsómetro, se calculan por el pulso (como hacen los relojes con
         el pulso: en los esfuerzos fuertes salen más). Si no, por los vatios.

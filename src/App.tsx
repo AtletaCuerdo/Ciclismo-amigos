@@ -59,6 +59,7 @@ import {
   avatarAleatorio,
   cargarCalidad,
   cargarPerfil,
+  fcMaxima,
   guardarCalidad,
   guardarPerfil,
   type Avatar,
@@ -1479,6 +1480,7 @@ export default function App() {
 
   const empezarEntreno = (e: Entrenamiento) => {
     const tramos = desplegar(e.bloques);
+    trazaRef.current = [];
     mantenerPantallaEncendida();
     cortesRef.current = [];
     bloquesRef.current = [];
@@ -1498,6 +1500,7 @@ export default function App() {
   /** Otro entrenamiento dentro de la misma sesión (todo acaba en una sola actividad). */
   const encadenarEntreno = (e: Entrenamiento) => {
     const tramos = desplegar(e.bloques);
+    trazaRef.current = [];
     apuntarEnSesion(e);
     setEntrenoActivo({ entreno: e, tramos, total: duracionTotal(tramos), inicioS: grabacion.segundos });
     setIntensidad(100);
@@ -1505,13 +1508,13 @@ export default function App() {
   };
 
   /**
-   * Salta el resto del calentamiento: el entreno sigue donde empieza la parte principal. Las
-   * vueltas y los bloques que ya se hicieron se quedan; los que faltan se adelantan.
+   * Salta al segundo `fin` del entreno (el final del calentamiento o del bloque en curso), sin
+   * cambiar el entreno. Las vueltas y los bloques ya hechos se quedan (el que estaba a medias, hasta
+   * aquí); los que faltan se adelantan.
    */
-  const saltarCalentamiento = () => {
+  const saltarHasta = (fin: number) => {
     const a = entrenoActivo;
     if (!a) return;
-    const fin = finCalentamiento(a.tramos);
     const ahoraS = grabacion.segundos;
     if (fin <= 0 || ahoraS - a.inicioS >= fin) return;
     const inicio = ahoraS - fin;
@@ -1523,8 +1526,28 @@ export default function App() {
       ...a.tramos.filter((t) => t.inicio > fin).map((t) => inicio + t.inicio),
       inicio + a.total,
     ];
-    bloquesRef.current = bloquesRef.current.map(([i, d, w]): [number, number, number] => (i >= ahoraS ? [i - adelanto, d, w] : [i, d, w]));
+    bloquesRef.current = bloquesRef.current.flatMap(([i, d, w]): [number, number, number][] =>
+      i >= ahoraS ? [[i - adelanto, d, w]] : i + d > ahoraS ? (ahoraS - i >= 30 ? [[i, ahoraS - i, w]] : []) : [[i, d, w]],
+    );
   };
+  const saltarCalentamiento = () => entrenoActivo && saltarHasta(finCalentamiento(entrenoActivo.tramos));
+  /** Pasa al bloque siguiente (una serie que se hace eterna o un descanso demasiado largo). */
+  const saltarBloque = () => {
+    const a = entrenoActivo;
+    if (!a) return;
+    const t = grabacion.segundos - a.inicioS;
+    const actual = a.tramos.find((x) => t >= x.inicio && t < x.inicio + x.duracion);
+    if (actual) saltarHasta(actual.inicio + actual.duracion);
+  };
+
+  // Vatios y pulso de cada segundo del entreno guiado, para dibujarlos sobre su gráfica
+  const trazaRef = useRef<{ t: number; w?: number; hr?: number }[]>([]);
+  useEffect(() => {
+    const a = entrenoActivo;
+    if (!a || !grabacion.corriendo) return;
+    trazaRef.current.push({ t: grabacion.segundos - a.inicioS, w: actualRef.current.potencia, hr: actualRef.current.pulso });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grabacion.segundos]);
 
   /** Al acabar un entrenamiento, seguir rodando libre (el rodillo vuelve a seguir la pendiente). */
   const seguirLibre = () => {
@@ -2341,6 +2364,7 @@ export default function App() {
               onElegir: elegirSiguienteCircuito,
               alMomento: !grabacion.hayDatos,
             }}
+            fcMax={fcMaxima(perfil)}
             giro={giroCruce}
             llegadaCruce={llegadaCruce}
             cruce={
@@ -2509,6 +2533,9 @@ export default function App() {
                     onIntensidad: (delta: number) => setIntensidad((v) => Math.max(50, Math.min(150, v + delta))),
                     calentamientoS: finCalentamiento(entrenoActivo.tramos),
                     onSaltarCalentamiento: saltarCalentamiento,
+                    onSaltarBloque: saltarBloque,
+                    traza: trazaRef.current,
+                    fcMax: fcMaxima(perfil),
                   }
                 : null
             }

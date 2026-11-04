@@ -4445,3 +4445,48 @@ p {
 .tienda-ganancia .pierde {
   color: #f87171;
 }
+
+/* Gráfica del entreno en el recorrido: se amplía al tocarla; vatios y pulso de verdad encima */
+.hud-grafica {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+.hud-grafica-leyenda {
+  position: absolute;
+  right: 4px;
+  top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #e2e8f0;
+  text-shadow: 0 1px 2px #000;
+}
+.hud-grafica-leyenda i {
+  display: inline-block;
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+}
+.hud-grafica-leyenda i.w {
+  background: #f8fafc;
+}
+.hud-grafica-leyenda i.hr {
+  background: #ff4d6d;
+  margin-left: 6px;
+}
+.traza-vatios {
+  fill: none;
+  stroke: rgba(248, 250, 252, 0.9);
+  stroke-width: 1.5;
+}
+.traza-pulso {
+  fill: none;
+  stroke: #ff4d6d;
+  stroke-width: 2.2;
+}
