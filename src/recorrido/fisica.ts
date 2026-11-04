@@ -21,12 +21,19 @@ const AERO_CASCO: Record<Casco, number> = { ruta: 1, clasico: 1.01, gorra: 1.02,
 const AERO_RUEDAS: Record<TipoRuedas, number> = { bajo: 1, medio: 0.985, alto: 0.975, lenticular: 0.965 };
 /** Peso de cada bici (kg): la escaladora pesa menos y la cabra, más. */
 const PESO_BICI: Record<ModeloBici, number> = { ruta: 8, escaladora: 7, aero: 8.3, cabra: 9 };
+/**
+ * Rendimiento en las subidas (además del peso): la cabra es rígida y su postura no deja
+ * empujar bien cuesta arriba; la aero, algo menos; la de ruta y la escaladora suben un poco mejor.
+ * Se aplica a los vatios a partir del 2 % de pendiente y del todo desde el 5 %.
+ */
+const SUBIDA_BICI: Record<ModeloBici, number> = { ruta: 1.005, escaladora: 1.01, aero: 0.99, cabra: 0.97 };
 
 /** Resistencia del aire (CdA, m²) y peso de la bici para un avatar. */
 export function equipoAvatar(a: Pick<Avatar, 'modelo' | 'cascoModelo' | 'ruedas'>) {
   return {
     cda: CDA_BASE * AERO_BICI[a.modelo] * AERO_CASCO[a.cascoModelo] * AERO_RUEDAS[a.ruedas],
     pesoBiciKg: PESO_BICI[a.modelo],
+    subida: SUBIDA_BICI[a.modelo],
   };
 }
 
@@ -35,6 +42,8 @@ export class FisicaVirtual {
   v = 0;
   /** Área frontal × coeficiente aerodinámico (m²). */
   cda = CDA_BASE;
+  /** Rendimiento de la bici en las subidas (1 = neutro; ver SUBIDA_BICI). */
+  subida = 1;
 
   /** @param masaKg ciclista + bici */
   constructor(public masaKg = 83) {}
@@ -45,7 +54,8 @@ export class FisicaVirtual {
     for (let t = 0; t < dt; t += PASO_S) {
       const h = Math.min(PASO_S, dt - t);
       // Con v casi 0, la fuerza P/v se dispara: se limita como si fuera a 1 m/s
-      const fuerzaPedal = Math.max(0, potenciaW) / Math.max(this.v, 1);
+      const enSubida = Math.min(1, Math.max(0, (pendientePct - 2) / 3));
+      const fuerzaPedal = (Math.max(0, potenciaW) * (1 + (this.subida - 1) * enSubida)) / Math.max(this.v, 1);
       const resistencia =
         m * G * Math.sin(angulo) + CRR * m * G * Math.cos(angulo) + 0.5 * RHO * this.cda * this.v * this.v;
       this.v = Math.max(0, this.v + ((fuerzaPedal - resistencia) / m) * h);

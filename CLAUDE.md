@@ -215,6 +215,9 @@ por defecto con `.resumen-mini` (tiempo, km, W, RideCoins); el panel completo si
 `rodillos.asistenteVisto`). Material en la tienda (`MATERIAL` en ridecoins.ts, `despensa.material`; gratis: bici de ruta,
 ruedas de perfil bajo y casco de ruta; lo que ya se llevaba se regala con `regalarMaterial`); en el editor sale 🔒 con el
 precio y se compra y pone en un solo cambio.
+Bicis en las subidas (`SUBIDA_BICI` en fisica.ts, sobre los vatios desde el 2 % y entero desde el 5 %): ruta +0,5 %,
+escaladora +1 %, aero −1 %, cabra −3 %. A 250 W y 75 kg: llano 38,6 / 38,5 / 39,3 / 41,0 km/h; al 7 %: 14,4 / 14,6 /
+14,2 / 13,9 km/h (ruta / escaladora / aero / cabra).
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).

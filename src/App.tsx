@@ -793,6 +793,7 @@ export default function App() {
       anterior = t;
       const f = fisicaRef.current;
       f.masaKg = pesoRef.current + equipoRef.current.pesoBiciKg;
+      f.subida = equipoRef.current.subida;
       // «Siempre juntos»: si otro marca el ritmo, voy en su mismo punto (estimado ahora mismo)
       const lider = liderJuntosRef.current;
       if (lider && corriendoRef.current) {

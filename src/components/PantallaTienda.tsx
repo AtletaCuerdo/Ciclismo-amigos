@@ -73,8 +73,9 @@ export function PantallaTienda({
 
       <h3>Material</h3>
       <p className="detalle">
-        Se compra una vez y es tuyo para siempre. La bici de ruta, las ruedas de perfil bajo y el casco de ruta son
-        gratis. Lo aerodinámico te hace ir algo más rápido con los mismos vatios, igual que en la carretera.
+        Se compra una vez y es tuyo para siempre. La bici de ruta (+0,5 % en las subidas), las ruedas de perfil bajo y
+        el casco de ruta son gratis. Lo aerodinámico te hace ir algo más rápido en llano con los mismos vatios, y las
+        bicis rígidas suben peor, igual que en la carretera.
       </p>
       <div className="tienda-lista">
         {MATERIAL.map((m) => {

@@ -69,9 +69,9 @@ export const MATERIAL: Material[] = [
   { id: 'casco:aero', tipo: 'casco', valor: 'aero', nombre: 'Casco aero de contrarreloj', precio: 250, efecto: '−3 % de resistencia del aire' },
   { id: 'casco:clasico', tipo: 'casco', valor: 'clasico', nombre: 'Casco clásico con visera', precio: 80, efecto: 'Estético (+1 % de aire)' },
   { id: 'casco:gorra', tipo: 'casco', valor: 'gorra', nombre: 'Gorra retro', precio: 80, efecto: 'Estético (+2 % de aire)' },
-  { id: 'bici:escaladora', tipo: 'bici', valor: 'escaladora', nombre: 'Bici escaladora', precio: 400, efecto: '1 kg menos: mejor en las subidas' },
-  { id: 'bici:aero', tipo: 'bici', valor: 'aero', nombre: 'Bici de ruta aero', precio: 500, efecto: '−5 % de resistencia del aire' },
-  { id: 'bici:cabra', tipo: 'bici', valor: 'cabra', nombre: 'Cabra de triatlón', precio: 700, efecto: '−17 % de aire (postura acoplada)' },
+  { id: 'bici:escaladora', tipo: 'bici', valor: 'escaladora', nombre: 'Bici escaladora', precio: 400, efecto: '1 kg menos y +1 % en las subidas' },
+  { id: 'bici:aero', tipo: 'bici', valor: 'aero', nombre: 'Bici de ruta aero', precio: 500, efecto: '−5 % de aire en llano; −1 % en las subidas' },
+  { id: 'bici:cabra', tipo: 'bici', valor: 'cabra', nombre: 'Cabra de triatlón', precio: 700, efecto: '−17 % de aire en llano; −3 % en las subidas (rígida)' },
 ];
 
 const IDS_MATERIAL = new Set(MATERIAL.map((m) => m.id));
