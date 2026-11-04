@@ -60,18 +60,20 @@ export interface Material {
   precio: number;
   /** Qué cambia al rodar (los efectos están en fisica.ts). */
   efecto: string;
+  /** Para qué sirve, en palabras de ciclista. */
+  descripcion: string;
 }
 
 export const MATERIAL: Material[] = [
-  { id: 'ruedas:medio', tipo: 'ruedas', valor: 'medio', nombre: 'Ruedas de perfil medio', precio: 150, efecto: '−1,5 % de resistencia del aire' },
-  { id: 'ruedas:alto', tipo: 'ruedas', valor: 'alto', nombre: 'Ruedas de perfil alto', precio: 300, efecto: '−2,5 % de resistencia del aire' },
-  { id: 'ruedas:lenticular', tipo: 'ruedas', valor: 'lenticular', nombre: 'Rueda lenticular', precio: 450, efecto: '−3,5 % de resistencia del aire' },
-  { id: 'casco:aero', tipo: 'casco', valor: 'aero', nombre: 'Casco aero de contrarreloj', precio: 250, efecto: '−3 % de resistencia del aire' },
-  { id: 'casco:clasico', tipo: 'casco', valor: 'clasico', nombre: 'Casco clásico con visera', precio: 80, efecto: 'Estético (+1 % de aire)' },
-  { id: 'casco:gorra', tipo: 'casco', valor: 'gorra', nombre: 'Gorra retro', precio: 80, efecto: 'Estético (+2 % de aire)' },
-  { id: 'bici:escaladora', tipo: 'bici', valor: 'escaladora', nombre: 'Bici escaladora', precio: 400, efecto: '1 kg menos y +1 % en las subidas' },
-  { id: 'bici:aero', tipo: 'bici', valor: 'aero', nombre: 'Bici de ruta aero', precio: 500, efecto: '−5 % de aire en llano; −1 % en las subidas' },
-  { id: 'bici:cabra', tipo: 'bici', valor: 'cabra', nombre: 'Cabra de triatlón', precio: 700, efecto: '−17 % de aire en llano; −3 % en las subidas (rígida)' },
+  { id: 'ruedas:medio', tipo: 'ruedas', valor: 'medio', nombre: 'Ruedas de perfil medio', precio: 150, efecto: '−1,5 % de resistencia del aire', descripcion: 'Llantas de unos 40 mm: algo más rápidas en llano sin notarse en las subidas. La mejora más barata.' },
+  { id: 'ruedas:alto', tipo: 'ruedas', valor: 'alto', nombre: 'Ruedas de perfil alto', precio: 300, efecto: '−2,5 % de resistencia del aire', descripcion: 'Llantas de 60 mm o más: para rodar rápido en llano y en grupeta.' },
+  { id: 'ruedas:lenticular', tipo: 'ruedas', valor: 'lenticular', nombre: 'Rueda lenticular', precio: 450, efecto: '−3,5 % de resistencia del aire', descripcion: 'Trasera lenticular y delantera de perfil alto: lo más rápido en llano, para contrarreloj y triatlón.' },
+  { id: 'casco:aero', tipo: 'casco', valor: 'aero', nombre: 'Casco aero de contrarreloj', precio: 250, efecto: '−3 % de resistencia del aire', descripcion: 'Casco largo de contrarreloj: de lo que más se nota en llano para lo que cuesta.' },
+  { id: 'casco:clasico', tipo: 'casco', valor: 'clasico', nombre: 'Casco clásico con visera', precio: 80, efecto: 'Estético (+1 % de aire)', descripcion: 'Para ir con estilo: abriga un poco más y frena algo con el viento.' },
+  { id: 'casco:gorra', tipo: 'casco', valor: 'gorra', nombre: 'Gorra retro', precio: 80, efecto: 'Estético (+2 % de aire)', descripcion: 'La gorra de toda la vida, de los de antes: puro estilo, frena un poco.' },
+  { id: 'bici:escaladora', tipo: 'bici', valor: 'escaladora', nombre: 'Bici escaladora', precio: 400, efecto: '1 kg menos y +1 % en las subidas', descripcion: 'Ligera y nerviosa: la mejor para los puertos (Puerto de la Sierra). En llano, casi igual que la de ruta.' },
+  { id: 'bici:aero', tipo: 'bici', valor: 'aero', nombre: 'Bici de ruta aero', precio: 500, efecto: '−5 % de aire en llano; −1 % en las subidas', descripcion: 'Tubos perfilados: más rápida en llano y en grupeta, algo peor cuando la carretera pica hacia arriba.' },
+  { id: 'bici:cabra', tipo: 'bici', valor: 'cabra', nombre: 'Cabra de triatlón', precio: 700, efecto: '−17 % de aire en llano; −3 % en las subidas (rígida)', descripcion: 'Postura acoplada: la reina del llano y del triatlón, pero rígida y pesada en las subidas. En el recorrido no te pones de pie.' },
 ];
 
 const IDS_MATERIAL = new Set(MATERIAL.map((m) => m.id));

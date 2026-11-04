@@ -4,6 +4,36 @@
  */
 import { MATERIAL, NUTRICION, existencias, tieneMaterial, type Despensa, type IdNutricion, type Material } from '../entrenamiento/ridecoins';
 import type { Avatar } from '../recorrido/avatar';
+import { FisicaVirtual, equipoAvatar } from '../recorrido/fisica';
+
+/**
+ * Lo que gana una pieza frente a lo básico (bici de ruta, perfil bajo y casco de ruta), con la
+ * misma física del recorrido: km/h de más a 250 W y 75 kg, en llano y en una subida del 7 %.
+ */
+function ganancia(m: Material) {
+  type Equipo = Parameters<typeof equipoAvatar>[0];
+  const vel = (a: Equipo, grado: number) => {
+    const e = equipoAvatar(a);
+    const f = new FisicaVirtual(75 + e.pesoBiciKg);
+    f.cda = e.cda;
+    f.subida = e.subida;
+    for (let t = 0; t < 600; t++) f.actualizar(250, grado, 1);
+    return f.v * 3.6;
+  };
+  const base: Equipo = { modelo: 'ruta', cascoModelo: 'ruta', ruedas: 'bajo' };
+  const con: Equipo = {
+    ...base,
+    ...(m.tipo === 'bici'
+      ? { modelo: m.valor as Equipo['modelo'] }
+      : m.tipo === 'ruedas'
+        ? { ruedas: m.valor as Equipo['ruedas'] }
+        : { cascoModelo: m.valor as Equipo['cascoModelo'] }),
+  };
+  return { llano: vel(con, 0) - vel(base, 0), subida: vel(con, 7) - vel(base, 7) };
+}
+const GANANCIAS = new Map(MATERIAL.map((m) => [m.id, ganancia(m)]));
+const kmh = (x: number) =>
+  Math.abs(x) < 0.05 ? 'igual' : `${x > 0 ? '+' : '−'}${Math.abs(x).toLocaleString('es-ES', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} km/h`;
 
 const pct = (x: number) => `${(x * 100).toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`;
 
@@ -73,7 +103,8 @@ export function PantallaTienda({
 
       <h3>Material</h3>
       <p className="detalle">
-        Se compra una vez y es tuyo para siempre. La bici de ruta (+0,5 % en las subidas), las ruedas de perfil bajo y
+        Se compra una vez y es tuyo para siempre. Lo que gana cada pieza está calculado con la física del recorrido para un
+        ciclista de 75 kg a 250 W, frente al material básico. La bici de ruta (+0,5 % en las subidas), las ruedas de perfil bajo y
         el casco de ruta son gratis. Lo aerodinámico te hace ir algo más rápido en llano con los mismos vatios, y las
         bicis rígidas suben peor, igual que en la carretera.
       </p>
@@ -88,7 +119,16 @@ export function PantallaTienda({
               </span>
               <div className="tienda-info">
                 <strong>{m.nombre}</strong>
-                <span className="detalle">{m.efecto}</span>
+                <span className="detalle">{m.descripcion}</span>
+                <span className="tienda-efecto">{m.efecto}</span>
+                <span className="tienda-ganancia">
+                  <span className={GANANCIAS.get(m.id)!.llano < -0.04 ? 'pierde' : GANANCIAS.get(m.id)!.llano > 0.04 ? 'gana' : ''}>
+                    Llano: {kmh(GANANCIAS.get(m.id)!.llano)}
+                  </span>
+                  <span className={GANANCIAS.get(m.id)!.subida < -0.04 ? 'pierde' : GANANCIAS.get(m.id)!.subida > 0.04 ? 'gana' : ''}>
+                    Subida del 7 %: {kmh(GANANCIAS.get(m.id)!.subida)}
+                  </span>
+                </span>
                 {tuyo && <span className="tienda-tengo">{lleva ? 'Lo llevas puesto' : 'Es tuyo'}</span>}
               </div>
               {tuyo ? (

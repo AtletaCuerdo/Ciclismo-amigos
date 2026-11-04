@@ -4428,3 +4428,20 @@ p {
   color: #fbbf24;
   font-weight: 700;
 }
+.tienda-efecto {
+  font-size: 13px;
+  color: #e2e8f0;
+}
+.tienda-ganancia {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+.tienda-ganancia .gana {
+  color: #4ade80;
+}
+.tienda-ganancia .pierde {
+  color: #f87171;
+}
