@@ -236,6 +236,9 @@ mismo. Probado con la sesión del 04-11 (20 series de 2′ a 216 W: deriva +0,3 
 La gráfica de pulso de Strava va por km (en las subidas virtuales se va lento y se aprietan los minutos); la del
 Garmin, por tiempo: los datos son los mismos.
 
+05-11 (3): editor de entrenamientos: «Potencia en: Vatios / % del FTP» (`rodillos.editorUnidad`; en vatios se escribe con
+el FTP de ahora y se guarda en % con un decimal) y duraciones en minutos + segundos (`Duracion`, mínimo 5 s).
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

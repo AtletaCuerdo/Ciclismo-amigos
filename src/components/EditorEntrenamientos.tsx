@@ -59,41 +59,85 @@ function Numero({ valor, onCambiar, min, max, sufijo }: { valor: number; onCambi
   );
 }
 
-const min = (s: number) => Math.round((s / 60) * 10) / 10;
+/** Duración en minutos y segundos (así se pueden poner series de 30″, 45″, 1′30″…). */
+function Duracion({ s, onCambiar, minS = 5 }: { s: number; onCambiar: (s: number) => void; minS?: number }) {
+  const m = Math.floor(s / 60);
+  const seg = Math.round(s % 60);
+  const poner = (nm: number, ns: number) => onCambiar(Math.max(minS, Math.round(nm) * 60 + Math.round(ns)));
+  return (
+    <span className="duracion-bloque">
+      <Numero valor={m} min={0} max={300} sufijo="min" onCambiar={(v) => poner(v, seg)} />
+      <Numero valor={seg} min={0} max={59} sufijo="s" onCambiar={(v) => poner(m, v)} />
+    </span>
+  );
+}
 
-function EditorBloque({ b, onCambiar }: { b: Bloque; onCambiar: (b: Bloque) => void }) {
+/** Cómo se escribe la potencia: en % del FTP (lo que se guarda) o en vatios con tu FTP de ahora. */
+type Unidad = 'pct' | 'w';
+
+function Potencia({ pct, onCambiar, unidad, ftp, sufijoPct }: { pct: number; onCambiar: (pct: number) => void; unidad: Unidad; ftp: number; sufijoPct: string }) {
+  if (unidad === 'w') {
+    const w = Math.round((pct * ftp) / 100);
+    return (
+      <Numero
+        key={`w${ftp}`}
+        valor={w}
+        min={Math.round(ftp * 0.2)}
+        max={Math.round(ftp * 2.5)}
+        sufijo="W"
+        // Se guarda en % del FTP (con un decimal): así sigue valiendo si cambias de FTP o lo compartes
+        onCambiar={(v) => onCambiar(Math.round(((v * 100) / ftp) * 10) / 10)}
+      />
+    );
+  }
+  return <Numero key="pct" valor={pct} min={20} max={250} sufijo={sufijoPct} onCambiar={onCambiar} />;
+}
+
+function EditorBloque({ b, onCambiar, unidad, ftp }: { b: Bloque; onCambiar: (b: Bloque) => void; unidad: Unidad; ftp: number }) {
+  const P = (pct: number, cambiar: (v: number) => void, sufijoPct = '%') => (
+    <Potencia pct={pct} onCambiar={cambiar} unidad={unidad} ftp={ftp} sufijoPct={sufijoPct} />
+  );
   if (b.tipo === 'constante') {
     return (
       <div className="campos-bloque">
-        <Numero valor={min(b.duracionS)} min={0.25} max={300} sufijo="min" onCambiar={(v) => onCambiar({ ...b, duracionS: Math.round(v * 60) })} />
-        <span>al</span>
-        <Numero valor={b.potencia} min={20} max={250} sufijo="% FTP" onCambiar={(v) => onCambiar({ ...b, potencia: v })} />
+        <Duracion s={b.duracionS} onCambiar={(v) => onCambiar({ ...b, duracionS: v })} />
+        <span>a</span>
+        {P(b.potencia, (v) => onCambiar({ ...b, potencia: v }), '% FTP')}
       </div>
     );
   }
   if (b.tipo === 'rampa') {
     return (
       <div className="campos-bloque">
-        <Numero valor={min(b.duracionS)} min={0.25} max={300} sufijo="min" onCambiar={(v) => onCambiar({ ...b, duracionS: Math.round(v * 60) })} />
+        <Duracion s={b.duracionS} onCambiar={(v) => onCambiar({ ...b, duracionS: v })} />
         <span>de</span>
-        <Numero valor={b.desde} min={20} max={250} sufijo="%" onCambiar={(v) => onCambiar({ ...b, desde: v })} />
+        {P(b.desde, (v) => onCambiar({ ...b, desde: v }))}
         <span>a</span>
-        <Numero valor={b.hasta} min={20} max={250} sufijo="% FTP" onCambiar={(v) => onCambiar({ ...b, hasta: v })} />
+        {P(b.hasta, (v) => onCambiar({ ...b, hasta: v }), '% FTP')}
       </div>
     );
   }
   return (
     <div className="campos-bloque">
       <Numero valor={b.repeticiones} min={1} max={50} sufijo="×" onCambiar={(v) => onCambiar({ ...b, repeticiones: Math.round(v) })} />
-      <Numero valor={min(b.onS)} min={0.1} max={120} sufijo="min" onCambiar={(v) => onCambiar({ ...b, onS: Math.round(v * 60) })} />
-      <span>al</span>
-      <Numero valor={b.onPotencia} min={20} max={250} sufijo="%" onCambiar={(v) => onCambiar({ ...b, onPotencia: v })} />
+      <Duracion s={b.onS} onCambiar={(v) => onCambiar({ ...b, onS: v })} />
+      <span>a</span>
+      {P(b.onPotencia, (v) => onCambiar({ ...b, onPotencia: v }))}
       <span>+</span>
-      <Numero valor={min(b.offS)} min={0.1} max={120} sufijo="min" onCambiar={(v) => onCambiar({ ...b, offS: Math.round(v * 60) })} />
-      <span>al</span>
-      <Numero valor={b.offPotencia} min={20} max={250} sufijo="%" onCambiar={(v) => onCambiar({ ...b, offPotencia: v })} />
+      <Duracion s={b.offS} onCambiar={(v) => onCambiar({ ...b, offS: v })} />
+      <span>a</span>
+      {P(b.offPotencia, (v) => onCambiar({ ...b, offPotencia: v }))}
     </div>
   );
+}
+
+const CLAVE_UNIDAD = 'rodillos.editorUnidad';
+function leerUnidad(): Unidad {
+  try {
+    return localStorage.getItem(CLAVE_UNIDAD) === 'w' ? 'w' : 'pct';
+  } catch {
+    return 'pct';
+  }
 }
 
 const NOMBRE_BLOQUE = { constante: 'Constante', rampa: 'Rampa', intervalos: 'Series' } as const;
@@ -109,6 +153,15 @@ export function EditorEntrenamientos({
   onDejarDeCompartir,
 }: Props) {
   const [editando, setEditando] = useState<Entrenamiento | null>(null);
+  const [unidad, setUnidadEstado] = useState<Unidad>(leerUnidad);
+  const setUnidad = (u: Unidad) => {
+    setUnidadEstado(u);
+    try {
+      localStorage.setItem(CLAVE_UNIDAD, u);
+    } catch {
+      // no es grave
+    }
+  };
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const alternarCompartir = async (e: Entrenamiento) => {
@@ -235,11 +288,22 @@ export function EditorEntrenamientos({
         {formatoDuracion(duracionTotal(tramos))} · TSS {tss(tramos)}
       </p>
 
+      <div className="unidad-potencia" role="group" aria-label="Escribir la potencia en">
+        <span>Potencia en:</span>
+        <button className={unidad === 'w' ? 'activa' : ''} onClick={() => setUnidad('w')}>
+          Vatios
+        </button>
+        <button className={unidad === 'pct' ? 'activa' : ''} onClick={() => setUnidad('pct')}>
+          % del FTP
+        </button>
+        {unidad === 'w' && <small>Con tu FTP de {ftp} W. Se guarda en % del FTP: si tu FTP cambia, se ajusta solo.</small>}
+      </div>
+
       <ol className="lista-bloques">
         {e.bloques.map((b, i) => (
           <li key={i} className="bloque">
             <strong>{NOMBRE_BLOQUE[b.tipo]}</strong>
-            <EditorBloque b={b} onCambiar={(nb) => cambiarBloque(i, nb)} />
+            <EditorBloque b={b} onCambiar={(nb) => cambiarBloque(i, nb)} unidad={unidad} ftp={ftp} />
             <span className="acciones-fila">
               <button className="boton-icono" onClick={() => mover(i, -1)} aria-label="Subir">↑</button>
               <button className="boton-icono" onClick={() => mover(i, 1)} aria-label="Bajar">↓</button>

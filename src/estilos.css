@@ -4566,3 +4566,35 @@ p {
   display: grid;
   gap: 6px;
 }
+
+/* Editor de entrenamientos: vatios o % del FTP, y duración en minutos y segundos */
+.unidad-potencia {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 8px 0;
+}
+.unidad-potencia button {
+  min-height: 40px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--borde);
+  background: transparent;
+  color: var(--texto-suave);
+  font-weight: 700;
+  cursor: pointer;
+}
+.unidad-potencia button.activa {
+  background: var(--degradado);
+  color: var(--texto-sobre-acento);
+  border-color: transparent;
+}
+.unidad-potencia small {
+  width: 100%;
+  color: var(--texto-suave);
+}
+.duracion-bloque {
+  display: inline-flex;
+  gap: 4px;
+}
