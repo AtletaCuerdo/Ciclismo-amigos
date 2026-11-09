@@ -381,6 +381,7 @@ export default function VistaRecorrido({
   nutricion,
 }: Props) {
   const [menuNutricion, setMenuNutricion] = useState(false);
+  const [masAbierto, setMasAbierto] = useState(false);
   // Cruce: una vez elegido, el aviso grande se quita (si se gira, queda solo la cuenta atrás)
   const [cruceDecidido, setCruceDecidido] = useState(false);
   const hayCruce = !!cruce;
@@ -728,6 +729,16 @@ export default function VistaRecorrido({
           >
             {grabacion.corriendo ? 'Pausa' : grabacion.hayDatos ? 'Seguir' : 'Empezar'}
           </button>
+          {/* En el móvil los botones secundarios van en «☰ Más» (si no, tapan el marcador) */}
+          <button
+            className={`boton-secundario boton-mas ${masAbierto ? 'activo' : ''}`}
+            onClick={() => setMasAbierto((m) => !m)}
+            aria-expanded={masAbierto}
+          >
+            {masAbierto ? '✕' : '☰'}
+            <span className="etiqueta-boton">{masAbierto ? ' Cerrar' : ' Más'}</span>
+          </button>
+          <div className={`hud-botones-extra ${masAbierto ? 'abierto' : ''}`}>
           <div className="menu-bots-ancla" ref={anclaBotsRef}>
             <button
               className={`boton-secundario ${bots.lista.length ? 'activo' : ''}`}
@@ -937,6 +948,10 @@ export default function VistaRecorrido({
               📋 Entreno
             </button>
           )}
+          <button className="boton-secundario boton-salir-extra" onClick={onSalir}>
+            Salir
+          </button>
+          </div>
           <div className="menu-bots-ancla">
             <button
               className={`boton-secundario ${nutricion.efecto ? 'activo' : ''}`}
@@ -945,7 +960,11 @@ export default function VistaRecorrido({
             >
               {nutricion.efecto
                 ? `${nutricion.efecto.n.emoji} +${pct(nutricion.efecto.n.mejora)} · ${mmss(nutricion.efecto.restanteS)}`
-                : '🍬 Nutrición'}
+                : (
+                  <>
+                    🍬<span className="etiqueta-boton"> Nutrición</span>
+                  </>
+                )}
             </button>
             {menuNutricion && (
               <div className="hud menu-bots menu-nutricion">
@@ -994,7 +1013,7 @@ export default function VistaRecorrido({
               Terminar
             </button>
           )}
-          <button className="boton-secundario" onClick={onSalir}>
+          <button className="boton-secundario boton-salir" onClick={onSalir}>
             Salir
           </button>
         </div>

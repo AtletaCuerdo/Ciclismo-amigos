@@ -239,6 +239,11 @@ Garmin, por tiempo: los datos son los mismos.
 05-11 (3): editor de entrenamientos: «Potencia en: Vatios / % del FTP» (`rodillos.editorUnidad`; en vatios se escribe con
 el FTP de ahora y se guarda en % con un decimal) y duraciones en minutos + segundos (`Duracion`, mínimo 5 s).
 
+09-11: recorrido en el móvil (≤ 760 px de ancho o tumbado con ≤ 520 px de alto): a la vista solo Empezar/Pausa, «☰ Más»,
+Nutrición y Terminar; el resto (bots, fantasma, cámara, circuito, sensores, entreno, salir) en `.hud-botones-extra`, que se
+abre con «☰»; tumbado, solo iconos (`.etiqueta-boton`). Selector de entrenos: `max-height: 100dvh`, `.selector-lista` con
+`min-height: 0` y `touch-action: pan-y` (el recorrido tiene `touch-action: none` y la lista crecía sin límite).
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

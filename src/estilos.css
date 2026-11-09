@@ -4598,3 +4598,141 @@ p {
   display: inline-flex;
   gap: 4px;
 }
+
+/* ---------- Recorrido en el móvil: «☰ Más» para los botones secundarios ---------- */
+.boton-mas,
+.boton-salir-extra {
+  display: none;
+}
+.hud-botones-extra {
+  display: contents;
+}
+@media (max-width: 760px), (orientation: landscape) and (max-height: 520px) {
+  .hud-botones {
+    position: relative;
+    display: flex;
+    flex-wrap: nowrap;
+    width: auto;
+    order: 0;
+    margin-left: auto;
+    gap: 6px;
+  }
+  .hud-botones > * {
+    width: auto;
+  }
+  .boton-mas {
+    display: inline-flex;
+  }
+  .boton-salir {
+    display: none;
+  }
+  .boton-salir-extra {
+    display: inline-flex;
+  }
+  .hud-botones-extra {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 12;
+    width: max-content;
+    max-width: min(320px, calc(100vw - 24px));
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 14px;
+    background: rgba(15, 17, 21, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+  }
+  .hud-botones-extra.abierto {
+    display: flex;
+  }
+  .hud-botones-extra button {
+    min-height: 40px;
+  }
+  /* Sus desplegables (bots, circuito), debajo del panel y alineados a la derecha */
+  .hud-botones-extra .menu-bots {
+    right: 0;
+    max-width: calc(100vw - 24px);
+  }
+}
+/* Móvil vertical: el marcador debajo de los botones, en varias filas */
+@media (max-width: 760px) {
+  .hud-arriba {
+    flex-wrap: wrap;
+  }
+  .hud-botones {
+    order: -1;
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+/* Móvil en horizontal: marcador en una fila compacta y los paneles más pequeños */
+@media (orientation: landscape) and (max-height: 520px) {
+  .hud-arriba {
+    flex-wrap: nowrap;
+  }
+  .hud-filas {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .hud-fila {
+    gap: 10px;
+  }
+  .hud-botones button {
+    min-height: 34px;
+    padding: 4px 10px;
+    font-size: 13px;
+    transform: none;
+  }
+  .panel-grupo,
+  .hud-grupo {
+    font-size: 12px;
+    max-width: 40vw;
+  }
+}
+
+/* Listas dentro del recorrido: que se puedan deslizar con el dedo (el recorrido bloquea los gestos) */
+.selector-entreno {
+  touch-action: pan-y;
+}
+.selector-lista {
+  flex: 1;
+  min-height: 0;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.menu-bots,
+.chat-lista,
+.panel-sensores-recorrido {
+  touch-action: pan-y;
+}
+
+/* Móvil en horizontal: los botones de la barra, solo con su icono, para que quepa todo */
+@media (orientation: landscape) and (max-height: 520px) {
+  .etiqueta-boton {
+    display: none;
+  }
+  .hud-botones {
+    gap: 4px;
+  }
+  .hud-botones > button,
+  .hud-botones > .menu-bots-ancla > button {
+    padding: 4px 9px;
+  }
+  .hud-arriba {
+    gap: 8px;
+  }
+  .demo-vatios {
+    display: none;
+  }
+}
+/* El selector de entrenos, como mucho del alto de la pantalla (así la lista se desliza dentro) */
+.selector-entreno {
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  min-height: 0;
+  overflow: hidden;
+}
