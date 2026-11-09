@@ -253,6 +253,13 @@ abre con «☰»; tumbado, solo iconos (`.etiqueta-boton`). Selector de entrenos
   amigo); que el entreno del día puesto en TriCoach Entrenos salga solo en RideCrew y se marque hecho allí (unir
   las webs con el Worker; comprobar antes que no añade pasos al deportista); carreras de grupo sobre las salidas
   programadas (salida a la vez, meta a X km, clasificación en el chat; necesita reglas nuevas).
+- Aparcado el 09-11 (el usuario lo pidió dejar en memoria): avisar con una notificación cuando un amigo empiece a
+  rodar. Telegram descartado (no se puede obligar a instalarlo). Plan acordado: Web Push. Android (Chrome): permitir y
+  listo. iPhone/iPad: solo instalando la web en la pantalla de inicio desde Safari (iOS 16.4+; Bluefy no admite push),
+  se sigue rodando en Bluefy. Envío desde el Worker de Strava: suscripciones en Cloudflare KV (sin tocar reglas de
+  Firebase), clave VAPID privada como secreto del Worker (generada desde el panel 🛡️), aviso al entrar al recorrido
+  (ID token), máximo uno por amigo cada ~2 h, casilla en Ajustes. Pasos del usuario en el PC: crear el KV y pegar el
+  secreto. Antes, comprobar con el usuario que «Amigos rodando ahora» funciona (prueba los dos a la vez).
 - Probar en el iPad el paso 4 (memoria y fps con los modelos escaneados).
 - Posible cambio de nombre de la web (el usuario tiene opciones; ver niveles: solo nombre visible,
   renombrar el repositorio o dominio propio).
