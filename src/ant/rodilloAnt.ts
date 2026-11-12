@@ -84,6 +84,15 @@ export class RodilloAnt {
   private resto: number[] = [];
   private ultimoDato = 0;
   private vigilante: ReturnType<typeof setInterval> | null = null;
+  /**
+   * Órdenes al rodillo (mensajes confirmados). ANT+ solo admite uno a la vez y a veces se pierden:
+   * se mandan de una en una, esperando a que el adaptador diga si llegó, y la orden en vigor
+   * (ERG o pendiente) se repite cada pocos segundos aunque no cambie, como hace Zwift.
+   */
+  private cola: number[][] = [];
+  private enVuelo: { pagina: number[]; desde: number; intentos: number } | null = null;
+  private vigente: number[][] = [];
+  private ultimaRepeticion = 0;
   estado: EstadoAnt = 'desconectado';
   /** Peso del ciclista (kg) para que el rodillo simule bien las pendientes. */
   pesoKg = 75;
@@ -155,10 +164,11 @@ export class RodilloAnt {
       await this.enviar(MSG.abrir, [CANAL]);
       this.cambiar('buscando');
       this.cb.onLog('ANT+: buscando el rodillo (pedalea un poco para despertarlo)', 'info');
-      // Si deja de llegar nada, vuelve a «buscando»
+      // Si deja de llegar nada, vuelve a «buscando»; y las órdenes salen de una en una
       this.vigilante = setInterval(() => {
         if (this.estado === 'conectado' && Date.now() - this.ultimoDato > 5000) this.cambiar('buscando');
-      }, 1000);
+        this.despachar();
+      }, 250);
     } catch (e) {
       const texto = e instanceof Error ? e.message : String(e);
       this.soltar(
@@ -211,6 +221,10 @@ export class RodilloAnt {
   }
 
   private alMensaje(id: number, datos: number[]) {
+    if (id === MSG.evento) {
+      this.alEvento(datos);
+      return;
+    }
     if (id !== MSG.difusion && id !== MSG.confirmado) return;
     const p = datos.slice(1, 9); // página de 8 bytes
     if (p.length < 8) return;
@@ -243,8 +257,55 @@ export class RodilloAnt {
     return this.pagina([0x37, peso & 0xff, peso >> 8, 0xff, ((bici & 0x0f) << 4) | 0x0f, bici >> 4, 70, 0x00]);
   }
 
+  /** Pone una orden en la cola (sale en cuanto el canal está libre). */
   private pagina(p: number[]) {
-    return this.enviar(MSG.confirmado, [CANAL, ...p]).catch(() => false);
+    this.cola.push(p);
+    this.despachar();
+    return Promise.resolve(true);
+  }
+
+  /** Manda la siguiente orden si no hay otra en camino (o si la anterior lleva 1 s sin respuesta). */
+  private despachar() {
+    if (!this.disp || this.estado !== 'conectado') return;
+    const ahora = Date.now();
+    if (this.enVuelo && ahora - this.enVuelo.desde < 1000) return;
+    if (this.enVuelo) {
+      // Sin respuesta del adaptador: se reintenta (hasta 3 veces)
+      if (this.enVuelo.intentos < 3) this.cola.unshift(this.enVuelo.pagina);
+      this.enVuelo = null;
+    }
+    // Sin nada pendiente, la orden en vigor se repite cada 2 s
+    if (!this.cola.length && this.vigente.length && ahora - this.ultimaRepeticion > 2000) {
+      this.ultimaRepeticion = ahora;
+      this.cola.push(...this.vigente);
+    }
+    const p = this.cola.shift();
+    if (!p) return;
+    const intentos = (this.reintentos.get(p) ?? 0) + 1;
+    this.reintentos.set(p, intentos);
+    this.enVuelo = { pagina: p, desde: ahora, intentos };
+    void this.enviar(MSG.confirmado, [CANAL, ...p]).catch(() => undefined);
+  }
+  private reintentos = new WeakMap<number[], number>();
+
+  /** Eventos del canal: si la orden llegó (TX_COMPLETED) o falló (TX_FAILED / canal ocupado). */
+  private alEvento(datos: number[]) {
+    // [canal, mensaje al que responde (1 = evento de radio), código]
+    const codigo = datos[2];
+    if (datos[1] === 0x01 && (codigo === 0x05 || codigo === 0x06)) {
+      const fallo = codigo === 0x06;
+      const p = this.enVuelo?.pagina;
+      this.enVuelo = null;
+      if (fallo && p) this.cb.onLog('ANT+: el rodillo no confirmó la orden, se repite', 'error');
+      if (fallo && p && (this.reintentos.get(p) ?? 0) < 3) this.cola.unshift(p);
+      else if (p) this.reintentos.delete(p);
+      this.despachar();
+    } else if (datos[1] === MSG.confirmado && codigo === 0x1f) {
+      // «Transferencia en curso»: el canal aún estaba ocupado; se repite enseguida
+      const p = this.enVuelo?.pagina;
+      this.enVuelo = null;
+      if (p) this.cola.unshift(p);
+    }
   }
 
   /** ERG: potencia fija (página 49, en pasos de 0,25 W). */
@@ -252,7 +313,11 @@ export class RodilloAnt {
     if (!this.tieneControl) return Promise.resolve(false);
     const v = Math.max(0, Math.min(16383, Math.round(vatios * 4)));
     this.cb.onLog(`→ ANT+ ERG ${Math.round(vatios)} W`, 'info');
-    return this.pagina([0x31, 0xff, 0xff, 0xff, 0xff, 0xff, v & 0xff, v >> 8]);
+    const p = [0x31, 0xff, 0xff, 0xff, 0xff, 0xff, v & 0xff, v >> 8];
+    this.vigente = [p];
+    // Lo que quedaba en la cola (un ERG anterior) ya no vale
+    this.cola = this.cola.filter((x) => x[0] !== 0x31 && x[0] !== 0x32 && x[0] !== 0x33);
+    return this.pagina(p);
   }
 
   /**
@@ -264,9 +329,13 @@ export class RodilloAnt {
     const g = Math.round((Math.max(-200, Math.min(200, pendiente)) + 200) * 100);
     const rebufoPct = Math.round(Math.max(0, Math.min(1, 1 - rebufo)) * 100);
     this.cb.onLog(`→ ANT+ pendiente ${pendiente.toFixed(1)} %${rebufo > 0 ? ` · rebufo −${Math.round(rebufo * 100)} %` : ''}`, 'info');
-    // 0,51 kg/m de coeficiente de viento (como en Bluetooth), sin viento
-    await this.pagina([0x32, 0xff, 0xff, 0xff, 0xff, 51, 127, rebufoPct]);
-    return this.pagina([0x33, 0xff, 0xff, 0xff, 0xff, g & 0xff, g >> 8, 80]); // rodadura 0,004
+    // 0,51 kg/m de coeficiente de viento (como en Bluetooth), sin viento; rodadura 0,004
+    const viento = [0x32, 0xff, 0xff, 0xff, 0xff, 51, 127, rebufoPct];
+    const subida = [0x33, 0xff, 0xff, 0xff, 0xff, g & 0xff, g >> 8, 80];
+    this.vigente = [subida, viento];
+    this.cola = this.cola.filter((x) => x[0] !== 0x31 && x[0] !== 0x32 && x[0] !== 0x33);
+    await this.pagina(viento);
+    return this.pagina(subida);
   }
 
   desconectar() {
@@ -275,6 +344,9 @@ export class RodilloAnt {
 
   private soltar(error: string | null) {
     this.leyendo = false;
+    this.cola = [];
+    this.enVuelo = null;
+    this.vigente = [];
     if (this.vigilante) clearInterval(this.vigilante);
     this.vigilante = null;
     const d = this.disp;

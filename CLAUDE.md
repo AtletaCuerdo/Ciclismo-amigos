@@ -244,6 +244,11 @@ Nutrición y Terminar; el resto (bots, fantasma, cámara, circuito, sensores, en
 abre con «☰»; tumbado, solo iconos (`.etiqueta-boton`). Selector de entrenos: `max-height: 100dvh`, `.selector-lista` con
 `min-height: 0` y `touch-action: pan-y` (el recorrido tiene `touch-action: none` y la lista crecía sin límite).
 
+12-11: ERG por ANT+ que a veces no cambiaba (amigo del Elite antiguo, entreno «CX W10»: se quedaba en 420 o 295 W).
+`RodilloAnt` mandaba cada orden (mensaje confirmado 0x4F) sin mirar si llegaba y la de viento y la de pendiente seguidas.
+Ahora van en cola de una en una, se espera el evento del canal (0x40: 0x05 llegó, 0x06 falló → se repite, 0x1F canal
+ocupado), 1 s sin respuesta → reintento (máx. 3), y la orden en vigor (ERG o pendiente + viento) se repite cada 2 s.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
