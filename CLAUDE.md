@@ -249,6 +249,11 @@ abre con «☰»; tumbado, solo iconos (`.etiqueta-boton`). Selector de entrenos
 Ahora van en cola de una en una, se espera el evento del canal (0x40: 0x05 llegó, 0x06 falló → se repite, 0x1F canal
 ocupado), 1 s sin respuesta → reintento (máx. 3), y la orden en vigor (ERG o pendiente + viento) se repite cada 2 s.
 
+13-11: protección del ERG (App, bucle del rodillo; amigo nuevo con picos y el rodillo bloqueado): pausado, sin empezar o
+con < 45 rpm (sin cadencia: < 40 % de los vatios) 2,5 s seguidos, se manda el 40 % del objetivo (mín. 60 W); con ≥ 60 rpm
+1,5 s vuelve al objetivo en una rampa de 8 s. Grupeta de 230 W que no se iba: no era un fallo, la cabra (CdA ×0,83) con el
+rebufo pleno dentro del grupo (−30 %) a 155 W va a 38,9 km/h y la grupeta (CdA 0,29 × 0,88) a 230 W, a 39,0 km/h.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

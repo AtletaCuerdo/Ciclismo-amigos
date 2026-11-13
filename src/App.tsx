@@ -789,6 +789,15 @@ export default function App() {
     // Orden en curso al rodillo: no se amontonan otras mientras tanto
     let enVuelo = false;
     let ultimoEnvio = 0;
+    // Protección del ERG («espiral de la muerte»): si se deja de pedalear o la cadencia cae mucho,
+    // el rodillo frena cada vez más para sacar los vatios y acaba bloqueado. Entonces se le pide
+    // poco y, al volver a pedalear, se sube poco a poco hasta el objetivo
+    let ergBajado = true;
+    let flojoDesde = 0;
+    let recuperaDesde = 0;
+    let rampaDesde = -1e9;
+    const avisar = (texto: string) =>
+      setLog((l) => [{ id: ++contadorLog, hora: new Date().toLocaleTimeString('es-ES'), texto, tipo: 'info' as TipoLog }, ...l].slice(0, 300));
     const id = setInterval(() => {
       const t = performance.now();
       const dt = Math.min(0.5, (t - anterior) / 1000);
@@ -886,7 +895,34 @@ export default function App() {
       if (activo && !libre) {
         // Entrenamiento guiado: modo ERG (potencia fija), como mucho un envío por segundo
         pendienteEnviada = null;
-        const w = objetivoRef.current;
+        const objetivo = objetivoRef.current;
+        let w = objetivo;
+        if (objetivo !== undefined) {
+          const bajo = Math.min(objetivo, Math.max(60, Math.round((objetivo * 0.4) / 5) * 5));
+          const cad = actualRef.current.cadencia;
+          const pot = actualRef.current.potencia ?? 0;
+          // Sin sensor de cadencia (rodillos que no la miden) se mira por los vatios
+          const flojo = !corriendoRef.current || (cad !== undefined ? cad < 45 : pot < Math.min(60, objetivo * 0.4));
+          const pedalea = corriendoRef.current && (cad !== undefined ? cad >= 60 : pot >= bajo * 0.8);
+          if (!ergBajado) {
+            flojoDesde = flojo ? flojoDesde || t : 0;
+            if (flojo && (!corriendoRef.current || t - flojoDesde > 2500)) {
+              ergBajado = true;
+              recuperaDesde = 0;
+              if (corriendoRef.current) avisar(`ERG: cadencia muy baja, se baja a ${bajo} W para que no se bloquee el rodillo`);
+            }
+          } else {
+            recuperaDesde = pedalea ? recuperaDesde || t : 0;
+            if (pedalea && t - recuperaDesde > 1500) {
+              ergBajado = false;
+              flojoDesde = 0;
+              rampaDesde = t;
+            }
+          }
+          // Al recuperar, sube hasta el objetivo en 8 s (en pasos de 5 W)
+          const rampa = (t - rampaDesde) / 8000;
+          w = ergBajado ? bajo : rampa < 1 ? Math.round((bajo + (objetivo - bajo) * rampa) / 5) * 5 : objetivo;
+        }
         // Además, cada 15 s se repite la potencia por si el rodillo la perdió sin avisar
         if (w !== undefined && (w !== potenciaEnviada || t - ultimoEnvio > 15000) && t - ultimoEnvio > 1000) {
           potenciaEnviada = w;
