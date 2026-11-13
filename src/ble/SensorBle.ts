@@ -19,6 +19,20 @@ export interface EventosSensor {
 }
 
 const MAX_INTENTOS = 10;
+/** Intentos al conectar por primera vez (el primero a veces falla en Bluefy y Android). */
+const INTENTOS_PRIMERA = 3;
+
+/**
+ * Las conexiones de todos los sensores van de una en una: si el rodillo y el pulsómetro se
+ * conectan a la vez (al abrir la web), Bluefy y algunos Android fallan los dos con «Error (2)».
+ */
+let colaConexiones: Promise<unknown> = Promise.resolve();
+function enTurno<T>(fn: () => Promise<T>): Promise<T> {
+  const r = colaConexiones.then(fn, fn);
+  colaConexiones = r.catch(() => undefined);
+  return r;
+}
+const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const ESPERA_MAXIMA_MS = 15000;
 
 /** Traduce los errores de Web Bluetooth a mensajes comprensibles. */
@@ -42,7 +56,7 @@ export function mensajeError(e: unknown): string {
     }
   }
   // Algunos navegadores (Bluefy) rechazan con un número o un texto suelto, p. ej. «2»
-  return `Error de Bluetooth (${String(e)}). Apaga y enciende el dispositivo y vuelve a probar.`;
+  return `Error de Bluetooth (${String(e)}). Cierra las otras apps que lo usen (Zwift, la de Elite, Garmin…), pedalea para despertarlo y vuelve a tocar «Conectar».`;
 }
 
 export function esCancelacion(e: unknown) {
@@ -113,7 +127,9 @@ export abstract class SensorBle {
    */
   async reconectarRecordado(): Promise<boolean> {
     const nombre = this.recordado;
-    const bt = bluetoothDisponible() ? (navigator.bluetooth as Bluetooth & { getDevices?: () => Promise<BluetoothDevice[]> }) : null;
+    const bt = bluetoothDisponible()
+      ? (navigator.bluetooth as Bluetooth & { getDevices?: () => Promise<BluetoothDevice[]> })
+      : null;
     if (!nombre || !bt?.getDevices || this.conectado || this.estado === 'conectando') return false;
     try {
       const device = (await bt.getDevices()).find((d) => d.name === nombre);
@@ -162,7 +178,10 @@ export abstract class SensorBle {
       } catch (e) {
         // Si la búsqueda del aparato recordado falla (no por cancelar), se ofrece la lista normal
         if (!nombre || esCancelacion(e)) throw e;
-        this.eventos.onLog(`${this.etiqueta}: búsqueda rápida fallida (${mensajeError(e)}), abro la lista normal`, 'info');
+        this.eventos.onLog(
+          `${this.etiqueta}: búsqueda rápida fallida (${mensajeError(e)}), abro la lista normal`,
+          'info',
+        );
         device = await navigator.bluetooth.requestDevice(this.opcionesBusqueda());
       }
     } catch (e) {
@@ -195,7 +214,21 @@ export abstract class SensorBle {
     this.eventos.onError(null);
     this.cambiarEstado('conectando');
     try {
-      await this.establecer();
+      // Por turnos con los demás sensores y, si falla, se reintenta un par de veces
+      for (let i = 1; ; i++) {
+        try {
+          await enTurno(() => this.establecer());
+          break;
+        } catch (e) {
+          if (i >= INTENTOS_PRIMERA || this.device !== device || esCancelacion(e)) throw e;
+          this.eventos.onLog(
+            `${this.etiqueta}: no conectó a la primera (${mensajeError(e)}), lo intento otra vez…`,
+            'info',
+          );
+          await esperar(1500 * i);
+          if (this.device !== device) throw e;
+        }
+      }
     } catch (e) {
       const msg = mensajeError(e);
       if (!silencioso) this.eventos.onError(`No se pudo conectar con ${device.name ?? this.etiqueta}: ${msg}`);
@@ -235,6 +268,8 @@ export abstract class SensorBle {
 
   private manejarDesconexion = () => {
     this.alDesconectar();
+    // Durante la primera conexión los reintentos los lleva `usar`
+    if (this.estado === 'conectando') return;
     if (this.desconexionManual) {
       this.cambiarEstado('desconectado');
       this.eventos.onLog(`${this.etiqueta}: desconectado`, 'info');
@@ -261,12 +296,9 @@ export abstract class SensorBle {
       this.temporizador = null;
       if (this.desconexionManual || !this.device) return;
       try {
-        await this.establecer();
+        await enTurno(() => this.establecer());
       } catch (e) {
-        this.eventos.onLog(
-          `${this.etiqueta}: intento ${this.intentos} fallido · ${mensajeError(e)}`,
-          'error',
-        );
+        this.eventos.onLog(`${this.etiqueta}: intento ${this.intentos} fallido · ${mensajeError(e)}`, 'error');
         // Si quedó medio conectado, al desconectar saltará manejarDesconexion.
         if (this.device?.gatt?.connected) this.device.gatt.disconnect();
         else this.programarReintento();
@@ -285,10 +317,7 @@ export abstract class SensorBle {
   }
 
   /** Activa notificaciones/indicaciones y registra un único manejador. */
-  protected async suscribir(
-    c: BluetoothRemoteGATTCharacteristic,
-    manejador: (dv: DataView) => void,
-  ) {
+  protected async suscribir(c: BluetoothRemoteGATTCharacteristic, manejador: (dv: DataView) => void) {
     const escucha = (e: Event) => {
       const valor = (e.target as BluetoothRemoteGATTCharacteristic).value;
       if (valor) manejador(valor);

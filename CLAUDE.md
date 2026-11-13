@@ -262,10 +262,18 @@ quedando en sus entrenos) y el administrador borra cualquiera (`borrar(clave)` e
 Amigo del Elite Suito-T con pedales Favero: pendiente de saber el modelo (los bePRO solo tienen ANT+; los Assioma, una
 sola conexión Bluetooth a la vez).
 
+13-11 (3): borrar mis entrenos desde las carpetas (🗑️ en la tarjeta y en la ficha; `onBorrarPropio` → `guardarPropiosCompartidos`,
+que también los quita de Compartidos). Bluetooth: «Error de Bluetooth (2)» en el rodillo y el pulsómetro a la vez (amigo del
+Suito-T): al abrir la web se reconectaban todos a la vez (`reconectarRecordado`). Ahora las conexiones van por turnos
+(`enTurno` en SensorBle.ts), la primera se reintenta hasta 3 veces (1,5 s y 3 s) y el mensaje dice que cierre otras apps.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
 ### Próximos pasos
+- **PENDIENTE DEL USUARIO (pedido el 13-11, recordárselo):** pegar en la consola de Firebase (Realtime Database →
+  Reglas) la regla `.write` nueva de `compartidos` (la de `firebase/database.rules.json`, con el uid del administrador):
+  sin ella el administrador no puede borrar los compartidos de otros. Lo hará desde el PC.
 - Pendientes propuestas al usuario el 04-11 (las dejó para más adelante): pitidos 3-2-1 en los cambios de bloque
   de los entrenos (con opción de quitarlos); retos de la semana con RideCoins (3 sesiones, 100 km, salida con un
   amigo); que el entreno del día puesto en TriCoach Entrenos salga solo en RideCrew y se marque hecho allí (unir

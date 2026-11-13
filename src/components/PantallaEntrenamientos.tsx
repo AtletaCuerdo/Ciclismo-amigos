@@ -28,6 +28,8 @@ interface Props {
   soyAdmin: boolean;
   /** Quita uno de «Compartidos» (por su clave). */
   onBorrarCompartido: (clave: string) => Promise<void>;
+  /** Borra uno de mis entrenamientos (y deja de compartirlo si lo estaba). */
+  onBorrarPropio: (e: Entrenamiento) => void;
 }
 
 const AMIGOS = {
@@ -49,6 +51,7 @@ export function PantallaEntrenamientos({
   onGuardarCopia,
   soyAdmin,
   onBorrarCompartido,
+  onBorrarPropio,
 }: Props) {
   const [categoria, setCategoria] = useState<Categoria | 'amigos' | null>(null);
   const [elegido, setElegido] = useState<Entrenamiento | null>(null);
@@ -62,8 +65,19 @@ export function PantallaEntrenamientos({
     categoria === 'amigos'
       ? deAmigos.filter((e) => !filtro || e.categoria === filtro)
       : mias.filter((e) => e.categoria === categoria);
-  const puedeBorrar = (e: Entrenamiento) => !!e.deAmigo && (e.deAmigo.mio || soyAdmin);
+  const puedeBorrar = (e: Entrenamiento) => !!e.propio || (!!e.deAmigo && (e.deAmigo.mio || soyAdmin));
   const borrar = async (e: Entrenamiento) => {
+    if (e.propio) {
+      if (
+        !window.confirm(
+          `¿Borrar «${e.nombre}» de tus entrenamientos? Si estaba compartido, también se quita de Compartidos.`,
+        )
+      )
+        return;
+      onBorrarPropio(e);
+      setElegido(null);
+      return;
+    }
     if (!e.deAmigo) return;
     const mio = e.deAmigo.mio;
     const pregunta = mio
@@ -165,7 +179,7 @@ export function PantallaEntrenamientos({
                   <button
                     className="boton-borrar-compartido"
                     aria-label={`Borrar ${e.nombre} de Compartidos`}
-                    title={e.deAmigo?.mio ? 'Quitar de Compartidos' : 'Borrar (administrador)'}
+                    title={e.propio ? 'Borrar' : e.deAmigo?.mio ? 'Quitar de Compartidos' : 'Borrar (administrador)'}
                     onClick={() => void borrar(e)}
                   >
                     🗑️
@@ -317,7 +331,12 @@ function FichaEntrenamiento({
       {errorBorrar && <p className="aviso">{errorBorrar}</p>}
       {onBorrar && (
         <button className="boton-secundario boton-grande boton-peligro" onClick={onBorrar}>
-          🗑️ {entreno.deAmigo?.mio ? 'Quitar de Compartidos' : 'Borrar de Compartidos'}
+          🗑️{' '}
+          {entreno.propio
+            ? 'Borrar este entrenamiento'
+            : entreno.deAmigo?.mio
+              ? 'Quitar de Compartidos'
+              : 'Borrar de Compartidos'}
         </button>
       )}
     </section>

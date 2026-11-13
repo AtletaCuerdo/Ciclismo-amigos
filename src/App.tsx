@@ -2249,6 +2249,7 @@ export default function App() {
           onGuardarCopia={guardarCopia}
           soyAdmin={soyAdmin}
           onBorrarCompartido={compartidos.borrar}
+          onBorrarPropio={(e) => guardarPropiosCompartidos(propios.filter((x) => x.id !== e.id))}
           entrenamientos={todosLosEntrenos}
           ftp={perfil.ftp}
           onCambiarFtp={(ftp) => cambiarPerfil({ ...perfil, ftp })}
