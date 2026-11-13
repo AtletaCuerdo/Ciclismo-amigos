@@ -254,6 +254,14 @@ con < 45 rpm (sin cadencia: < 40 % de los vatios) 2,5 s seguidos, se manda el 40
 1,5 s vuelve al objetivo en una rampa de 8 s. Grupeta de 230 W que no se iba: no era un fallo, la cabra (CdA ×0,83) con el
 rebufo pleno dentro del grupo (−30 %) a 155 W va a 38,9 km/h y la grupeta (CdA 0,29 × 0,88) a 230 W, a 39,0 km/h.
 
+13-11 (2): «Compartidos»: los entrenos de otros solo salen en esa carpeta (y en la pestaña «👥 Compartidos» del selector
+del recorrido), con la etiqueta de la categoría que les puso el autor (`EtiquetaCategoria`) y filtro por etiqueta; en las
+carpetas de categorías solo el catálogo y los míos. 🗑️ en la tarjeta y en la ficha: el autor quita los suyos (le siguen
+quedando en sus entrenos) y el administrador borra cualquiera (`borrar(clave)` en compartidos.ts; regla `.write` de
+`compartidos` con el uid del administrador o `admins/{uid}`). **Necesita las reglas nuevas pegadas.**
+Amigo del Elite Suito-T con pedales Favero: pendiente de saber el modelo (los bePRO solo tienen ANT+; los Assioma, una
+sola conexión Bluetooth a la vez).
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

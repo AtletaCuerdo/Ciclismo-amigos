@@ -9,6 +9,7 @@ import {
   type Entrenamiento,
 } from '../entrenamientos/tipos';
 import { GraficaEntrenamiento, ListaIntervalos } from './GraficaEntrenamiento';
+import { EtiquetaCategoria } from './SelectorEntreno';
 
 interface Props {
   entrenamientos: Entrenamiento[];
@@ -23,9 +24,17 @@ interface Props {
   errorAmigos: string | null;
   /** Guarda una copia en «mis entrenamientos». */
   onGuardarCopia: (e: Entrenamiento) => void;
+  /** Soy el administrador: puedo borrar los compartidos de cualquiera. */
+  soyAdmin: boolean;
+  /** Quita uno de «Compartidos» (por su clave). */
+  onBorrarCompartido: (clave: string) => Promise<void>;
 }
 
-const AMIGOS = { nombre: '👥 Compartidos', descripcion: 'Los entrenamientos que ha compartido el grupo, también los tuyos', color: '#22d3ee' };
+const AMIGOS = {
+  nombre: '👥 Compartidos',
+  descripcion: 'Los entrenamientos que ha compartido el grupo, también los tuyos',
+  color: '#22d3ee',
+};
 
 /** Categorías → lista de entrenamientos → ficha con «Empezar». */
 export function PantallaEntrenamientos({
@@ -38,11 +47,37 @@ export function PantallaEntrenamientos({
   deAmigos,
   errorAmigos,
   onGuardarCopia,
+  soyAdmin,
+  onBorrarCompartido,
 }: Props) {
   const [categoria, setCategoria] = useState<Categoria | 'amigos' | null>(null);
   const [elegido, setElegido] = useState<Entrenamiento | null>(null);
+  // En «Compartidos», filtro por la etiqueta que le puso quien lo compartió
+  const [filtro, setFiltro] = useState<Categoria | null>(null);
+  const [errorBorrar, setErrorBorrar] = useState<string | null>(null);
   const cat = categoria === 'amigos' ? AMIGOS : CATEGORIAS.find((c) => c.id === categoria);
-  const deCategoria = categoria === 'amigos' ? deAmigos : entrenamientos.filter((e) => e.categoria === categoria);
+  // Los compartidos por otros solo salen en «Compartidos»; en las carpetas, el catálogo y los míos
+  const mias = entrenamientos.filter((e) => !e.deAmigo);
+  const deCategoria =
+    categoria === 'amigos'
+      ? deAmigos.filter((e) => !filtro || e.categoria === filtro)
+      : mias.filter((e) => e.categoria === categoria);
+  const puedeBorrar = (e: Entrenamiento) => !!e.deAmigo && (e.deAmigo.mio || soyAdmin);
+  const borrar = async (e: Entrenamiento) => {
+    if (!e.deAmigo) return;
+    const mio = e.deAmigo.mio;
+    const pregunta = mio
+      ? `¿Quitar «${e.nombre}» de Compartidos? Lo seguirás teniendo en tus entrenamientos.`
+      : `¿Borrar «${e.nombre}» de ${e.deAmigo.autor}? Desaparecerá de Compartidos para todos.`;
+    if (!window.confirm(pregunta)) return;
+    try {
+      setErrorBorrar(null);
+      await onBorrarCompartido(e.deAmigo.clave);
+      setElegido(null);
+    } catch (err) {
+      setErrorBorrar(err instanceof Error ? err.message : 'No se ha podido borrar.');
+    }
+  };
 
   // ---- Ficha de un entrenamiento ----
   if (elegido) {
@@ -56,6 +91,8 @@ export function PantallaEntrenamientos({
         onVolver={() => setElegido(null)}
         volverA={categoria === 'amigos' ? AMIGOS.nombre : undefined}
         onGuardarCopia={elegido.deAmigo && !elegido.deAmigo.mio ? () => onGuardarCopia(elegido) : undefined}
+        onBorrar={puedeBorrar(elegido) ? () => void borrar(elegido) : undefined}
+        errorBorrar={errorBorrar}
       />
     );
   }
@@ -72,6 +109,34 @@ export function PantallaEntrenamientos({
         </div>
         <p className="detalle">{cat.descripcion}</p>
         {categoria === 'amigos' && errorAmigos && <p className="aviso">{errorAmigos}</p>}
+        {categoria === 'amigos' && errorBorrar && <p className="aviso">{errorBorrar}</p>}
+        {categoria === 'amigos' && deAmigos.length > 0 && (
+          <div className="selector-categorias filtro-compartidos">
+            <button
+              className={!filtro ? 'activa' : ''}
+              style={{
+                borderColor: AMIGOS.color,
+                ...(!filtro ? { background: AMIGOS.color } : {}),
+              }}
+              onClick={() => setFiltro(null)}
+            >
+              Todos
+            </button>
+            {CATEGORIAS.filter((c) => deAmigos.some((e) => e.categoria === c.id)).map((c) => (
+              <button
+                key={c.id}
+                className={filtro === c.id ? 'activa' : ''}
+                style={{
+                  borderColor: c.color,
+                  ...(filtro === c.id ? { background: c.color } : {}),
+                }}
+                onClick={() => setFiltro(c.id)}
+              >
+                {c.nombre}
+              </button>
+            ))}
+          </div>
+        )}
         {deCategoria.length === 0 && (
           <p className="vacio">
             {categoria === 'amigos'
@@ -83,20 +148,30 @@ export function PantallaEntrenamientos({
           {deCategoria.map((e) => {
             const tramos = desplegar(e.bloques);
             return (
-              <button key={e.id} className="tarjeta-entreno" onClick={() => setElegido(e)}>
-                <div className="tarjeta-entreno-cabecera">
-                  <strong>{e.nombre}</strong>
-                  {e.propio && <span className="insignia-propio">Mío</span>}
-                  {e.deAmigo && (
-                    <span className="insignia-compartido">{e.deAmigo.mio ? 'Tuyo' : `de ${e.deAmigo.autor}`}</span>
-                  )}
-                </div>
-                <GraficaEntrenamiento tramos={tramos} alto={46} />
-                <div className="tarjeta-entreno-datos">
-                  <span>{formatoDuracion(duracionTotal(tramos))}</span>
-                  <span>TSS {tss(tramos)}</span>
-                </div>
-              </button>
+              <div key={e.id} className={`tarjeta-entreno-envoltorio${puedeBorrar(e) ? ' con-borrar' : ''}`}>
+                <button className="tarjeta-entreno" onClick={() => setElegido(e)}>
+                  <div className="tarjeta-entreno-cabecera">
+                    <strong>{e.nombre}</strong>
+                    {e.propio && <span className="insignia-propio">Mío</span>}
+                  </div>
+                  {e.deAmigo && <EtiquetaCategoria e={e} />}
+                  <GraficaEntrenamiento tramos={tramos} alto={46} />
+                  <div className="tarjeta-entreno-datos">
+                    <span>{formatoDuracion(duracionTotal(tramos))}</span>
+                    <span>TSS {tss(tramos)}</span>
+                  </div>
+                </button>
+                {puedeBorrar(e) && (
+                  <button
+                    className="boton-borrar-compartido"
+                    aria-label={`Borrar ${e.nombre} de Compartidos`}
+                    title={e.deAmigo?.mio ? 'Quitar de Compartidos' : 'Borrar (administrador)'}
+                    onClick={() => void borrar(e)}
+                  >
+                    🗑️
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>
@@ -117,15 +192,24 @@ export function PantallaEntrenamientos({
         Entrenamientos guiados en modo ERG: el rodillo pone la resistencia justa para cada tramo según tu FTP ({ftp} W).
       </p>
       <div className="rejilla-categorias">
-        <button className="tarjeta-categoria" style={{ borderTopColor: AMIGOS.color }} onClick={() => setCategoria('amigos')}>
+        <button
+          className="tarjeta-categoria"
+          style={{ borderTopColor: AMIGOS.color }}
+          onClick={() => setCategoria('amigos')}
+        >
           <strong>{AMIGOS.nombre}</strong>
           <span>{AMIGOS.descripcion}</span>
           <small>{deAmigos.length === 1 ? '1 entrenamiento' : `${deAmigos.length} entrenamientos`}</small>
         </button>
         {CATEGORIAS.map((c) => {
-          const n = entrenamientos.filter((e) => e.categoria === c.id).length;
+          const n = mias.filter((e) => e.categoria === c.id).length;
           return (
-            <button key={c.id} className="tarjeta-categoria" style={{ borderTopColor: c.color }} onClick={() => setCategoria(c.id)}>
+            <button
+              key={c.id}
+              className="tarjeta-categoria"
+              style={{ borderTopColor: c.color }}
+              onClick={() => setCategoria(c.id)}
+            >
               <strong>{c.nombre}</strong>
               <span>{c.descripcion}</span>
               <small>{n === 1 ? '1 entrenamiento' : `${n} entrenamientos`}</small>
@@ -146,6 +230,8 @@ function FichaEntrenamiento({
   onVolver,
   volverA,
   onGuardarCopia,
+  onBorrar,
+  errorBorrar,
 }: {
   entreno: Entrenamiento;
   ftp: number;
@@ -155,6 +241,8 @@ function FichaEntrenamiento({
   onVolver: () => void;
   volverA?: string;
   onGuardarCopia?: () => void;
+  onBorrar?: () => void;
+  errorBorrar?: string | null;
 }) {
   const [copiado, setCopiado] = useState(false);
   const tramos = useMemo(() => desplegar(entreno.bloques), [entreno]);
@@ -224,6 +312,12 @@ function FichaEntrenamiento({
           }}
         >
           {copiado ? '✅ Guardado en «Crea tus entrenamientos»' : '📥 Guardar en los míos'}
+        </button>
+      )}
+      {errorBorrar && <p className="aviso">{errorBorrar}</p>}
+      {onBorrar && (
+        <button className="boton-secundario boton-grande boton-peligro" onClick={onBorrar}>
+          🗑️ {entreno.deAmigo?.mio ? 'Quitar de Compartidos' : 'Borrar de Compartidos'}
         </button>
       )}
     </section>

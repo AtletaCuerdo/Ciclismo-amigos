@@ -4736,3 +4736,43 @@ p {
   min-height: 0;
   overflow: hidden;
 }
+
+/* Compartidos: etiqueta con la categoría que le puso quien lo compartió y botón de borrar */
+.etiqueta-categoria {
+  align-self: flex-start;
+  color: #0b1220;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 10px;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tarjeta-entreno-envoltorio {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.tarjeta-entreno-envoltorio > .tarjeta-entreno {
+  flex: 1;
+}
+.boton-borrar-compartido {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--borde);
+  background: var(--panel);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+.filtro-compartidos {
+  margin-bottom: 12px;
+}
+.tarjeta-entreno-envoltorio.con-borrar .tarjeta-entreno-cabecera {
+  padding-right: 48px;
+}

@@ -17,12 +17,25 @@ interface Props {
   onLibre?: () => void;
 }
 
+/** Etiqueta de color con la categoría que le puso quien lo compartió (y de quién es). */
+export function EtiquetaCategoria({ e }: { e: Entrenamiento }) {
+  const c = CATEGORIAS.find((x) => x.id === e.categoria);
+  if (!c) return null;
+  return (
+    <span className="etiqueta-categoria" style={{ background: c.color }}>
+      {c.nombre}
+      {e.deAmigo && <> · {e.deAmigo.mio ? 'tuyo' : e.deAmigo.autor}</>}
+    </span>
+  );
+}
+
 export function SelectorEntreno({ entrenamientos, titulo, onElegir, onCancelar, ftp, onLibre }: Props) {
-  const [categoria, setCategoria] = useState<Categoria>('endurance');
+  const [categoria, setCategoria] = useState<Categoria | 'amigos'>('endurance');
   const lista = useMemo(
     () =>
       entrenamientos
-        .filter((e) => e.categoria === categoria)
+        // Los compartidos por otros solo salen en «Compartidos», con su etiqueta
+        .filter((e) => (categoria === 'amigos' ? !!e.deAmigo : e.categoria === categoria && !e.deAmigo))
         .map((e) => {
           const t = desplegar(e.bloques);
           return { e, t, dur: duracionTotal(t), carga: tss(t) };
@@ -46,6 +59,13 @@ export function SelectorEntreno({ entrenamientos, titulo, onElegir, onCancelar, 
           </button>
         )}
         <div className="selector-categorias">
+          <button
+            className={categoria === 'amigos' ? 'activa' : ''}
+            style={{ borderColor: '#22d3ee', ...(categoria === 'amigos' ? { background: '#22d3ee' } : {}) }}
+            onClick={() => setCategoria('amigos')}
+          >
+            👥 Compartidos
+          </button>
           {CATEGORIAS.map((c) => (
             <button
               key={c.id}
@@ -62,6 +82,7 @@ export function SelectorEntreno({ entrenamientos, titulo, onElegir, onCancelar, 
             <button key={e.id} className="selector-tarjeta" onClick={() => onElegir(e)}>
               <div className="selector-tarjeta-cabecera">
                 <strong>{e.nombre}</strong>
+                {e.deAmigo && <EtiquetaCategoria e={e} />}
                 <span>
                   {formatoDuracion(dur)} · TSS {carga}
                 </span>

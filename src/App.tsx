@@ -2247,6 +2247,8 @@ export default function App() {
           deAmigos={compartidos.amigos}
           errorAmigos={compartidos.error}
           onGuardarCopia={guardarCopia}
+          soyAdmin={soyAdmin}
+          onBorrarCompartido={compartidos.borrar}
           entrenamientos={todosLosEntrenos}
           ftp={perfil.ftp}
           onCambiarFtp={(ftp) => cambiarPerfil({ ...perfil, ftp })}

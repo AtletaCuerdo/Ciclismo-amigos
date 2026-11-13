@@ -200,7 +200,7 @@
     "compartidos": {
       ".read": "auth != null && auth.provider !== 'anonymous'",
       "$clave": {
-        ".write": "auth != null && auth.provider !== 'anonymous' && ((!data.exists() && newData.child('autorUid').val() === auth.uid) || (data.exists() && data.child('autorUid').val() === auth.uid && (!newData.exists() || newData.child('autorUid').val() === auth.uid)))",
+        ".write": "auth != null && auth.provider !== 'anonymous' && ((!data.exists() && newData.child('autorUid').val() === auth.uid) || (data.exists() && data.child('autorUid').val() === auth.uid && (!newData.exists() || newData.child('autorUid').val() === auth.uid)) || (data.exists() && !newData.exists() && (auth.uid === '1WbWzGi0H6fmFUTyMspm5UGL3pU2' || root.child('admins').child(auth.uid).val() === true)))",
         ".validate": "newData.hasChildren(['autorUid', 'autor', 't', 'entreno']) && $clave.beginsWith(auth.uid + '_')",
         "autorUid": {
           ".validate": "newData.isString()"

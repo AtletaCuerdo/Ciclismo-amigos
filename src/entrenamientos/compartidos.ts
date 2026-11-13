@@ -5,7 +5,7 @@
  *
  * `clave` = `{uid}_{id del entrenamiento}`: volver a compartirlo lo actualiza. `entreno` va como
  * texto JSON (las reglas solo limitan su tamaño); al leerlo se comprueba que tenga sentido.
- * Solo el autor puede cambiarlo o dejar de compartirlo (lo imponen las reglas).
+ * Solo el autor puede cambiarlo o dejar de compartirlo; el administrador puede borrar cualquiera.
  */
 import { useEffect, useState } from 'react';
 import { CATEGORIAS, type Bloque, type Entrenamiento } from './tipos';
@@ -135,5 +135,18 @@ export function useCompartidos(activo: boolean) {
     await fb.remove(fb.ref(fb.db, `compartidos/${yo.uid}_${e.id}`));
   };
 
-  return { amigos, misCompartidos, error, compartir, dejarDeCompartir };
+  /**
+   * Quita un entrenamiento de «Compartidos» por su clave: el autor los suyos y el administrador
+   * cualquiera (lo imponen las reglas). Al autor le sigue quedando en sus entrenamientos.
+   */
+  const borrar = async (clave: string) => {
+    const fb = await import('../multijugador/firebase');
+    try {
+      await fb.remove(fb.ref(fb.db, `compartidos/${clave}`));
+    } catch {
+      throw new Error('Firebase no deja borrarlo: hay que pegar las reglas nuevas.');
+    }
+  };
+
+  return { amigos, misCompartidos, error, compartir, dejarDeCompartir, borrar };
 }
