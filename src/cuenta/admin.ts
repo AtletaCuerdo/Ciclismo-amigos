@@ -125,8 +125,34 @@ export async function leerFichas(): Promise<{ fichas: Ficha[]; sinCuenta: number
 }
 
 const CLAVE_ALTA = 'rodillos.altaAvisada';
-/** Solo las cuentas creadas hace menos de esto se avisan (las de antes ya existían). */
-const ALTA_RECIENTE_MS = 30 * 60 * 1000;
+/**
+ * Solo se intenta con cuentas creadas hace menos de esto según el reloj del aparato (holgado por si
+ * va mal; el Worker comprueba la hora de verdad con la de Google: 30 min).
+ */
+const ALTA_RECIENTE_MS = 24 * 3600 * 1000;
+/** Esperas entre intentos si el aviso falla (sin conexión, la pestaña se cerró, el Worker no respondió…). */
+const REINTENTOS_ALTA_MS = [20_000, 120_000];
+
+/** Cuándo abrió el administrador su panel por última vez (para marcar las cuentas nuevas). */
+const CLAVE_VISTO = 'rodillos.adminVisto';
+export function adminVistoEn(): number {
+  try {
+    const v = Number(localStorage.getItem(CLAVE_VISTO));
+    if (v > 0) return v;
+  } catch {
+    // sin almacenamiento
+  }
+  return Date.now() - 3 * 24 * 3600 * 1000; // la primera vez: las de los últimos 3 días
+}
+export function marcarAdminVisto() {
+  try {
+    localStorage.setItem(CLAVE_VISTO, String(Date.now()));
+  } catch {
+    // no es grave
+  }
+}
+/** Cuentas dadas de alta después de `desde` (ms). */
+export const cuentasNuevas = (fichas: Ficha[], desde: number) => fichas.filter((f) => !f.pendiente && f.alta > desde);
 
 /**
  * Si la cuenta con la que se acaba de entrar es nueva, pide al intermediario (el Worker de Strava)
@@ -143,12 +169,21 @@ export async function avisarAltaSiNueva(urlIntermediario: string) {
   } catch {
     // sin almacenamiento: se avisa igual (el Worker solo avisa de cuentas recién creadas)
   }
-  const r = await fetch(`${urlIntermediario.replace(/\/$/, '')}/alta`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idToken: await u.getIdToken() }),
-  });
-  if (!r.ok) return;
+  // Si falla, se reintenta un par de veces (antes se intentaba una sola vez y el aviso se perdía)
+  for (let i = 0; ; i++) {
+    try {
+      const r = await fetch(`${urlIntermediario.replace(/\/$/, '')}/alta`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: await u.getIdToken() }),
+      });
+      if (r.ok) break;
+    } catch {
+      // sin conexión: se reintenta
+    }
+    if (i >= REINTENTOS_ALTA_MS.length || fb.auth.currentUser?.uid !== u.uid) return;
+    await new Promise((res) => setTimeout(res, REINTENTOS_ALTA_MS[i]));
+  }
   try {
     localStorage.setItem(CLAVE_ALTA, u.uid);
   } catch {

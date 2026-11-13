@@ -88,7 +88,7 @@ import {
 import { calcularTotales, publicarTotales } from './multijugador/rankings';
 import { PantallaRankings } from './components/PantallaRankings';
 import { PantallaAdmin } from './components/PantallaAdmin';
-import { avisarAltaSiNueva, esAdmin, publicarFicha } from './cuenta/admin';
+import { adminVistoEn, avisarAltaSiNueva, cuentasNuevas, esAdmin, leerFichas, publicarFicha } from './cuenta/admin';
 import { estadoStravaAqui, leerConexion, URL_INTERMEDIARIO } from './strava/strava';
 import { PantallaResumenes } from './components/PantallaResumenes';
 import { CircuitoElegido, PantallaCircuitos } from './components/PantallaCircuitos';
@@ -1201,6 +1201,14 @@ export default function App() {
     return () => clearTimeout(id);
   }, [usuario?.uid]);
   const [soyAdmin, setSoyAdmin] = useState(false);
+  // Administrador: cuántas cuentas se han creado desde que abrió su panel (sale en el botón 🛡️)
+  const [altasNuevas, setAltasNuevas] = useState(0);
+  useEffect(() => {
+    if (!soyAdmin) return;
+    void leerFichas()
+      .then((r) => setAltasNuevas(cuentasNuevas(r.fichas, adminVistoEn()).length))
+      .catch(() => undefined);
+  }, [soyAdmin]);
   useEffect(() => {
     setSoyAdmin(false);
     if (usuario) void esAdmin(usuario.uid).then(setSoyAdmin);
@@ -1842,8 +1850,13 @@ export default function App() {
         </button>
         <div className="barra-acciones">
           {usuario && soyAdmin && (
-            <button className="boton-secundario" onClick={() => setPantalla('admin')} title="Panel del administrador">
+            <button
+              className="boton-secundario boton-admin"
+              onClick={() => setPantalla('admin')}
+              title={altasNuevas ? `Panel del administrador: ${altasNuevas} cuentas nuevas` : 'Panel del administrador'}
+            >
               🛡️
+              {altasNuevas > 0 && <span className="globo-nuevas">{altasNuevas}</span>}
             </button>
           )}
           {usuario && (
@@ -2202,7 +2215,7 @@ export default function App() {
       )}
 
       {pantalla === 'rankings' && <PantallaRankings onVolver={volver} />}
-      {pantalla === 'admin' && soyAdmin && <PantallaAdmin onVolver={volver} />}
+      {pantalla === 'admin' && soyAdmin && <PantallaAdmin onVolver={volver} onVisto={() => setAltasNuevas(0)} />}
       {pantalla === 'tienda' && (
         <PantallaTienda
           saldo={saldo}

@@ -3,7 +3,7 @@
  * tiene cuenta, cuánto ha rodado y cuántas plazas de la aplicación de Strava quedan.
  */
 import { useEffect, useState } from 'react';
-import { leerFichas, type Ficha } from '../cuenta/admin';
+import { adminVistoEn, cuentasNuevas, leerFichas, marcarAdminVisto, type Ficha } from '../cuenta/admin';
 
 /** Atletas que admite ahora la aplicación de Strava (subirlo si Strava da más). */
 const PLAZAS_STRAVA = 10;
@@ -11,10 +11,18 @@ const PLAZAS_STRAVA = 10;
 const fecha = (ms: number) => (ms ? new Date(ms).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) : '—');
 const km = (m: number) => `${(m / 1000).toLocaleString('es-ES', { maximumFractionDigits: 0 })} km`;
 
-export function PantallaAdmin({ onVolver }: { onVolver: () => void }) {
+export function PantallaAdmin({ onVolver, onVisto }: { onVolver: () => void; onVisto?: () => void }) {
   const [fichas, setFichas] = useState<Ficha[] | null>(null);
   const [sinCuenta, setSinCuenta] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // Cuentas nuevas desde la última vez que abrí el panel (se apunta la visita al abrirlo)
+  const [vistoAntes] = useState(adminVistoEn);
+  useEffect(() => {
+    marcarAdminVisto();
+    onVisto?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const nuevas = fichas ? cuentasNuevas(fichas, vistoAntes) : [];
 
   const cargar = () => {
     setError(null);
@@ -49,6 +57,13 @@ export function PantallaAdmin({ onVolver }: { onVolver: () => void }) {
 
       {error && <p className="aviso">{error}</p>}
       {!fichas && !error && <p className="detalle">Cargando…</p>}
+
+      {nuevas.length > 0 && (
+        <p className="aviso-nuevas" role="status">
+          🆕 {nuevas.length === 1 ? '1 cuenta nueva' : `${nuevas.length} cuentas nuevas`} desde tu última visita:{' '}
+          <strong>{nuevas.map((f) => f.nombre).join(', ')}</strong>
+        </p>
+      )}
 
       {fichas && (
         <>
@@ -92,7 +107,9 @@ export function PantallaAdmin({ onVolver }: { onVolver: () => void }) {
                   {fichas.map((f) => (
                     <tr key={f.uid}>
                       <td>
-                        <strong>{f.nombre}</strong>
+                        <strong>
+                          {nuevas.includes(f) && <span className="insignia-nueva">🆕 Nueva</span>} {f.nombre}
+                        </strong>
                         <small>{f.pendiente ? 'aún no ha vuelto a entrar' : f.correo}</small>
                       </td>
                       <td>{f.sesiones}</td>

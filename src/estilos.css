@@ -4776,3 +4776,39 @@ p {
 .tarjeta-entreno-envoltorio.con-borrar .tarjeta-entreno-cabecera {
   padding-right: 48px;
 }
+
+/* Administrador: cuentas nuevas desde la última visita al panel */
+.boton-admin {
+  position: relative;
+}
+.globo-nuevas {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+.aviso-nuevas {
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid #4ade80;
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+.insignia-nueva {
+  display: inline-block;
+  background: #4ade80;
+  color: #0b1220;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-right: 4px;
+}

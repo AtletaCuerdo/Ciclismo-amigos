@@ -267,6 +267,12 @@ que también los quita de Compartidos). Bluetooth: «Error de Bluetooth (2)» en
 Suito-T): al abrir la web se reconectaban todos a la vez (`reconectarRecordado`). Ahora las conexiones van por turnos
 (`enTurno` en SensorBle.ts), la primera se reintenta hasta 3 veces (1,5 s y 3 s) y el mensaje dice que cierre otras apps.
 
+14-11: no llegó el correo de alta de «José aita de aitor» (sí llegaban otros; no estaba en no deseado). La web lo
+intentaba una sola vez y con el reloj del aparato (< 30 min). Ahora `avisarAltaSiNueva` reintenta a los 20 s y 2 min y
+usa 24 h en el aparato (el Worker sigue mirando 30 min con la hora de Google). Además, en el panel 🛡️: «🆕 N cuentas
+nuevas desde tu última visita» e insignia en cada fila (`adminVistoEn`/`marcarAdminVisto`, clave `rodillos.adminVisto`;
+la primera vez, las de 3 días) y un globo rojo con el número en el botón 🛡️ de la cabecera.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
