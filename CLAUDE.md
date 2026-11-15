@@ -258,7 +258,7 @@ rebufo pleno dentro del grupo (−30 %) a 155 W va a 38,9 km/h y la grupeta (CdA
 del recorrido), con la etiqueta de la categoría que les puso el autor (`EtiquetaCategoria`) y filtro por etiqueta; en las
 carpetas de categorías solo el catálogo y los míos. 🗑️ en la tarjeta y en la ficha: el autor quita los suyos (le siguen
 quedando en sus entrenos) y el administrador borra cualquiera (`borrar(clave)` en compartidos.ts; regla `.write` de
-`compartidos` con el uid del administrador o `admins/{uid}`). **Necesita las reglas nuevas pegadas.**
+`compartidos` con el uid del administrador o `admins/{uid}`). Reglas pegadas por el usuario el 15-11: funciona.
 Amigo del Elite Suito-T con pedales Favero: pendiente de saber el modelo (los bePRO solo tienen ANT+; los Assioma, una
 sola conexión Bluetooth a la vez).
 
@@ -277,9 +277,6 @@ la primera vez, las de 3 días) y un globo rojo con el número en el botón 🛡
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
 ### Próximos pasos
-- **PENDIENTE DEL USUARIO (pedido el 13-11, recordárselo):** pegar en la consola de Firebase (Realtime Database →
-  Reglas) la regla `.write` nueva de `compartidos` (la de `firebase/database.rules.json`, con el uid del administrador):
-  sin ella el administrador no puede borrar los compartidos de otros. Lo hará desde el PC.
 - Pendientes propuestas al usuario el 04-11 (las dejó para más adelante): pitidos 3-2-1 en los cambios de bloque
   de los entrenos (con opción de quitarlos); retos de la semana con RideCoins (3 sesiones, 100 km, salida con un
   amigo); que el entreno del día puesto en TriCoach Entrenos salga solo en RideCrew y se marque hecho allí (unir
