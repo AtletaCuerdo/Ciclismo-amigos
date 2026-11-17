@@ -25,7 +25,8 @@ const CLAVE_ESTADO = 'rodillos.strava.estado';
 export interface ConexionStrava {
   refresh: string;
   atleta: string;
-  atletaId?: number;
+  /** Número o, si es de los nuevos de más de 15 cifras, texto. */
+  atletaId?: number | string;
   /** Subir sola cada sesión al terminar. */
   auto: boolean;
 }
@@ -137,7 +138,7 @@ export async function procesarVueltaDeStrava(): Promise<string | null> {
     return 'Para subir entrenamientos hay que dejar marcada la casilla de «subir actividades» en Strava. Vuelve a conectar.';
   }
   try {
-    const r = await llamar<{ refresh: string; atleta: string; atletaId?: number }>('/token', { code });
+    const r = await llamar<{ refresh: string; atleta: string; atletaId?: number | string }>('/token', { code });
     guardarConexion({ refresh: r.refresh, atleta: r.atleta, atletaId: r.atletaId, auto: true });
     return `Conectado con Strava como ${r.atleta}. Tus entrenamientos se subirán solos al terminar.`;
   } catch (e) {
@@ -152,7 +153,8 @@ export async function desconectarStrava() {
 }
 
 export interface ResultadoSubida {
-  actividad: number | null;
+  /** Número de la actividad (texto si tiene más de 15 cifras). */
+  actividad: number | string | null;
   duplicada: boolean;
   pendiente: boolean;
 }
@@ -177,4 +179,4 @@ export async function subirAStrava(e: Entreno, nombre: string, descripcion: stri
   return { actividad: r.actividad, duplicada: r.duplicada, pendiente: r.pendiente };
 }
 
-export const enlaceActividad = (id: number) => `https://www.strava.com/activities/${id}`;
+export const enlaceActividad = (id: number | string) => `https://www.strava.com/activities/${id}`;

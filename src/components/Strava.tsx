@@ -28,14 +28,14 @@ function useConexionStrava() {
 
 // Entrenamientos ya subidos (id → actividad de Strava), para no subirlos dos veces
 const CLAVE_SUBIDOS = 'rodillos.strava.subidos';
-function leerSubidos(): Record<string, number | true> {
+function leerSubidos(): Record<string, number | string | true> {
   try {
     return JSON.parse(localStorage.getItem(CLAVE_SUBIDOS) ?? '{}');
   } catch {
     return {};
   }
 }
-function apuntarSubido(id: string, actividad: number | null) {
+function apuntarSubido(id: string, actividad: number | string | null) {
   try {
     localStorage.setItem(CLAVE_SUBIDOS, JSON.stringify({ ...leerSubidos(), [id]: actividad ?? true }));
   } catch {
@@ -94,7 +94,7 @@ export function PoweredByStrava() {
 type Estado =
   | { tipo: 'nada' }
   | { tipo: 'subiendo' }
-  | { tipo: 'hecho'; actividad: number | null; duplicada?: boolean }
+  | { tipo: 'hecho'; actividad: number | string | null; duplicada?: boolean }
   | { tipo: 'error'; texto: string };
 
 /**

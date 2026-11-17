@@ -78,6 +78,16 @@ export default {
   },
 };
 
+/**
+ * Lee una respuesta JSON de Strava sin estropear los identificadores largos: desde el 1-6-2027 los
+ * de actividades y atletas pueden tener más de 15 cifras y JavaScript los redondea al leerlos como
+ * número. Esos (16 cifras o más) se quedan como texto.
+ */
+async function jsonStrava(r) {
+  const texto = await r.text();
+  return JSON.parse(texto.replace(/:(\s*)(-?\d{16,})(?=\s*[,}\]])/g, ':$1"$2"'));
+}
+
 /** Pide un token a Strava (con el código de autorización o con el refresh token). */
 async function pedirToken(env, datos) {
   const r = await fetch(`${API}/oauth/token`, {
@@ -85,7 +95,7 @@ async function pedirToken(env, datos) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ client_id: env.STRAVA_CLIENT_ID, client_secret: env.STRAVA_CLIENT_SECRET, ...datos }),
   });
-  const j = await r.json();
+  const j = await jsonStrava(r);
   if (!r.ok) throw new Error(`Strava rechazó el permiso (${r.status}): ${j.message ?? JSON.stringify(j)}`);
   return j;
 }
@@ -97,7 +107,7 @@ async function canjearCodigo(env, code) {
   return {
     refresh: t.refresh_token,
     atleta: [a.firstname, a.lastname].filter(Boolean).join(' ') || 'tu cuenta',
-    atletaId: a.id,
+    atletaId: a.id_str ?? a.id,
   };
 }
 
@@ -124,7 +134,7 @@ async function subir(env, { refresh, fit, tcx, nombre, descripcion, externo }) {
   if (descripcion) form.append('description', String(descripcion).slice(0, 2000));
   if (externo) form.append('external_id', String(externo).slice(0, 100));
   const r = await fetch(`${API}/api/v3/uploads`, { method: 'POST', headers: { Authorization: `Bearer ${acceso}` }, body: form });
-  let estado = await r.json();
+  let estado = await jsonStrava(r);
   if (!r.ok) throw new Error(`Strava no aceptó el archivo (${r.status}): ${estado.message ?? JSON.stringify(estado)}`);
 
   // Strava procesa el archivo en unos segundos: se consulta hasta tener la actividad
@@ -132,7 +142,7 @@ async function subir(env, { refresh, fit, tcx, nombre, descripcion, externo }) {
   for (let i = 0; i < 20 && !estado.activity_id && !estado.error; i++) {
     await new Promise((res) => setTimeout(res, 1500));
     const c = await fetch(`${API}/api/v3/uploads/${estado.id}`, { headers: { Authorization: `Bearer ${acceso}` } });
-    estado = await c.json();
+    estado = await jsonStrava(c);
   }
 
   let actividad = estado.activity_id ?? null;
@@ -140,7 +150,7 @@ async function subir(env, { refresh, fit, tcx, nombre, descripcion, externo }) {
   const duplicada = typeof estado.error === 'string' && /duplicate/i.test(estado.error);
   if (duplicada && !actividad) {
     const m = /activities\/(\d+)/.exec(estado.error);
-    if (m) actividad = Number(m[1]);
+    if (m) actividad = m[1].length > 15 ? m[1] : Number(m[1]);
   }
   if (estado.error && !duplicada) throw new Error(`Strava: ${estado.error}`);
 
@@ -156,7 +166,7 @@ async function subir(env, { refresh, fit, tcx, nombre, descripcion, externo }) {
           headers: { Authorization: `Bearer ${acceso}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ sport_type: 'VirtualRide', trainer: false }),
         });
-        if (c.ok) tipo = (await c.json()).sport_type ?? null;
+        if (c.ok) tipo = (await jsonStrava(c)).sport_type ?? null;
       } catch {
         // se reintenta
       }
