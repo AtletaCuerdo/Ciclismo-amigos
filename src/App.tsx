@@ -1510,14 +1510,21 @@ export default function App() {
       .filter(([inicio]) => inicio < desde)
       .map(([inicio, duracion, w]): [number, number, number] => [inicio, Math.min(duracion, desde - inicio), w]);
     if (tramos) {
-      // Principales: los constantes cerca del más duro del entreno, los de 10′ o más y los
+      // Principales: los que van cerca del más duro del entreno (también las series en rampa, por
+      // su media: p. ej. «Tempo alto progresivo», del 84 al 90 %), los constantes de 10′ o más y los
       // libres (tests); fuera calentamiento, vuelta a la calma y recuperaciones
-      const fijos = tramos.filter((t) => t.libre || t.desde === t.hasta);
-      const maximo = Math.max(0, ...fijos.filter((t) => !t.libre).map((t) => t.desde));
-      for (const t of fijos) {
-        const principal = t.libre ? t.duracion >= 60 : t.desde >= maximo * 0.85 || t.duracion >= 600;
+      const media = (t: Tramo) => (t.desde + t.hasta) / 2;
+      const maximo = Math.max(0, ...tramos.filter((t) => !t.libre).map(media));
+      // Rampas que no cuentan: la primera y la última (calentamiento y vuelta a la calma) y las que
+      // empiezan o acaban muy por debajo del más duro
+      const rampaFuera = (t: Tramo, i: number) =>
+        t.desde !== t.hasta && (i === 0 || i === tramos.length - 1 || Math.min(t.desde, t.hasta) < maximo * 0.85);
+      for (const [i, t] of tramos.entries()) {
+        const principal = t.libre
+          ? t.duracion >= 60
+          : (!rampaFuera(t, i) && media(t) >= maximo * 0.85) || (t.desde === t.hasta && t.duracion >= 600);
         if (principal && t.duracion >= 30)
-          bloques.push([desde + t.inicio, t.duracion, t.libre ? 0 : Math.round((t.desde * perfil.ftp) / 100)]);
+          bloques.push([desde + t.inicio, t.duracion, t.libre ? 0 : Math.round((media(t) * perfil.ftp) / 100)]);
       }
     }
     bloquesRef.current = bloques.slice(0, 60);

@@ -273,6 +273,11 @@ usa 24 h en el aparato (el Worker sigue mirando 30 min con la hora de Google). A
 nuevas desde tu última visita» e insignia en cada fila (`adminVistoEn`/`marcarAdminVisto`, clave `rodillos.adminVisto`;
 la primera vez, las de 3 días) y un globo rojo con el número en el botón 🛡️ de la cabecera.
 
+17-11: el análisis de pulso comparaba los descansos de 4′ en «Tempo alto progresivo 3×12′»: sus series son rampas
+(84→90 %) y `apuntarCortes` (App) solo tomaba bloques constantes, así que el «más duro» eran las recuperaciones. Ahora
+las rampas cuentan por su media (fuera la primera, la última y las que empiezan o acaban < 85 % del máximo). Cambia en
+9 de 151 entrenos (todos a mejor). Las sesiones ya guardadas se quedan con sus bloques.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
