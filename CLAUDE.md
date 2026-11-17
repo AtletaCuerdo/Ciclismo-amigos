@@ -277,6 +277,9 @@ la primera vez, las de 3 días) y un globo rojo con el número en el botón 🛡
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
 ### Próximos pasos
+- 17-11: Strava pasa a identificadores de 64 bits el 1-6-2027. Ya preparado (`jsonStrava` en `servidor-strava/worker.js`
+  y en `worker/stravaJson.js` de TriCoach Entrenos: los de 16 cifras o más se leen como texto). Comprobar antes de junio
+  de 2027 que el Worker `strava-rodillos` tiene esta versión (si no se publica solo con Workers Builds, desplegarlo).
 - Pendientes propuestas al usuario el 04-11 (las dejó para más adelante): pitidos 3-2-1 en los cambios de bloque
   de los entrenos (con opción de quitarlos); retos de la semana con RideCoins (3 sesiones, 100 km, salida con un
   amigo); que el entreno del día puesto en TriCoach Entrenos salga solo en RideCrew y se marque hecho allí (unir
