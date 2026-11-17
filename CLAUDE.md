@@ -278,6 +278,11 @@ la primera vez, las de 3 días) y un globo rojo con el número en el botón 🛡
 las rampas cuentan por su media (fuera la primera, la última y las que empiezan o acaban < 85 % del máximo). Cambia en
 9 de 151 entrenos (todos a mejor). Las sesiones ya guardadas se quedan con sus bloques.
 
+17-11 (2): amigo del Suito-T: ya conecta a la primera y no se desconecta. En una serie larga los vatios oscilaban
+(objetivo 175-200, veía 130-190-145). Por si era la protección del ERG con una lectura suelta de cadencia baja, ahora
+solo salta con < 45 rpm **y** < 70 % del objetivo (o pausado). Pendiente: si vuelve a pasar, captura del Registro
+(¿sale «ERG: cadencia muy baja…»?); si no sale, es el ERG del propio rodillo.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

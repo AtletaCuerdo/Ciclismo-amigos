@@ -902,7 +902,12 @@ export default function App() {
           const cad = actualRef.current.cadencia;
           const pot = actualRef.current.potencia ?? 0;
           // Sin sensor de cadencia (rodillos que no la miden) se mira por los vatios
-          const flojo = !corriendoRef.current || (cad !== undefined ? cad < 45 : pot < Math.min(60, objetivo * 0.4));
+          // Con cadencia baja solo si además los vatios ya no llegan (a punto de bloquearse): una
+          // lectura suelta de cadencia baja con los vatios bien no es el bloqueo, y bajar el ERG ahí
+          // hace que los vatios suban y bajen sin motivo
+          const flojo =
+            !corriendoRef.current ||
+            (cad !== undefined ? cad < 45 && pot < objetivo * 0.7 : pot < Math.min(60, objetivo * 0.4));
           const pedalea = corriendoRef.current && (cad !== undefined ? cad >= 60 : pot >= bajo * 0.8);
           if (!ergBajado) {
             flojoDesde = flojo ? flojoDesde || t : 0;
