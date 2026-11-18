@@ -396,6 +396,11 @@ export default function App() {
       });
     }
   };
+  // Que el navegador no borre por su cuenta lo guardado (historial, perfil…) cuando le falta
+  // espacio: Chrome lo hace con las webs «no persistentes». Si no lo concede, la nube lo recupera.
+  useEffect(() => {
+    void navigator.storage?.persist?.().catch(() => false);
+  }, []);
   useEffect(() => {
     if (!usuario) {
       nubeRef.current = null;
@@ -1975,7 +1980,13 @@ export default function App() {
               </button>
             </section>
           )}
-          {verAsistente && numSesiones === 0 && !enRecorrido && (
+          {/* Con cuenta, primero se mira la nube: si el navegador perdió lo guardado, tus datos vuelven solos */}
+          {usuario && sync.tipo === 'sincronizando' && numSesiones === 0 && (
+            <p className="aviso-recuperando" role="status">
+              ☁️ Recuperando tus datos de la nube…
+            </p>
+          )}
+          {verAsistente && numSesiones === 0 && !enRecorrido && (!usuario || sync.tipo === 'ok' || sync.tipo === 'error') && (
             <AsistenteInicio
               conexiones={
                 <div className="rejilla-conexion">

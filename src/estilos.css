@@ -4812,3 +4812,11 @@ p {
   padding: 1px 8px;
   margin-right: 4px;
 }
+
+/* Al entrar en un navegador sin datos: mientras baja lo de la nube */
+.aviso-recuperando {
+  background: rgba(34, 211, 238, 0.12);
+  border: 1px solid #22d3ee;
+  border-radius: 12px;
+  padding: 10px 14px;
+}

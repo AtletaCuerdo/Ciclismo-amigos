@@ -99,7 +99,7 @@ export function ResumenEntreno({
         if (vivo) setAnteriores(lista.filter((g) => g.id !== entreno.id));
         // Solo si sigue montado: logrosNuevos los marca como vistos
         if (!vivo) return;
-        setNuevos(logrosNuevos(conEsta));
+        setNuevos(logrosNuevos(conEsta, entreno.id));
         // XP de esta sesión (con sus logros) y si se sube de nivel
         const sinEsta = conEsta.filter((g) => g.id !== entreno.id);
         const antes = nivelDe(sinEsta).nivel;

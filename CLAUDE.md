@@ -283,6 +283,14 @@ las rampas cuentan por su media (fuera la primera, la última y las que empiezan
 solo salta con < 45 rpm **y** < 70 % del objetivo (o pausado). Pendiente: si vuelve a pasar, captura del Registro
 (¿sale «ERG: cadencia muy baja…»?); si no sale, es el ERG del propio rodillo.
 
+18-11: Eric (Elite ANT+, Chrome en Mac) a menudo abre la web «como nuevo»: el navegador pierde lo guardado (localStorage +
+IndexedDB; sospecha: Chrome con «borrar datos de sitios al cerrar» o desalojo por espacio). La nube lo recuperaba, pero:
+1) el asistente de primera vez salía antes de terminar la sincronización y, al poner FTP y peso, el perfil «nuevo»
+(perfilT = ahora) pisaba el de la nube; 2) `iniciarLogrosVistos([])` con el historial aún vacío hacía que al acabar se
+celebrasen todos los logros («Primera pedalada»). Ahora: el asistente espera a que acabe la sincronización (mientras,
+«☁️ Recuperando tus datos de la nube…»), `logrosNuevos(lista, idEsta)` solo celebra lo que consigue esta sesión, y se pide
+`navigator.storage.persist()`. Pendiente: que Eric mire el ajuste de Chrome.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

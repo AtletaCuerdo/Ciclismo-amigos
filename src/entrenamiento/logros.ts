@@ -381,12 +381,18 @@ export function iniciarLogrosVistos(lista: EntrenoGuardado[]) {
   }
 }
 
-/** Logros conseguidos que aún no se habían celebrado (y los marca como vistos). */
-export function logrosNuevos(lista: EntrenoGuardado[]): Logro[] {
+/**
+ * Logros que consigue esta sesión (`idEsta`) y aún no se habían celebrado (y los marca como vistos).
+ * Los que ya salían con las sesiones de antes nunca se celebran: si el navegador perdió lo guardado
+ * (o es otro aparato) y el historial ha bajado de la nube, no se felicita otra vez por todo.
+ */
+export function logrosNuevos(lista: EntrenoGuardado[], idEsta: string): Logro[] {
   const vistos = leerVistos();
   const conseguidos = calcularLogros(lista).filter((l) => l.conseguido);
-  // Sin registro previo: solo se celebran los de esta sesión si es la primera
-  const yaVistos = new Set(vistos ?? (lista.length > 1 ? conseguidos.map((l) => l.id) : []));
+  const deAntes = calcularLogros(lista.filter((g) => g.id !== idEsta))
+    .filter((l) => l.conseguido)
+    .map((l) => l.id);
+  const yaVistos = new Set([...(vistos ?? []), ...deAntes]);
   const nuevos = conseguidos.filter((l) => !yaVistos.has(l.id));
   guardarVistos([...new Set([...yaVistos, ...conseguidos.map((l) => l.id)])]);
   return nuevos;
