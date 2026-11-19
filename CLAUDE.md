@@ -36,7 +36,7 @@ tiene que llamarse dentro del propio clic.
   (`importar.ts`, categoría automática por intensidad),
   entrenamientos propios (`propios.ts`, se guardan en el navegador) y tipos.
 - `src/entrenamiento/`: grabación de la sesión, resumen, exportación TCX y almacén del historial.
-  Logros (`logros.ts`, 96 por categorías; subir `VERSION_LOGROS` al añadir más para no celebrar
+  Logros (`logros.ts`, 97 por categorías; subir `VERSION_LOGROS` al añadir más para no celebrar
   de golpe los que ya se tenían) y niveles 1-100 (`niveles.ts`: XP del historial; `nivelPublico.ts`
   guarda mi nivel y lo publica en `salas/{sala}/ciclistas/{uid}/nivel`, que necesita las reglas nuevas).
 - `src/multijugador/`: Firebase y el hook `useSalida` para la salida en grupo.
@@ -293,7 +293,8 @@ celebrasen todos los logros («Primera pedalada»). Ahora: el asistente espera a
 
 19-11: logros de madrugada (idea de un deportista que sube al rodillo a las 4:00): «Tempranero» (< 7:00, era «Madrugador»,
 mismo id), «Antes que el gallo» (< 6:00), «Trasnochado» (< 5:00) y «El más madrugador» (15 sesiones antes de las 7:00, con
-progreso). Cuentan las sesiones empezadas desde las 3:00 (`antesDe`). `VERSION_LOGROS` = 3.
+progreso) e «Insomnio de campeón» (15 antes de las 5:00). Cuentan las sesiones empezadas desde las 3:00 (`antesDe`).
+`VERSION_LOGROS` = 4.
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).

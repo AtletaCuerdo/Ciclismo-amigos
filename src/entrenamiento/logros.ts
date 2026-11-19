@@ -256,6 +256,7 @@ const LOGROS: Def[] = [
   { id: 'madrugador6', icono: '🐓', nombre: 'Antes que el gallo', descripcion: 'Empezar a rodar antes de las 6:00', categoria: 'fechas', conseguido: (d) => alguna(d, (g) => antesDe(g, 6)) },
   { id: 'madrugador5', icono: '🌙', nombre: 'Trasnochado', descripcion: 'Empezar a rodar antes de las 5:00 (¿te has acostado?)', categoria: 'fechas', conseguido: (d) => alguna(d, (g) => antesDe(g, 5)) },
   nivel('fechas', 'madrugador15', '🏆', 'El más madrugador', '15 sesiones empezadas antes de las 7:00', 15, (d) => d.lista.filter((g) => antesDe(g, 7)).length, 'veces'),
+  nivel('fechas', 'madrugador5x15', '🧛', 'Insomnio de campeón', '15 sesiones empezadas antes de las 5:00', 15, (d) => d.lista.filter((g) => antesDe(g, 5)).length, 'veces'),
   { id: 'buho', icono: '🦉', nombre: 'Búho', descripcion: 'Empezar a rodar a partir de las 22:00', categoria: 'fechas', conseguido: (d) => alguna(d, (g) => hora(g) >= 22 || hora(g) < 4) },
   { id: 'finde', icono: '⚔️', nombre: 'Fin de semana guerrero', descripcion: 'Rodar el sábado y el domingo del mismo fin de semana', categoria: 'fechas', conseguido: (d) => finDeSemanaCompleto(d.lista) },
   {
@@ -361,7 +362,7 @@ function guardarVistos(ids: string[]) {
 }
 
 /** Sube cuando se añaden logros: los que ya se tenían se dan por vistos sin celebrarlos. */
-const VERSION_LOGROS = 3;
+const VERSION_LOGROS = 4;
 const CLAVE_VERSION = 'rodillos.logrosVersion';
 
 /**
