@@ -17,6 +17,8 @@ export interface SesionLogros {
   vueltas: Record<string, number>;
   records: number;
   maxGrupo: number;
+  /** Entrenos de TriCoach completados en esta sesión (logro «Entrenado por TriCoach» y escena final). */
+  tricoach?: number;
 }
 
 export const sesionLogrosVacia = (): SesionLogros => ({ completados: [], vueltas: {}, records: 0, maxGrupo: 0 });

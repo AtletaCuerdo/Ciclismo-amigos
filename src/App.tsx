@@ -669,8 +669,10 @@ export default function App() {
   // Entrenamiento guiado hecho hasta el final
   useEffect(() => {
     const a = entrenoActivo;
-    if (a && grabacion.segundos - a.inicioS >= a.total && !logrosSesionRef.current.completados.includes(a.entreno.id))
+    if (a && grabacion.segundos - a.inicioS >= a.total && !logrosSesionRef.current.completados.includes(a.entreno.id)) {
       logrosSesionRef.current.completados.push(a.entreno.id);
+      if (a.entreno.origen === 'tricoach') logrosSesionRef.current.tricoach = (logrosSesionRef.current.tricoach ?? 0) + 1;
+    }
   }, [grabacion.segundos, entrenoActivo]);
 
   // ---- Física del recorrido y control del rodillo (10 veces por segundo) ----
@@ -1653,6 +1655,7 @@ export default function App() {
       if (companerosRef.current.size) entreno.resumen.companeros = [...companerosRef.current].slice(0, 20);
       const ls = logrosSesionRef.current;
       if (ls.completados.length) entreno.resumen.entrenosCompletados = [...ls.completados];
+      if (ls.tricoach) entreno.resumen.tricoach = ls.tricoach;
       if (Object.keys(ls.vueltas).length) entreno.resumen.vueltasCircuito = { ...ls.vueltas };
       if (ls.records) entreno.resumen.recordsMejorados = ls.records;
       if (ls.maxGrupo) entreno.resumen.maxGrupo = ls.maxGrupo;

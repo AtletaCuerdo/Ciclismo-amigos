@@ -119,6 +119,7 @@ export function ResumenEntreno({
 
   const panel = (
     <section className={`panel resumen ${escena ? 'sobre-escena' : ''}`} ref={ref}>
+      {r.tricoach ? <SelloTricoach /> : null}
       <div className="cabecera-panel">
         <h2>Entrenamiento terminado</h2>
         <button className="boton-secundario" onClick={onCerrar}>
@@ -274,6 +275,7 @@ export function ResumenEntreno({
       <EscenaFondo tipo={escena} colores={colores ?? { maillot: '#22d3ee', piel: '#e0ac69', pelo: '#3b2a1e' }} />
       {plegado && (
         <div className="resumen-mini">
+          {r.tricoach ? <SelloTricoach /> : null}
           <div className="resumen-mini-datos">
             <span>
               <strong>{formatearTiempo(r.duracionS)}</strong>
@@ -370,3 +372,16 @@ function MejoresYBloques({ entreno }: { entreno: Entreno }) {
     </>
   );
 }
+
+/** Escena final de un entreno de TriCoach: su marca y el enlace a tricoach.es */
+function SelloTricoach() {
+  return (
+    <a className="sello-tricoach" href="https://tricoach.es" target="_blank" rel="noreferrer">
+      <span className="sello-tricoach-logo">
+        <span className="sello-tri">Tri</span>Coach
+      </span>
+      <span>🏆 ¡Sesión de TriCoach completada!</span>
+    </a>
+  );
+}
+

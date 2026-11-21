@@ -41,6 +41,8 @@ export interface Resumen {
   // Para los logros (solo en las sesiones grabadas desde que existen):
   /** Entrenamientos guiados completados hasta el final (ids). */
   entrenosCompletados?: string[];
+  /** Cuántos de ellos eran entrenos de TriCoach (sesiones de rodillo del entrenador). */
+  tricoach?: number;
   /** Vueltas completas por circuito. */
   vueltasCircuito?: Record<string, number>;
   /** Segmentos en los que se mejoró la marca que ya se tenía. */

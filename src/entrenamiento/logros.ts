@@ -276,6 +276,16 @@ const LOGROS: Def[] = [
   // ---- Entrenamientos ----
   { id: 'erg1', icono: '🎛️', nombre: 'Primer entrenamiento', descripcion: 'Completar tu primer entrenamiento guiado (ERG)', categoria: 'entrenamientos', conseguido: (d) => d.completados.size >= 1 },
   ...BIBLIOTECA,
+  nivel(
+    'entrenamientos',
+    'tricoach5',
+    '🏅',
+    'Entrenado por TriCoach',
+    'Completar 5 entrenos de TriCoach (los de tu entrenador o los de Compartidos con su etiqueta)',
+    5,
+    (d) => d.lista.reduce((a, g) => a + (g.resumen.tricoach ?? 0), 0),
+    'entrenos',
+  ),
   { id: 'propio', icono: '✏️', nombre: 'Entrenador', descripcion: 'Crear o importar un entrenamiento propio', categoria: 'entrenamientos', conseguido: () => cargarPropios().length > 0 },
   // La clave es la de components/Strava.tsx (sesiones ya subidas)
   { id: 'strava', icono: '🧡', nombre: 'Si no está en Strava…', descripcion: 'Subir tu primera sesión a Strava', categoria: 'entrenamientos', conseguido: () => hayEnNavegador('rodillos.strava.subidos') },
@@ -362,7 +372,7 @@ function guardarVistos(ids: string[]) {
 }
 
 /** Sube cuando se añaden logros: los que ya se tenían se dan por vistos sin celebrarlos. */
-const VERSION_LOGROS = 4;
+const VERSION_LOGROS = 5;
 const CLAVE_VERSION = 'rodillos.logrosVersion';
 
 /**

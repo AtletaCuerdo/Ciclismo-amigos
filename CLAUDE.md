@@ -305,6 +305,9 @@ del FTP de RideCrew (vatios exactos) y agrupa «A B A B…» en intervalos; cate
 de la semana en `rodillos.tricoachSemana` (se tira el lunes, hora de España). «👥 Pasar a Compartidos» las comparte con
 `origen: 'tricoach'` (etiqueta «Entreno de TriCoach» y filtro en Compartidos). **Sin reglas nuevas.**
 Arriba de Compartidos, escaparate fijo «Entrenos de TriCoach» (`.escaparate-tricoach`): filtra los suyos y enlaza a tricoach.es.
+21-11 (2): logro «🏅 Entrenado por TriCoach» (5 entrenos de TriCoach completados: `resumen.tricoach`, contado en
+`logrosSesionRef.tricoach` al completar uno con `origen: 'tricoach'`; `VERSION_LOGROS` = 5) y sello en la escena final
+(`SelloTricoach` en ResumenEntreno: logo «TriCoach» y «¡Sesión de TriCoach completada!», enlace a tricoach.es).
 
 21-11 (2): estrellas invitadas en el menú 🤖 Bots («⭐ Estrellas invitadas», un toque pone y otro quita): Pogačar (maillot de
 campeón del mundo: `avatar.arcoiris` → uniforme `uArcoiris` del sombreador del maillot, rayas en pecho, espalda y puños;
@@ -316,6 +319,10 @@ detrás para adelantarte. El dorsal lleva su nombre. Sin logotipos de patrocinad
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
 ### Próximos pasos
+- Ideas de marketing de TriCoach que el usuario guardó para más adelante (21-11): 1) firma en Strava de los entrenos
+  de TriCoach («Entreno de TriCoach · tricoach.es» en la descripción); 2) mini ficha al tocar la etiqueta «Entreno de
+  TriCoach» (logo, qué ofrece, enlace o WhatsApp de contacto); 4) entreno destacado de la semana (Jesús elige uno y sale
+  el primero en Compartidos con ⭐ «Recomendado por TriCoach»). Ir proponiéndole más; él decide ahora o más adelante.
 - 17-11: Strava pasa a identificadores de 64 bits el 1-6-2027. Ya preparado (`jsonStrava` en `servidor-strava/worker.js`
   y en `worker/stravaJson.js` de TriCoach Entrenos: los de 16 cifras o más se leen como texto). Comprobar antes de junio
   de 2027 que el Worker `strava-rodillos` tiene esta versión (si no se publica solo con Workers Builds, desplegarlo).
