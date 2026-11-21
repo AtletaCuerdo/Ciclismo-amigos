@@ -322,7 +322,10 @@ detrás para adelantarte. El dorsal lleva su nombre. Sin logotipos de patrocinad
 - Ideas de marketing de TriCoach que el usuario guardó para más adelante (21-11): 1) firma en Strava de los entrenos
   de TriCoach («Entreno de TriCoach · tricoach.es» en la descripción); 2) mini ficha al tocar la etiqueta «Entreno de
   TriCoach» (logo, qué ofrece, enlace o WhatsApp de contacto); 4) entreno destacado de la semana (Jesús elige uno y sale
-  el primero en Compartidos con ⭐ «Recomendado por TriCoach»). Ir proponiéndole más; él decide ahora o más adelante.
+  el primero en Compartidos con ⭐ «Recomendado por TriCoach»); 6) invitación al terminar: si quien completa un entreno
+  de TriCoach no es deportista suyo (sin conexión con TriCoach Entrenos), el sello final añade «¿Quieres un plan hecho a
+  tu medida? Escribe a TriCoach» con enlace a WhatsApp o formulario (falta que Jesús dé el contacto). Ir proponiéndole
+  más; él decide ahora o más adelante.
 - 17-11: Strava pasa a identificadores de 64 bits el 1-6-2027. Ya preparado (`jsonStrava` en `servidor-strava/worker.js`
   y en `worker/stravaJson.js` de TriCoach Entrenos: los de 16 cifras o más se leen como texto). Comprobar antes de junio
   de 2027 que el Worker `strava-rodillos` tiene esta versión (si no se publica solo con Workers Builds, desplegarlo).
