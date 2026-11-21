@@ -40,6 +40,24 @@ interface SesionTricoach {
   bloques: BloqueTricoach[];
 }
 
+/**
+ * Llamada a TriCoach Entrenos como texto y sin cabeceras propias: así el navegador no hace la «pregunta
+ * previa» (preflight), que en el iPhone fallaba con «Load failed». El token va en el cuerpo.
+ */
+async function llamar(ruta: string, datos: Record<string, unknown>) {
+  try {
+    return await fetch(`${API}/${ruta}`, { method: 'POST', body: JSON.stringify(datos) });
+  } catch {
+    // ¿Llega algo a TriCoach Entrenos? (para saber si es la conexión o esta llamada)
+    const llega = await fetch(`${API}/ping`, { method: 'POST', body: '{}' }).then((r) => r.ok).catch(() => false);
+    throw new Error(
+      llega
+        ? `TriCoach Entrenos no responde a «${ruta}». Avisa a tu entrenador.`
+        : 'No se puede contactar con TriCoach Entrenos. Mira la conexión a internet y vuelve a intentarlo.',
+    );
+  }
+}
+
 const leer = (k: string) => {
   try {
     return localStorage.getItem(k);
@@ -151,7 +169,7 @@ export function useSemanaTricoach(activo: boolean, ftp: number) {
     if (!token) return;
     setCargando(true);
     try {
-      const r = await fetch(`${API}/semana`, { headers: { Authorization: `Bearer ${token}` } });
+      const r = await llamar('semana', { token });
       const j = await r.json().catch(() => ({}));
       if (r.status === 401) {
         escribir(CLAVE_TOKEN, null);
@@ -181,11 +199,7 @@ export function useSemanaTricoach(activo: boolean, ftp: number) {
   const conectarConCodigo = async (codigo: string) => {
     setCargando(true);
     try {
-      const r = await fetch(`${API}/canjear`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codigo: codigo.trim() }),
-      });
+      const r = await llamar('canjear', { codigo: codigo.trim() });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.token) throw new Error(j.error || `Error ${r.status}`);
       escribir(CLAVE_TOKEN, j.token);
@@ -199,7 +213,7 @@ export function useSemanaTricoach(activo: boolean, ftp: number) {
   };
   const desconectar = async () => {
     const token = leer(CLAVE_TOKEN);
-    if (token) await fetch(`${API}/desvincular`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+    if (token) await llamar('desvincular', { token }).catch(() => {});
     escribir(CLAVE_TOKEN, null);
     escribir(CLAVE_CACHE, null);
     setConectado(false);
