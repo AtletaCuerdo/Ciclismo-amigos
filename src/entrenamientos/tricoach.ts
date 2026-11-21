@@ -52,16 +52,19 @@ let apiBuena = 0; // la última dirección que respondió
 
 async function llamar(ruta: string, datos: Record<string, unknown>) {
   const orden = [apiBuena, ...APIS.keys()].filter((i, n, a) => a.indexOf(i) === n);
+  const fallos: string[] = [];
   for (const i of orden) {
     try {
       const r = await fetch(`${APIS[i]}/${ruta}`, { method: 'POST', body: JSON.stringify(datos) });
       apiBuena = i;
       return r;
-    } catch {
-      /* esta dirección no llega: se prueba la otra */
+    } catch (e) {
+      // ¿Llega al servidor aunque el navegador no deje leer la respuesta? («no-cors» no pide permiso)
+      const llega = await fetch(`${APIS[i]}/ping`, { mode: 'no-cors' }).then(() => 'llega', () => 'no llega');
+      fallos.push(`${i + 1}: ${e instanceof Error ? e.message : String(e)} (${llega})`);
     }
   }
-  throw new Error('No se puede contactar con TriCoach Entrenos. Mira la conexión a internet y vuelve a intentarlo.');
+  throw new Error(`No se puede contactar con TriCoach Entrenos. Detalle para tu entrenador → ${fallos.join(' · ')} · origen ${location.origin}`);
 }
 
 const leer = (k: string) => {
