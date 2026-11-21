@@ -306,6 +306,8 @@ de la semana en `rodillos.tricoachSemana` (se tira el lunes, hora de España). �
 `origen: 'tricoach'` (etiqueta «Entreno de TriCoach» y filtro en Compartidos). **Sin reglas nuevas.**
 En el iPhone (RideCrew en Bluefy, Entrenos en Safari) la redirección no sirve: **código de 6 letras** que da Entrenos
 («Conectar RideCrew») y se escribe en la carpeta (`conectarConCodigo` → `POST /api/ridecrew/canjear`).
+Las llamadas van como POST de texto (sin preflight) y prueban dos direcciones del mismo Worker: entrenos.tricoach.es y,
+si no llega (Bluefy en el iPhone de Jesús: «No se puede contactar»; Safari sí llegaba), `tricoach-entrenos.jfer-luna.workers.dev`.
 Arriba de Compartidos, escaparate fijo «Entrenos de TriCoach» (`.escaparate-tricoach`): filtra los suyos y enlaza a tricoach.es.
 21-11 (2): logro «🏅 Entrenado por TriCoach» (5 entrenos de TriCoach completados: `resumen.tricoach`, contado en
 `logrosSesionRef.tricoach` al completar uno con `origen: 'tricoach'`; `VERSION_LOGROS` = 5) y sello en la escena final

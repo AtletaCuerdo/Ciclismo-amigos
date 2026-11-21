@@ -4,14 +4,18 @@
  *
  * Conectar es una sola vez: se abre Entrenos, el deportista pulsa «Permitir» y vuelve aquí con
  * `#tricoach=<token>`. El token se guarda en este navegador y sirve solo para leer sus sesiones de
- * rodillo de la semana (GET /api/ridecrew/semana). Las de la semana pasada desaparecen solas el lunes.
+ * rodillo de la semana (POST /api/ridecrew/semana). Las de la semana pasada desaparecen solas el lunes.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { categoriaSegunIntensidad } from './importar';
 import type { Bloque, Entrenamiento } from './tipos';
 
 const ENTRENOS = 'https://entrenos.tricoach.es';
-const API = `${ENTRENOS}/api/ridecrew`;
+/**
+ * El mismo servidor de Entrenos tiene dos direcciones. En el iPhone, Bluefy no siempre llega a
+ * entrenos.tricoach.es (Safari sí: va por otro camino) y la de workers.dev sí, como la de Strava.
+ */
+const APIS = [`${ENTRENOS}/api/ridecrew`, 'https://tricoach-entrenos.jfer-luna.workers.dev/api/ridecrew'];
 const CLAVE_TOKEN = 'rodillos.tricoach';
 const CLAVE_CACHE = 'rodillos.tricoachSemana';
 
@@ -44,18 +48,20 @@ interface SesionTricoach {
  * Llamada a TriCoach Entrenos como texto y sin cabeceras propias: así el navegador no hace la «pregunta
  * previa» (preflight), que en el iPhone fallaba con «Load failed». El token va en el cuerpo.
  */
+let apiBuena = 0; // la última dirección que respondió
+
 async function llamar(ruta: string, datos: Record<string, unknown>) {
-  try {
-    return await fetch(`${API}/${ruta}`, { method: 'POST', body: JSON.stringify(datos) });
-  } catch {
-    // ¿Llega algo a TriCoach Entrenos? (para saber si es la conexión o esta llamada)
-    const llega = await fetch(`${API}/ping`, { method: 'POST', body: '{}' }).then((r) => r.ok).catch(() => false);
-    throw new Error(
-      llega
-        ? `TriCoach Entrenos no responde a «${ruta}». Avisa a tu entrenador.`
-        : 'No se puede contactar con TriCoach Entrenos. Mira la conexión a internet y vuelve a intentarlo.',
-    );
+  const orden = [apiBuena, ...APIS.keys()].filter((i, n, a) => a.indexOf(i) === n);
+  for (const i of orden) {
+    try {
+      const r = await fetch(`${APIS[i]}/${ruta}`, { method: 'POST', body: JSON.stringify(datos) });
+      apiBuena = i;
+      return r;
+    } catch {
+      /* esta dirección no llega: se prueba la otra */
+    }
   }
+  throw new Error('No se puede contactar con TriCoach Entrenos. Mira la conexión a internet y vuelve a intentarlo.');
 }
 
 const leer = (k: string) => {
