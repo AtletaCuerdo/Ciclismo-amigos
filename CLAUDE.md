@@ -323,6 +323,14 @@ detrás para adelantarte. El dorsal lleva su nombre. Sin logotipos de patrocinad
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
 ### Próximos pasos
+- Ideas del usuario del 21-11, analizadas y pendientes de que decida: 1) **micro abierto** con los amigos (WebRTC
+  en malla, señalización por Firebase → reglas nuevas; STUN gratis, TURN de Cloudflare para redes difíciles; cancelación
+  de eco y auriculares; también «pulsar para hablar»). 2) **Música según vatios/pulso**: Amazon Music no tiene API para
+  webs; Spotify sin «audio features» para apps nuevas y desde 2026 el modo desarrollo exige Premium y máx. 5 usuarios;
+  viable: canciones propias subidas una vez a la web (IndexedDB, el BPM lo calcula RideCrew) o dos listas de YouTube
+  (suave/caña) que cambian con el bloque. 3) **intervals.icu**: API con OAuth (hay que pedir alta de app) o clave
+  personal; subir sesiones (FIT) y leer entrenos planificados del calendario. Ojo: en TriCoach Entrenos se descartó
+  intervals.icu para mandar entrenos al Garmin; aquí sería otra cosa (RideCrew ↔ intervals).
 - Ideas de marketing de TriCoach que el usuario guardó para más adelante (21-11): 1) firma en Strava de los entrenos
   de TriCoach («Entreno de TriCoach · tricoach.es» en la descripción); 2) mini ficha al tocar la etiqueta «Entreno de
   TriCoach» (logo, qué ofrece, enlace o WhatsApp de contacto); 4) entreno destacado de la semana (Jesús elige uno y sale
