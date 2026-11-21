@@ -53,6 +53,7 @@ import { borrarSesionEnCurso, guardarSesionEnCurso, leerSesionEnCurso, sesionLog
 import { CATALOGO } from './entrenamientos/catalogo';
 import { cargarPropios, guardarPropios } from './entrenamientos/propios';
 import { useCompartidos } from './entrenamientos/compartidos';
+import { VINO_DE_TRICOACH, useSemanaTricoach } from './entrenamientos/tricoach';
 import { desplegar, duracionTotal, finCalentamiento, potenciaEn, tramoEn, tss, type Entrenamiento, type Tramo } from './entrenamientos/tipos';
 import { EMOJI_MS, cargarNombre, guardarNombre, useConectados, useSalida, type Ciclista } from './multijugador/useSalida';
 import { cargarAjustes, guardarAjustes, palancaNovoForce, potenciaDeAjustes, presetNovoForce } from './potenciaVirtual';
@@ -243,7 +244,8 @@ function mejorMedia(entreno: Entreno, ventana: number) {
 type FtpSugerido = { w: number; texto: string };
 
 export default function App() {
-  const [pantalla, setPantalla] = useState<Pantalla>('inicio');
+  // al volver de dar permiso en TriCoach Entrenos, directos a los entrenamientos («Tu semana con TriCoach»)
+  const [pantalla, setPantalla] = useState<Pantalla>(VINO_DE_TRICOACH ? 'entrenamientos' : 'inicio');
   const [eleccionCielo, setEleccionCielo] = useState<EleccionCielo>(leerEleccionCielo);
   const [datos, setDatos] = useState<Datos>(DATOS_VACIOS);
   const [conexiones, setConexiones] = useState<Record<Fuente, InfoConexion>>({
@@ -418,6 +420,8 @@ export default function App() {
   // Entrenamientos compartidos por el grupo (se leen al entrar en entrenamientos o al rodar)
   const compartidos = useCompartidos(pantalla === 'entrenamientos' || pantalla === 'crear' || enRecorrido);
   // Los compartidos por mí ya están en «propios»: no se repiten
+  // Sesiones de rodillo que el entrenador ha puesto esta semana en TriCoach Entrenos
+  const tricoach = useSemanaTricoach(pantalla === 'entrenamientos' || enRecorrido, perfil.ftp);
   const todosLosEntrenos = useMemo(
     () => [...CATALOGO, ...propios, ...compartidos.amigos.filter((e) => !e.deAmigo?.mio)],
     [propios, compartidos.amigos],
@@ -2292,6 +2296,9 @@ export default function App() {
           hayErg={hayErg}
           onEmpezar={empezarEntreno}
           onVolver={volver}
+          tricoach={tricoach}
+          onCompartir={compartirEntreno}
+          compartidosMios={compartidos.misCompartidos}
         />
       )}
 
@@ -2619,7 +2626,7 @@ export default function App() {
                   }
                 : null
             }
-            entrenamientos={todosLosEntrenos}
+            entrenamientos={[...tricoach.entrenos, ...todosLosEntrenos]}
             onOtroEntreno={encadenarEntreno}
             onSeguirLibre={seguirLibre}
             onTerminar={(escena) => void terminar(escena)}

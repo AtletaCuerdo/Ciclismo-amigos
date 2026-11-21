@@ -42,6 +42,7 @@ function validar(x: unknown): Entrenamiento | null {
     categoria: e.categoria!,
     descripcion: typeof e.descripcion === 'string' ? e.descripcion.slice(0, 500) : '',
     bloques,
+    ...(e.origen === 'tricoach' ? { origen: 'tricoach' as const } : {}),
     ...(e.estimaFtp && num(e.estimaFtp.ventanaS, 1, 7200) && num(e.estimaFtp.factor, 0.1, 2)
       ? { estimaFtp: { ventanaS: e.estimaFtp.ventanaS, factor: e.estimaFtp.factor, texto: String(e.estimaFtp.texto ?? '') } }
       : {}),

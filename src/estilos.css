@@ -4820,3 +4820,29 @@ p {
   border-radius: 12px;
   padding: 10px 14px;
 }
+
+/* «Tu semana con TriCoach» (sesiones de rodillo de TriCoach Entrenos) */
+.etiqueta-tricoach {
+  background: #4ade80;
+}
+.dia-tricoach {
+  font-size: 0.8rem;
+  color: var(--texto-suave, #94a3b8);
+  text-transform: capitalize;
+}
+.tricoach-conectar,
+.tricoach-estado {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.tricoach-acciones {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tricoach-acciones > button {
+  min-height: 44px;
+}
+

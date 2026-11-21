@@ -22,20 +22,30 @@ export function EtiquetaCategoria({ e }: { e: Entrenamiento }) {
   const c = CATEGORIAS.find((x) => x.id === e.categoria);
   if (!c) return null;
   return (
-    <span className="etiqueta-categoria" style={{ background: c.color }}>
-      {c.nombre}
-      {e.deAmigo && <> · {e.deAmigo.mio ? 'tuyo' : e.deAmigo.autor}</>}
-    </span>
+    <>
+      <span className="etiqueta-categoria" style={{ background: c.color }}>
+        {c.nombre}
+        {e.deAmigo && <> · {e.deAmigo.mio ? 'tuyo' : e.deAmigo.autor}</>}
+      </span>
+      {e.origen === 'tricoach' && <span className="etiqueta-categoria etiqueta-tricoach">Entreno de TriCoach</span>}
+    </>
   );
 }
 
 export function SelectorEntreno({ entrenamientos, titulo, onElegir, onCancelar, ftp, onLibre }: Props) {
-  const [categoria, setCategoria] = useState<Categoria | 'amigos'>('endurance');
+  const hayTricoach = entrenamientos.some((e) => e.origen === 'tricoach' && !e.deAmigo);
+  const [categoria, setCategoria] = useState<Categoria | 'amigos' | 'tricoach'>(hayTricoach ? 'tricoach' : 'endurance');
   const lista = useMemo(
     () =>
       entrenamientos
         // Los compartidos por otros solo salen en «Compartidos», con su etiqueta
-        .filter((e) => (categoria === 'amigos' ? !!e.deAmigo : e.categoria === categoria && !e.deAmigo))
+        // Las de TriCoach (sin compartir) solo en su pestaña
+        .filter((e) => {
+          const deTricoach = e.origen === 'tricoach' && !e.deAmigo;
+          if (categoria === 'tricoach') return deTricoach;
+          if (categoria === 'amigos') return !!e.deAmigo;
+          return e.categoria === categoria && !e.deAmigo && !deTricoach;
+        })
         .map((e) => {
           const t = desplegar(e.bloques);
           return { e, t, dur: duracionTotal(t), carga: tss(t) };
@@ -59,6 +69,15 @@ export function SelectorEntreno({ entrenamientos, titulo, onElegir, onCancelar, 
           </button>
         )}
         <div className="selector-categorias">
+          {hayTricoach && (
+            <button
+              className={categoria === 'tricoach' ? 'activa' : ''}
+              style={{ borderColor: '#4ade80', ...(categoria === 'tricoach' ? { background: '#4ade80' } : {}) }}
+              onClick={() => setCategoria('tricoach')}
+            >
+              🗓️ Tu semana con TriCoach
+            </button>
+          )}
           <button
             className={categoria === 'amigos' ? 'activa' : ''}
             style={{ borderColor: '#22d3ee', ...(categoria === 'amigos' ? { background: '#22d3ee' } : {}) }}
@@ -82,7 +101,7 @@ export function SelectorEntreno({ entrenamientos, titulo, onElegir, onCancelar, 
             <button key={e.id} className="selector-tarjeta" onClick={() => onElegir(e)}>
               <div className="selector-tarjeta-cabecera">
                 <strong>{e.nombre}</strong>
-                {e.deAmigo && <EtiquetaCategoria e={e} />}
+                {(e.deAmigo || e.origen === 'tricoach') && <EtiquetaCategoria e={e} />}
                 <span>
                   {formatoDuracion(dur)} · TSS {carga}
                 </span>

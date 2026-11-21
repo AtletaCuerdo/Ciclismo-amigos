@@ -10,6 +10,7 @@ import {
 } from '../entrenamientos/tipos';
 import { GraficaEntrenamiento, ListaIntervalos } from './GraficaEntrenamiento';
 import { EtiquetaCategoria } from './SelectorEntreno';
+import { CARPETA_TRICOACH, diaDe, type useSemanaTricoach } from '../entrenamientos/tricoach';
 
 interface Props {
   entrenamientos: Entrenamiento[];
@@ -30,6 +31,12 @@ interface Props {
   onBorrarCompartido: (clave: string) => Promise<void>;
   /** Borra uno de mis entrenamientos (y deja de compartirlo si lo estaba). */
   onBorrarPropio: (e: Entrenamiento) => void;
+  /** «Tu semana con TriCoach»: sesiones de rodillo del entrenador (TriCoach Entrenos). */
+  tricoach: ReturnType<typeof useSemanaTricoach>;
+  /** Pasa una sesión de TriCoach a «Compartidos» (para todos). */
+  onCompartir: (e: Entrenamiento) => Promise<void>;
+  /** Ids de mis entrenamientos que ya están en Compartidos. */
+  compartidosMios: Set<string>;
 }
 
 const AMIGOS = {
@@ -52,19 +59,25 @@ export function PantallaEntrenamientos({
   soyAdmin,
   onBorrarCompartido,
   onBorrarPropio,
+  tricoach,
+  onCompartir,
+  compartidosMios,
 }: Props) {
-  const [categoria, setCategoria] = useState<Categoria | 'amigos' | null>(null);
+  const [categoria, setCategoria] = useState<Categoria | 'amigos' | 'tricoach' | null>(null);
   const [elegido, setElegido] = useState<Entrenamiento | null>(null);
   // En «Compartidos», filtro por la etiqueta que le puso quien lo compartió
-  const [filtro, setFiltro] = useState<Categoria | null>(null);
+  const [filtro, setFiltro] = useState<Categoria | 'tricoach' | null>(null);
   const [errorBorrar, setErrorBorrar] = useState<string | null>(null);
-  const cat = categoria === 'amigos' ? AMIGOS : CATEGORIAS.find((c) => c.id === categoria);
+  const cat =
+    categoria === 'amigos' ? AMIGOS : categoria === 'tricoach' ? CARPETA_TRICOACH : CATEGORIAS.find((c) => c.id === categoria);
   // Los compartidos por otros solo salen en «Compartidos»; en las carpetas, el catálogo y los míos
   const mias = entrenamientos.filter((e) => !e.deAmigo);
   const deCategoria =
     categoria === 'amigos'
-      ? deAmigos.filter((e) => !filtro || e.categoria === filtro)
-      : mias.filter((e) => e.categoria === categoria);
+      ? deAmigos.filter((e) => !filtro || (filtro === 'tricoach' ? e.origen === 'tricoach' : e.categoria === filtro))
+      : categoria === 'tricoach'
+        ? tricoach.entrenos
+        : mias.filter((e) => e.categoria === categoria);
   const puedeBorrar = (e: Entrenamiento) => !!e.propio || (!!e.deAmigo && (e.deAmigo.mio || soyAdmin));
   const borrar = async (e: Entrenamiento) => {
     if (e.propio) {
@@ -103,7 +116,9 @@ export function PantallaEntrenamientos({
         hayErg={hayErg}
         onEmpezar={() => onEmpezar(elegido)}
         onVolver={() => setElegido(null)}
-        volverA={categoria === 'amigos' ? AMIGOS.nombre : undefined}
+        volverA={categoria === 'amigos' ? AMIGOS.nombre : categoria === 'tricoach' ? CARPETA_TRICOACH.nombre : undefined}
+        onCompartir={elegido.origen === 'tricoach' && !elegido.deAmigo ? () => onCompartir(elegido) : undefined}
+        yaCompartido={compartidosMios.has(elegido.id)}
         onGuardarCopia={elegido.deAmigo && !elegido.deAmigo.mio ? () => onGuardarCopia(elegido) : undefined}
         onBorrar={puedeBorrar(elegido) ? () => void borrar(elegido) : undefined}
         errorBorrar={errorBorrar}
@@ -136,6 +151,15 @@ export function PantallaEntrenamientos({
             >
               Todos
             </button>
+            {deAmigos.some((e) => e.origen === 'tricoach') && (
+              <button
+                className={filtro === 'tricoach' ? 'activa' : ''}
+                style={{ borderColor: '#4ade80', ...(filtro === 'tricoach' ? { background: '#4ade80' } : {}) }}
+                onClick={() => setFiltro('tricoach')}
+              >
+                Entrenos de TriCoach
+              </button>
+            )}
             {CATEGORIAS.filter((c) => deAmigos.some((e) => e.categoria === c.id)).map((c) => (
               <button
                 key={c.id}
@@ -151,7 +175,10 @@ export function PantallaEntrenamientos({
             ))}
           </div>
         )}
-        {deCategoria.length === 0 && (
+        {categoria === 'tricoach' && (
+          <CabeceraTricoach tricoach={tricoach} />
+        )}
+        {deCategoria.length === 0 && categoria !== 'tricoach' && (
           <p className="vacio">
             {categoria === 'amigos'
               ? 'Aún no hay ninguno compartido. Comparte los tuyos desde «Crea tus entrenamientos».'
@@ -168,7 +195,8 @@ export function PantallaEntrenamientos({
                     <strong>{e.nombre}</strong>
                     {e.propio && <span className="insignia-propio">Mío</span>}
                   </div>
-                  {e.deAmigo && <EtiquetaCategoria e={e} />}
+                  {e.fecha && !e.deAmigo && <span className="dia-tricoach">📅 {diaDe(e.fecha)}</span>}
+                  {(e.deAmigo || e.origen === 'tricoach') && <EtiquetaCategoria e={e} />}
                   <GraficaEntrenamiento tramos={tramos} alto={46} />
                   <div className="tarjeta-entreno-datos">
                     <span>{formatoDuracion(duracionTotal(tramos))}</span>
@@ -206,6 +234,21 @@ export function PantallaEntrenamientos({
         Entrenamientos guiados en modo ERG: el rodillo pone la resistencia justa para cada tramo según tu FTP ({ftp} W).
       </p>
       <div className="rejilla-categorias">
+        <button
+          className="tarjeta-categoria"
+          style={{ borderTopColor: CARPETA_TRICOACH.color }}
+          onClick={() => setCategoria('tricoach')}
+        >
+          <strong>{CARPETA_TRICOACH.nombre}</strong>
+          <span>{CARPETA_TRICOACH.descripcion}</span>
+          <small>
+            {!tricoach.conectado
+              ? 'Conecta tu cuenta de TriCoach Entrenos'
+              : tricoach.entrenos.length === 1
+                ? '1 sesión esta semana'
+                : `${tricoach.entrenos.length} sesiones esta semana`}
+          </small>
+        </button>
         <button
           className="tarjeta-categoria"
           style={{ borderTopColor: AMIGOS.color }}
@@ -246,6 +289,8 @@ function FichaEntrenamiento({
   onGuardarCopia,
   onBorrar,
   errorBorrar,
+  onCompartir,
+  yaCompartido,
 }: {
   entreno: Entrenamiento;
   ftp: number;
@@ -257,8 +302,11 @@ function FichaEntrenamiento({
   onGuardarCopia?: () => void;
   onBorrar?: () => void;
   errorBorrar?: string | null;
+  onCompartir?: () => Promise<void>;
+  yaCompartido?: boolean;
 }) {
   const [copiado, setCopiado] = useState(false);
+  const [compartir, setCompartir] = useState<{ ok?: boolean; error?: string; enviando?: boolean }>({});
   const tramos = useMemo(() => desplegar(entreno.bloques), [entreno]);
   const [textoFtp, setTextoFtp] = useState(String(ftp));
   const cat = CATEGORIAS.find((c) => c.id === entreno.categoria);
@@ -276,7 +324,7 @@ function FichaEntrenamiento({
           Compartido por <strong>{entreno.deAmigo.mio ? 'ti' : entreno.deAmigo.autor}</strong> · {cat?.nombre}
         </p>
       )}
-      <p>{entreno.descripcion}</p>
+      <p style={{ whiteSpace: 'pre-line' }}>{entreno.descripcion}</p>
       <GraficaEntrenamiento tramos={tramos} alto={130} ftp={ftp} />
       <ListaIntervalos tramos={tramos} ftp={ftp} />
       <div className="datos-entreno">
@@ -316,6 +364,24 @@ function FichaEntrenamiento({
       <button className="boton-principal boton-grande" onClick={onEmpezar}>
         Empezar entrenamiento
       </button>
+      {onCompartir && (
+        <button
+          className="boton-secundario boton-grande"
+          disabled={yaCompartido || compartir.ok || compartir.enviando}
+          onClick={async () => {
+            setCompartir({ enviando: true });
+            try {
+              await onCompartir();
+              setCompartir({ ok: true });
+            } catch (err) {
+              setCompartir({ error: err instanceof Error ? err.message : 'No se ha podido compartir.' });
+            }
+          }}
+        >
+          {yaCompartido || compartir.ok ? '✅ Ya está en Compartidos, para todos' : '👥 Pasar a Compartidos'}
+        </button>
+      )}
+      {compartir.error && <p className="aviso">{compartir.error}</p>}
       {onGuardarCopia && (
         <button
           className="boton-secundario boton-grande"
@@ -342,3 +408,50 @@ function FichaEntrenamiento({
     </section>
   );
 }
+
+/** Cabecera de «Tu semana con TriCoach»: conectar, estado, actualizar y desconectar. */
+function CabeceraTricoach({ tricoach }: { tricoach: ReturnType<typeof useSemanaTricoach> }) {
+  if (!tricoach.conectado) {
+    return (
+      <div className="tricoach-conectar">
+        <p>
+          Si entrenas con <strong>TriCoach</strong>, aquí te salen solas las sesiones de rodillo que te pone tu entrenador
+          cada semana en TriCoach Entrenos, listas para hacer en ERG.
+        </p>
+        <p className="detalle">
+          Se conecta una sola vez: se abre TriCoach Entrenos, pulsas «Permitir» y vuelves aquí.
+        </p>
+        {tricoach.error && <p className="aviso">{tricoach.error}</p>}
+        <button className="boton-principal boton-grande" onClick={tricoach.conectar}>
+          🔗 Conectar con TriCoach Entrenos
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="tricoach-estado">
+      {tricoach.error && <p className="aviso">{tricoach.error}</p>}
+      {!tricoach.cargando && !tricoach.entrenos.length && !tricoach.error && (
+        <p className="vacio">Esta semana tu entrenador no te ha puesto sesiones de rodillo (todavía).</p>
+      )}
+      <p className="detalle">
+        Cada lunes salen las de la semana nueva. Si alguna te encanta, pásala a «Compartidos» para no perderla.
+      </p>
+      <div className="tricoach-acciones">
+        <button className="boton-secundario" onClick={() => void tricoach.recargar()} disabled={tricoach.cargando}>
+          {tricoach.cargando ? 'Actualizando…' : '↻ Actualizar'}
+        </button>
+        <button
+          className="boton-secundario"
+          onClick={() => {
+            if (window.confirm('¿Desconectar RideCrew de TriCoach Entrenos? Dejarán de salirte aquí tus sesiones.'))
+              void tricoach.desconectar();
+          }}
+        >
+          Desconectar
+        </button>
+      </div>
+    </div>
+  );
+}
+

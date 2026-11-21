@@ -43,6 +43,10 @@ export interface Entrenamiento {
   propio?: boolean;
   /** Compartido con el grupo (llega de la nube). `mio`: lo compartí yo; si no, se puede guardar una copia. */
   deAmigo?: { autor: string; clave: string; t: number; mio?: boolean };
+  /** Viene de TriCoach Entrenos (sesión de rodillo del entrenador): sale con la etiqueta «Entreno de TriCoach». */
+  origen?: 'tricoach';
+  /** Día para el que lo puso el entrenador («AAAA-MM-DD»), en «Tu semana con TriCoach». */
+  fecha?: string;
   /** Tests: el FTP estimado es `factor` × la mejor media de `ventanaS` segundos. */
   estimaFtp?: { ventanaS: number; factor: number; texto: string };
 }

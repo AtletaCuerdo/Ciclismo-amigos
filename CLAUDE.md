@@ -296,6 +296,15 @@ mismo id), «Antes que el gallo» (< 6:00), «Trasnochado» (< 5:00) y «El más
 progreso) e «Insomnio de campeón» (15 antes de las 5:00). Cuentan las sesiones empezadas desde las 3:00 (`antesDe`).
 `VERSION_LOGROS` = 4.
 
+21-11: «🗓️ Tu semana con TriCoach» (`entrenamientos/tricoach.ts`): las sesiones de bici que el entrenador marca
+«🏠 Rodillo» en TriCoach Entrenos salen en una carpeta de Entrenamientos y en la pestaña del selector del recorrido.
+Conectar una vez: `conectar()` abre `entrenos.tricoach.es/?vincular=ridecrew&vuelta=…`, el deportista pulsa «Permitir»
+y vuelve con `#tricoach=<token>` (`VINO_DE_TRICOACH`, token en `rodillos.tricoach`, solo en este navegador). Se piden
+con `GET entrenos.tricoach.es/api/ridecrew/semana` (Bearer): bloques en orden con vatios exactos → `aBloques` los pasa a %
+del FTP de RideCrew (vatios exactos) y agrupa «A B A B…» en intervalos; categoría con `categoriaSegunIntensidad`. Caché
+de la semana en `rodillos.tricoachSemana` (se tira el lunes, hora de España). «👥 Pasar a Compartidos» las comparte con
+`origen: 'tricoach'` (etiqueta «Entreno de TriCoach» y filtro en Compartidos). **Sin reglas nuevas.**
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
