@@ -305,6 +305,12 @@ del FTP de RideCrew (vatios exactos) y agrupa «A B A B…» en intervalos; cate
 de la semana en `rodillos.tricoachSemana` (se tira el lunes, hora de España). «👥 Pasar a Compartidos» las comparte con
 `origen: 'tricoach'` (etiqueta «Entreno de TriCoach» y filtro en Compartidos). **Sin reglas nuevas.**
 
+21-11 (2): estrellas invitadas en el menú 🤖 Bots («⭐ Estrellas invitadas», un toque pone y otro quita): Pogačar (maillot de
+campeón del mundo: `avatar.arcoiris` → uniforme `uArcoiris` del sombreador del maillot, rayas en pecho, espalda y puños;
+casco amarillo, bici blanca) y Sanders (equipación verde, cabra, lenticular, casco aero). `ESTRELLAS`/`crearEstrella`/
+`recolocarEstrellas` en bots.ts: 400 W (47 y 50 km/h en llano), salen 150 m detrás y cada 10′ rodando vuelven a salir
+detrás para adelantarte. El dorsal lleva su nombre. Sin logotipos de patrocinadores.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

@@ -76,7 +76,15 @@ interface Props {
   };
   /** Bots a vatios fijos: los que hay y cómo añadir o quitar. */
   bots: {
-    lista: { id: string; vatios: number; grupeta: boolean; acompanantes?: 'rebufo' | 'compania'; triatlon?: boolean }[];
+    lista: {
+      id: string;
+      vatios: number;
+      grupeta: boolean;
+      acompanantes?: 'rebufo' | 'compania';
+      triatlon?: boolean;
+      /** Estrella invitada: el texto con el que sale en la lista. */
+      estrella?: string;
+    }[];
     onAnadir: (vatios: number) => void;
     /** Pone 3 acompañantes que ruedan contigo a tus vatios (con o sin rebufo). */
     onAcompanantes: (rebufo: boolean) => void;
@@ -88,6 +96,9 @@ interface Props {
     onAnadirGrupeta: (vatios: number) => void;
     ritmosGrupeta: { nombre: string; vatios: number }[];
     onQuitar: (id?: string) => void;
+    /** Pogačar y Sanders: un toque los pone y otro los quita. */
+    estrellas: { id: 'pogacar' | 'sanders'; boton: string; puesta: boolean }[];
+    onEstrella: (id: 'pogacar' | 'sanders') => void;
   };
   /** Fantasma de mi mejor vuelta (botón para activarlo). */
   fantasma: {
@@ -778,6 +789,24 @@ export default function VistaRecorrido({
                   </button>
                 </div>
                 <small>Van siempre contigo a tus vatios, en rodada libre o en un entrenamiento: no se quedan ni se escapan.</small>
+                <strong>⭐ Estrellas invitadas (400 W)</strong>
+                <div className="menu-bots-vatios grupetas">
+                  {bots.estrellas.map((e) => (
+                    <button
+                      key={e.id}
+                      className={`boton-secundario ${e.puesta ? 'activo' : ''}`}
+                      aria-pressed={e.puesta}
+                      onClick={() => {
+                        bots.onEstrella(e.id);
+                        setMenuBots(false);
+                      }}
+                    >
+                      {e.boton}
+                      <small>{e.puesta ? 'Quitar' : 'Poner'}</small>
+                    </button>
+                  ))}
+                </div>
+                <small>Te adelantan como una bala y vuelven a pasarte cada 10 minutos. Si aguantas su rueda, te llevan.</small>
                 <strong>🏊 Triatlón: grupo 15 m por delante</strong>
                 <div className="menu-bots-triatlon">
                   <label>
@@ -858,7 +887,9 @@ export default function VistaRecorrido({
                     <ul>
                       {bots.lista.map((b) => (
                         <li key={b.id}>
-                          {b.acompanantes
+                          {b.estrella
+                            ? `${b.estrella} ${b.vatios} W`
+                            : b.acompanantes
                             ? `🤝 Acompañantes (${b.acompanantes === 'rebufo' ? 'con rebufo' : 'sin rebufo'})`
                             : b.triatlon
                               ? `🏊 Triatlón ${b.vatios} W`

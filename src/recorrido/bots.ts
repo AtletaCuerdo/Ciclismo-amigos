@@ -3,7 +3,7 @@
  * así que si uno más fuerte te adelanta te puedes pegar a su rueda. Solo existen en tu pantalla.
  */
 import { avatarAleatorio, type Avatar } from './avatar';
-import { FisicaVirtual, ahorroRebufo } from './fisica';
+import { FisicaVirtual, ahorroRebufo, equipoAvatar } from './fisica';
 import { LONGITUD_VUELTA_M, pendiente } from './perfil';
 
 export interface Bot {
@@ -30,6 +30,95 @@ export interface Bot {
   triatlon?: boolean;
   /** Aerodinámica propia (m²) en lugar de la de una bici de carretera (p. ej. la tuya, si llevas cabra). */
   cda?: number;
+  /** Estrella invitada: sale por detrás y te adelanta como una bala; cada 10′ rodando, otra vez. */
+  estrella?: { id: IdEstrella; quedaS: number };
+}
+
+// ---------------------------------------------------------------------------
+// Estrellas invitadas: Pogačar y Sanders, a 400 W, que te adelantan cada 10 minutos
+// ---------------------------------------------------------------------------
+
+export type IdEstrella = 'pogacar' | 'sanders';
+/** Cada cuánto vuelven a pasarte (segundos rodando) y desde cuántos metros por detrás salen. */
+export const ESTRELLA_CADA_S = 600;
+const ESTRELLA_DETRAS_M = 150;
+export const VATIOS_ESTRELLA = 400;
+
+export const ESTRELLAS: Record<IdEstrella, { nombre: string; boton: string; avatar: Avatar }> = {
+  // Maillot blanco de campeón del mundo (con el arcoíris), casco amarillo y bici blanca
+  pogacar: {
+    nombre: 'Pogačar',
+    boton: '🌈 Pogačar',
+    avatar: {
+      maillot: '#f4f5f7',
+      franja: '#16171b',
+      culotte: '#16171b',
+      casco: '#f2d40c',
+      bici: '#f2f2f2',
+      bici2: '#1a1a1a',
+      piel: '#ecc8ac',
+      modelo: 'aero',
+      ruedas: 'alto',
+      sexo: 'hombre',
+      pelo: 'corto',
+      colorPelo: '#5a3a22',
+      barba: false,
+      cascoModelo: 'ruta',
+      marca: 'amigos',
+      arcoiris: true,
+    },
+  },
+  // Triatleta en cabra con su equipación verde (ribetes negros y lima)
+  sanders: {
+    nombre: 'Sanders',
+    boton: '🟢 Sanders',
+    avatar: {
+      maillot: '#33a83a',
+      franja: '#111214',
+      culotte: '#2a9131',
+      casco: '#f4f4f4',
+      bici: '#17181a',
+      bici2: '#b8f53a',
+      piel: '#eec5a4',
+      modelo: 'cabra',
+      ruedas: 'lenticular',
+      sexo: 'hombre',
+      pelo: 'corto',
+      colorPelo: '#6b4a2c',
+      barba: true,
+      cascoModelo: 'aero',
+      marca: 'scotto',
+    },
+  },
+};
+
+/** La estrella invitada, 150 m detrás de ti: con 400 W te alcanza en un minuto y se va. */
+export function crearEstrella(id: IdEstrella, miPosicion: number, miVelocidadMs: number): Bot {
+  const e = ESTRELLAS[id];
+  const b = crearBot(VATIOS_ESTRELLA, miPosicion, 0, miVelocidadMs);
+  b.id = `bot-estrella-${id}`;
+  b.avatar = { ...e.avatar };
+  b.cda = equipoAvatar(e.avatar).cda;
+  b.fisica.masaKg = 66 + equipoAvatar(e.avatar).pesoBiciKg;
+  b.s = Math.max(0, miPosicion - ESTRELLA_DETRAS_M);
+  b.fisica.v = Math.max(miVelocidadMs, 8);
+  b.estrella = { id, quedaS: ESTRELLA_CADA_S };
+  return b;
+}
+
+/**
+ * Cuenta el tiempo rodando (`dt` s) y, cada 10 minutos, vuelve a poner la estrella 150 m detrás de
+ * ti para que te pase otra vez (para entonces ya va más de un kilómetro por delante, fuera de la vista).
+ */
+export function recolocarEstrellas(bots: Bot[], miPosicion: number, miVelocidadMs: number, dt: number) {
+  for (const b of bots) {
+    if (!b.estrella) continue;
+    b.estrella.quedaS -= dt;
+    if (b.estrella.quedaS > 0) continue;
+    b.estrella.quedaS = ESTRELLA_CADA_S;
+    b.s = Math.max(0, miPosicion - ESTRELLA_DETRAS_M);
+    b.fisica.v = Math.max(miVelocidadMs, 8);
+  }
 }
 
 /** Paso fijo de la simulación compartida (s): con el mismo paso, todas las pantallas calculan lo mismo. */

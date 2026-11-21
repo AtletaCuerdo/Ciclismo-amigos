@@ -283,6 +283,7 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
     uCascoBorde: { value: new THREE.Vector3() },
     uCascoActivo: { value: 0 },
     uConDorsal: { value: 0 },
+    uArcoiris: { value: 0 },
   };
   m.userData.uniformes = uniformes;
   m.onBeforeCompile = (s) => {
@@ -309,6 +310,12 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
         uniform float uConDorsal;
         uniform vec3 uCascoCentro, uCascoBorde;
         uniform float uCascoActivo;
+        uniform float uArcoiris;
+        // Rayas del campeón del mundo, de arriba abajo: azul, rojo, negro, amarillo y verde (k de 0 a 1)
+        vec3 arcoiris( float k ) {
+          float i = floor( clamp( k, 0.0, 0.9999 ) * 5.0 );
+          return i < 0.5 ? vec3( 0.014, 0.125, 0.552 ) : i < 1.5 ? vec3( 0.687, 0.019, 0.025 ) : i < 2.5 ? vec3( 0.007, 0.007, 0.007 ) : i < 3.5 ? vec3( 0.913, 0.552, 0.000 ) : vec3( 0.012, 0.323, 0.067 );
+        }
         float cE( float x, float e, float w ) { return smoothstep( e - w, e + w, x ); }
         float bE( float x, float a, float b, float w ) { return cE( x, a, w ) * ( 1.0 - cE( x, b, w ) ); }
         float puntada( float s ) { return 0.55 + 0.45 * step( 0.4, fract( s * 260.0 ) ); }
@@ -365,10 +372,17 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
           float cuelloY = uCuello.x - uCuello.y * smoothstep( 0.0, 0.07, vRest.z - uCuello.z ) + 2.0 * max( 0.0, rCuello - 0.066 );
           float enCuello = 1.0;
           float ropa = 1.0 - cE( vRest.y, cuelloY, wY );
-          vec3 m = mix( uMaillot, uCulotte, lateral * 0.9 );
+          // Paneles laterales del color del culotte (el de campeón del mundo es blanco entero)
+          vec3 m = mix( uMaillot, uCulotte, lateral * 0.9 * ( 1.0 - uArcoiris ) );
           m = mix( m, uFranja, bE( vRest.y, uFranjaY.x, uFranjaY.y, wY ) );
           m = mix( m, uFranja, bE( vRest.y, uFranjaY.y + 0.012, uFranjaY.y + 0.018, wY ) );
           m = mix( m, uFranja, bE( vRest.y, uFranjaY.x - 0.018, uFranjaY.x - 0.012, wY ) );
+          if ( uArcoiris > 0.5 ) {
+            // Maillot de campeón del mundo: las cinco rayas por todo el pecho y la espalda
+            float yA = uFranjaY.y + 0.018;
+            float yB = uFranjaY.x - 0.018;
+            m = mix( uMaillot, arcoiris( ( yA - vRest.y ) / ( yA - yB ) ), bE( vRest.y, yB, yA, wY ) );
+          }
           m = mix( m, uMaillot, letraPecho * cE( nR.z, 0.55, 0.05 ) );
           m = mix( m, uFranja, letraEsp * ( 1.0 - cE( nR.z, -0.55, 0.05 ) ) );
           // Bolsillos traseros: costura superior y divisiones
@@ -405,7 +419,8 @@ function materialEquipacion(base: THREE.MeshPhysicalMaterial) {
         } else if ( seg == 3 || seg == 4 ) {
           // Manga con puño
           float manga = 1.0 - cE( tS, 0.5, wT );
-          vec3 m = mix( uMaillot, uFranja, bE( tS, 0.42, 0.5, wT ) );
+          vec3 puno = uArcoiris > 0.5 ? arcoiris( ( tS - 0.42 ) / 0.08 ) : uFranja;
+          vec3 m = mix( uMaillot, puno, bE( tS, 0.42, 0.5, wT ) );
           float costM = bE( tS, 0.035, 0.045, wT ) + bE( tS, 0.4, 0.408, wT );
           m *= 1.0 - 0.3 * clamp( costM, 0.0, 1.0 ) * puntada( vRest.x + vRest.z );
           col = mix( pielC, m * pliegue, manga );
@@ -886,6 +901,7 @@ export class JineteHumano {
     const u = this.material.userData.uniformes;
     u.uMaillot.value.set(a.maillot);
     u.uFranja.value.set(a.franja);
+    u.uArcoiris.value = a.arcoiris ? 1 : 0;
     u.uCulotte.value.set(a.culotte);
     // Tono de piel relativo a la textura (que es de piel clara)
     const tono = new THREE.Color(a.piel);

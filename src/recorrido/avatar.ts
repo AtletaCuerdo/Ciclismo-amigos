@@ -28,6 +28,8 @@ export interface Avatar {
   cascoModelo: Casco;
   /** Marca (inventada) rotulada en el tubo diagonal. */
   marca: string;
+  /** Maillot de campeón del mundo: las cinco rayas en el pecho y en los puños (solo algunos bots). */
+  arcoiris?: boolean;
 }
 
 /**

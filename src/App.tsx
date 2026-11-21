@@ -84,6 +84,10 @@ import {
   grupetasCompartidas,
   huecosBots,
   vatiosGrupeta,
+  crearEstrella,
+  recolocarEstrellas,
+  ESTRELLAS,
+  type IdEstrella,
   type Bot,
 } from './recorrido/bots';
 import { calcularTotales, publicarTotales } from './multijugador/rankings';
@@ -767,6 +771,14 @@ export default function App() {
     setVersionBots((v) => v + 1);
   };
   /** Quita un bot suelto o una grupeta entera (por su id), o todos. */
+  /** Pone o quita a Pogačar o a Sanders (un toque): sale 150 m detrás y te adelanta a 400 W. */
+  const alternarEstrella = (id: IdEstrella) => {
+    const esta = botsRef.current.some((b) => b.estrella?.id === id);
+    botsRef.current = esta
+      ? botsRef.current.filter((b) => b.estrella?.id !== id)
+      : [...botsRef.current, crearEstrella(id, posicionAhora(), velVirtualRef.current / 3.6)];
+    setVersionBots((v) => v + 1);
+  };
   const quitarBot = (id?: string) => {
     botsRef.current = id ? botsRef.current.filter((b) => b.id !== id && b.grupo !== id) : [];
     setVersionBots((v) => v + 1);
@@ -836,7 +848,11 @@ export default function App() {
         const mias = botsRef.current.filter((b) => !b.sim && !b.lider?.sim);
         const ahoraSrv = Date.now() + desfaseRef.current;
         if (compartidas.length) avanzarBots(compartidas, dt, [], ahoraSrv);
-        if (corriendoRef.current && mias.length) avanzarBots(mias, dt, [posicionAhora()], ahoraSrv);
+        if (corriendoRef.current && mias.length) {
+          // Pogačar y Sanders: cada 10 minutos rodando vuelven a salir por detrás para pasarte
+          recolocarEstrellas(mias, posicionAhora(), f.v, dt);
+          avanzarBots(mias, dt, [posicionAhora()], ahoraSrv);
+        }
         colocarAcompanantes(botsRef.current, posicionAhora(), actualRef.current.potencia ?? 0, f.v, t / 1000);
       }
       if (corriendoRef.current && f.v > 2) {
@@ -2487,8 +2503,9 @@ export default function App() {
               ...otrosCiclistas,
               ...botsRef.current.map((b) => ({
                 uid: b.id,
-                nombre:
-                  b.lider || b.acompana
+                nombre: b.estrella
+                  ? ESTRELLAS[b.estrella.id].nombre
+                  : b.lider || b.acompana
                     ? ''
                     : b.triatlon
                       ? `🏊 ${b.vatios} W`
@@ -2512,7 +2529,13 @@ export default function App() {
               lista: [
                 ...botsRef.current
                   .filter((b) => !b.lider && !b.acompana)
-                  .map((b) => ({ id: b.grupo ?? b.id, vatios: b.vatios, grupeta: !!b.grupo, triatlon: !!b.triatlon })),
+                  .map((b) => ({
+                    id: b.grupo ?? b.id,
+                    vatios: b.vatios,
+                    grupeta: !!b.grupo,
+                    triatlon: !!b.triatlon,
+                    ...(b.estrella ? { estrella: ESTRELLAS[b.estrella.id].boton } : {}),
+                  })),
                 ...botsRef.current
                   .filter((b) => b.acompana)
                   .slice(0, 1)
@@ -2531,6 +2554,12 @@ export default function App() {
               onAnadirGrupeta: anadirGrupeta,
               ritmosGrupeta: RITMOS_GRUPETA.map((r) => ({ nombre: r.nombre, vatios: vatiosGrupeta(perfil.ftp, r.pct) })),
               onQuitar: quitarBot,
+              estrellas: (Object.keys(ESTRELLAS) as IdEstrella[]).map((id) => ({
+                id,
+                boton: ESTRELLAS[id].boton,
+                puesta: botsRef.current.some((b) => b.estrella?.id === id),
+              })),
+              onEstrella: alternarEstrella,
             }}
             segmentos={{
               activos: tramosActivos,
