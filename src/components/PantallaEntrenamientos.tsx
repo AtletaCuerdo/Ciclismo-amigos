@@ -11,6 +11,7 @@ import {
 import { GraficaEntrenamiento, ListaIntervalos } from './GraficaEntrenamiento';
 import { EtiquetaCategoria } from './SelectorEntreno';
 import { CARPETA_TRICOACH, diaDe, type useSemanaTricoach } from '../entrenamientos/tricoach';
+import { esDispositivoIos } from '../recorrido/avatar';
 
 interface Props {
   entrenamientos: Entrenamiento[];
@@ -433,41 +434,60 @@ function CabeceraTricoach({ tricoach }: { tricoach: ReturnType<typeof useSemanaT
   const [codigo, setCodigo] = useState('');
   if (!tricoach.conectado) {
     const valido = codigo.replace(/[^a-z0-9]/gi, '').length === 6;
+    // iPhone/iPad: RideCrew va en Bluefy y Entrenos en Safari (no comparten sesión) → código.
+    // Android y ordenador: mismo navegador → botón directo y «Permitir».
+    const ios = esDispositivoIos();
+    const conCodigo = (
+      <form
+        className="tricoach-codigo"
+        onSubmit={(ev) => {
+          ev.preventDefault();
+          if (valido) void tricoach.conectarConCodigo(codigo);
+        }}
+      >
+        <input
+          value={codigo}
+          onChange={(ev) => setCodigo(ev.target.value.toUpperCase())}
+          placeholder="Código"
+          maxLength={8}
+          autoCapitalize="characters"
+          autoComplete="off"
+          spellCheck={false}
+          aria-label="Código de TriCoach Entrenos"
+        />
+        <button className={ios ? 'boton-principal' : 'boton-secundario'} disabled={!valido || tricoach.cargando}>
+          {tricoach.cargando ? 'Conectando…' : 'Conectar'}
+        </button>
+      </form>
+    );
     return (
       <div className="tricoach-conectar">
         <p>
           Si entrenas con <strong>TriCoach</strong>, aquí te salen solas las sesiones de rodillo que te pone tu entrenador
-          cada semana en TriCoach Entrenos, listas para hacer en ERG.
+          cada semana en TriCoach Entrenos, listas para hacer en ERG. Se conecta una sola vez.
         </p>
-        <p className="detalle">
-          Se conecta una sola vez: en TriCoach Entrenos pulsa <strong>«Conectar RideCrew»</strong> (junto a tu Strava) y
-          escribe aquí el código de 6 letras que te da.
-        </p>
-        <form
-          className="tricoach-codigo"
-          onSubmit={(ev) => {
-            ev.preventDefault();
-            if (valido) void tricoach.conectarConCodigo(codigo);
-          }}
-        >
-          <input
-            value={codigo}
-            onChange={(ev) => setCodigo(ev.target.value.toUpperCase())}
-            placeholder="Código"
-            maxLength={8}
-            autoCapitalize="characters"
-            autoComplete="off"
-            spellCheck={false}
-            aria-label="Código de TriCoach Entrenos"
-          />
-          <button className="boton-principal" disabled={!valido || tricoach.cargando}>
-            {tricoach.cargando ? 'Conectando…' : 'Conectar'}
-          </button>
-        </form>
-        {tricoach.error && <p className="aviso">{tricoach.error}</p>}
-        <button className="boton-secundario" onClick={tricoach.conectar}>
-          O abre TriCoach Entrenos en este navegador y pulsa «Permitir»
-        </button>
+        {ios ? (
+          <>
+            <p className="detalle">
+              En <strong>TriCoach Entrenos</strong> pulsa <strong>«Conectar RideCrew»</strong> (junto a tu Strava) y escribe
+              aquí el código de 6 letras que te da:
+            </p>
+            {conCodigo}
+            {tricoach.error && <p className="aviso">{tricoach.error}</p>}
+          </>
+        ) : (
+          <>
+            <p className="detalle">Se abre TriCoach Entrenos, pulsas «Permitir» y vuelves aquí.</p>
+            <button className="boton-principal boton-grande" onClick={tricoach.conectar}>
+              🔗 Conectar con TriCoach Entrenos
+            </button>
+            {tricoach.error && <p className="aviso">{tricoach.error}</p>}
+            <p className="detalle">
+              ¿Usas TriCoach Entrenos en otro navegador o aparato? Pulsa allí «Conectar RideCrew» y escribe aquí el código:
+            </p>
+            {conCodigo}
+          </>
+        )}
       </div>
     );
   }
