@@ -47,6 +47,31 @@ const AMIGOS = {
 };
 
 /** Categorías → lista de entrenamientos → ficha con «Empezar». */
+/** Las tres partes de TriCoach, para el escaparate de Compartidos */
+const APPS_TRICOACH = [
+  {
+    icono: '🧠',
+    nombre: 'Generador de planes',
+    texto: 'Analiza tus últimos 60 días de Strava y, con unas preguntas, te prepara 4 semanas de entrenamiento.',
+    url: 'https://tricoach.es',
+    boton: 'Ir a tricoach.es',
+  },
+  {
+    icono: '📅',
+    nombre: 'Entrenos TriCoach',
+    texto: 'Entrenador personal: tu plan semana a semana, tus actividades de Strava y el chat con tu entrenador.',
+    url: 'https://entrenos.tricoach.es',
+    boton: 'Ir a Entrenos',
+  },
+  {
+    icono: '🚴',
+    nombre: 'RideCrew by TriCoach',
+    texto: 'Rodillo con amigos, entrenos ERG y tu semana de rodillo de TriCoach.',
+    url: '',
+    boton: '',
+  },
+];
+
 export function PantallaEntrenamientos({
   entrenamientos,
   ftp,
@@ -68,6 +93,7 @@ export function PantallaEntrenamientos({
   const [elegido, setElegido] = useState<Entrenamiento | null>(null);
   // En «Compartidos», filtro por la etiqueta que le puso quien lo compartió
   const [filtro, setFiltro] = useState<Categoria | 'tricoach' | null>(null);
+  const [verTricoach, setVerTricoach] = useState(false);
   const [errorBorrar, setErrorBorrar] = useState<string | null>(null);
   const cat =
     categoria === 'amigos' ? AMIGOS : categoria === 'tricoach' ? CARPETA_TRICOACH : CATEGORIAS.find((c) => c.id === categoria);
@@ -151,10 +177,34 @@ export function PantallaEntrenamientos({
               <button className="boton-principal" onClick={() => setFiltro('tricoach')}>
                 Ver los entrenos de TriCoach
               </button>
-              <a className="boton-secundario" href="https://tricoach.es" target="_blank" rel="noreferrer">
-                Conoce TriCoach ↗
-              </a>
+              <button className="boton-secundario" onClick={() => setVerTricoach((v) => !v)} aria-expanded={verTricoach}>
+                {verTricoach ? 'Cerrar' : 'Conoce TriCoach'}
+              </button>
             </div>
+            {verTricoach && (
+              <div className="tricoach-apps">
+                {APPS_TRICOACH.map((a) => (
+                  <div key={a.nombre} className="tricoach-app">
+                    <div>
+                      <strong>
+                        {a.icono} {a.nombre}
+                      </strong>
+                      <p>{a.texto}</p>
+                    </div>
+                    {a.url ? (
+                      <a className="boton-secundario" href={a.url} target="_blank" rel="noreferrer">
+                        {a.boton} ↗
+                      </a>
+                    ) : (
+                      <span className="tricoach-app-aqui">Estás aquí</span>
+                    )}
+                  </div>
+                ))}
+                <p className="tricoach-apps-nota">
+                  El generador de planes y Entrenos TriCoach piden cuenta: TriCoach revisa cada solicitud y te da acceso.
+                </p>
+              </div>
+            )}
           </div>
         )}
         {categoria === 'amigos' && errorAmigos && <p className="aviso">{errorAmigos}</p>}

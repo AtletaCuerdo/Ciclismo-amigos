@@ -4881,6 +4881,44 @@ p {
 a.boton-secundario {
   color: var(--texto, #e2e8f0);
 }
+.tricoach-apps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tricoach-app {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(11, 18, 32, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+.tricoach-app > div {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.tricoach-app strong {
+  color: var(--texto, #e2e8f0);
+  font-size: 0.98rem;
+}
+.tricoach-app .boton-secundario {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+.tricoach-app-aqui {
+  color: #4ade80;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.escaparate-tricoach p.tricoach-apps-nota {
+  font-size: 0.8rem;
+}
 
 /* Escena final de un entreno de TriCoach */
 .sello-tricoach {
