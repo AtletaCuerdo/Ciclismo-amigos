@@ -334,7 +334,10 @@ nunca (redes de empresa, algunos datos móviles), haría falta TURN (Cloudflare 
 - Ideas del usuario del 21-11 (el micro ya está hecho, 22-11). 2) **Música según vatios/pulso**: Amazon Music no tiene API para
   webs; Spotify sin «audio features» para apps nuevas y desde 2026 el modo desarrollo exige Premium y máx. 5 usuarios;
   viable: canciones propias subidas una vez a la web (IndexedDB, el BPM lo calcula RideCrew) o dos listas de YouTube
-  (suave/caña) que cambian con el bloque. 3) **intervals.icu**: API con OAuth (hay que pedir alta de app) o clave
+  (suave/caña) que cambian con el bloque. El usuario prefiere (22-11) un **modo radio** con 3-4 emisoras «a lo GTA» para
+  todos sin preparar nada: emisoras reales por internet (Radio Browser API, gratis y abierta; solo enlaces HTTPS; no
+  renombrarlas como nuestras, se dice cuál suena) y «DJ automático» que cambia de emisora entre series y descansos.
+  Pendiente de su visto bueno y de los estilos. 3) **intervals.icu**: API con OAuth (hay que pedir alta de app) o clave
   personal; subir sesiones (FIT) y leer entrenos planificados del calendario. Ojo: en TriCoach Entrenos se descartó
   intervals.icu para mandar entrenos al Garmin; aquí sería otra cosa (RideCrew ↔ intervals).
 - Ideas de marketing de TriCoach que el usuario guardó para más adelante (21-11): 1) firma en Strava de los entrenos
