@@ -4968,3 +4968,78 @@ a.boton-secundario {
   min-height: 48px;
 }
 
+
+/* 🎙️ Voz con los amigos (abajo, junto al chat y los emojis) */
+.panel-voz {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: auto;
+}
+.recorrido .boton-voz {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.voz-aviso {
+  max-width: 260px;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  color: #fca5a5;
+}
+.voz-activa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 4px;
+  border-radius: 999px;
+  max-width: min(420px, 70vw);
+}
+.boton-voz-micro {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid #4ade80;
+  background: rgba(74, 222, 128, 0.15);
+  font-size: 20px;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+.boton-voz-micro.hablando {
+  box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.45);
+}
+.boton-voz-micro.mudo {
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.15);
+}
+.voz-gente {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 13px;
+  min-width: 0;
+}
+.voz-gente li {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+.voz-gente li.hablando {
+  color: #4ade80;
+  font-weight: 700;
+}
+.voz-gente li.conectando {
+  opacity: 0.5;
+}
+.voz-solo {
+  opacity: 0.7;
+}

@@ -99,6 +99,7 @@ import { PantallaResumenes } from './components/PantallaResumenes';
 import { CircuitoElegido, PantallaCircuitos } from './components/PantallaCircuitos';
 import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
 import { mantenerPantallaEncendida, soltarPantalla } from './pantallaEncendida';
+import { ESTADO_VOZ_APAGADA, Voz, canalFirebase, type EstadoVoz } from './multijugador/voz';
 import { CIRCUITO, LONGITUD_VUELTA_M, pendiente as pendienteRuta, usarCircuito } from './recorrido/perfil';
 import { CIRCUITOS, CRUCES, CRUCE_CAMBIO_M, circuitoPorId, longitudDe } from './recorrido/circuitos';
 import {
@@ -1258,6 +1259,41 @@ export default function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enRecorrido]);
+
+  // ---- 🎙️ Voz con los amigos de la salida (micro abierto) ----
+  const vozRef = useRef<Voz | null>(null);
+  const [voz, setVoz] = useState<EstadoVoz>(ESTADO_VOZ_APAGADA);
+  /** Quiere la voz encendida: al cambiar de circuito (otra sala) se vuelve a conectar sola. */
+  const vozQueridaRef = useRef(false);
+  /** Firebase ya cargado (la salida lo carga): así el micro se pide en el mismo toque del botón. */
+  const fbVozRef = useRef<typeof import('./multijugador/firebase') | null>(null);
+  useEffect(() => {
+    if (salida.estado === 'dentro') void import('./multijugador/firebase').then((m) => (fbVozRef.current = m));
+  }, [salida.estado]);
+  const encenderVoz = () => {
+    const fb = fbVozRef.current;
+    if (!fb || salida.estado !== 'dentro' || !salida.miUid || vozRef.current) return;
+    vozQueridaRef.current = true;
+    const v = new Voz(canalFirebase(fb, CIRCUITO.sala, salida.miUid), salida.miUid, nombreVisible || 'Ciclista', setVoz);
+    vozRef.current = v;
+    void v.encender().then(() => {
+      // Sin permiso del micro o sin reglas: se queda apagada (con el aviso)
+      if (vozRef.current === v && !v.encendida) vozRef.current = null;
+    });
+  };
+  const apagarVoz = (querida = false) => {
+    vozQueridaRef.current = querida;
+    const v = vozRef.current;
+    vozRef.current = null;
+    void v?.apagar();
+  };
+  // Fuera de la salida (o cambiando de circuito) se cuelga; al volver a entrar, si la querías, se enciende
+  useEffect(() => {
+    if (salida.estado !== 'dentro' || !enRecorrido) {
+      if (vozRef.current) apagarVoz(enRecorrido && vozQueridaRef.current);
+    } else if (vozQueridaRef.current && !vozRef.current) encenderVoz();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salida.estado, enRecorrido]);
 
   // Amigo junto al que aparecer al entrar (se elige en el inicio)
   const juntoARef = useRef<string | null>(null);
@@ -2596,6 +2632,13 @@ export default function App() {
                 : null
             }
             emojis={{ mio: miEmoji, onEnviar: lanzarEmoji }}
+            voz={{
+              estado: voz,
+              disponible: salida.estado === 'dentro' && !!salida.miUid,
+              onEncender: encenderVoz,
+              onApagar: () => apagarVoz(false),
+              onSilenciar: (m: boolean) => vozRef.current?.silenciar(m),
+            }}
             miNombre={nombreVisible}
             chat={{
               // Con el nivel de quien escribe, si está rodando y lo publica

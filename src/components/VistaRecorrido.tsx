@@ -25,6 +25,8 @@ import { textoTiempo, type TramoActivo } from '../recorrido/segmentos';
 import { miRecord } from '../recorrido/records';
 import { VATIOS_BOTS } from '../recorrido/bots';
 import { ChatGrupo } from './ChatGrupo';
+import { PanelVoz } from './PanelVoz';
+import type { EstadoVoz } from '../multijugador/voz';
 import { EMOJIS } from '../multijugador/useSalida';
 import type { Mensaje } from '../multijugador/useSalida';
 import { GraficaEntrenamiento, colorZona } from './GraficaEntrenamiento';
@@ -144,6 +146,14 @@ interface Props {
   miNombre?: string;
   /** Emojis rápidos (solo en la salida): el mío, si lo acabo de lanzar, y cómo lanzar uno. */
   emojis: { mio: string | null; onEnviar: (e: string) => void } | null;
+  /** 🎙️ Voz con los amigos de la salida (micro abierto). */
+  voz?: {
+    estado: EstadoVoz;
+    disponible: boolean;
+    onEncender: () => void;
+    onApagar: () => void;
+    onSilenciar: (mudo: boolean) => void;
+  };
   /** Chat del grupo (solo en la salida). */
   chat: {
     mensajes: Mensaje[];
@@ -376,6 +386,7 @@ export default function VistaRecorrido({
   onJuntoA,
   chat,
   emojis,
+  voz,
   miNombre,
   circuito,
   rodilloControlado,
@@ -1305,6 +1316,7 @@ export default function VistaRecorrido({
           </button>
         </div>
       )}
+      {enSalida && voz && <PanelVoz voz={voz} />}
       {/* Perfil de la vuelta (pequeño, en la esquina; al tocarlo se amplía a lo ancho):
           recorrido hecho sombreado, tu posición y la de los demás */}
       <div

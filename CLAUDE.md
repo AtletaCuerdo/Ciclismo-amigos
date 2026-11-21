@@ -319,13 +319,19 @@ casco amarillo, bici blanca) y Sanders (equipación verde, cabra, lenticular, ca
 `recolocarEstrellas` en bots.ts: 400 W (47 y 50 km/h en llano), salen 150 m detrás y cada 10′ rodando vuelven a salir
 detrás para adelantarte. El dorsal lleva su nombre. Sin logotipos de patrocinadores.
 
+22-11: 🎙️ voz con los amigos (micro abierto, `multijugador/voz.ts` + `components/PanelVoz.tsx`, abajo junto a los emojis;
+solo dentro de la salida). WebRTC en malla (llama el de uid menor), STUN de Google, sin TURN todavía. Encuentro por
+Firebase: `salas/{sala}/voz/{uid}` (presencia con onDisconnect, `mudo`) y `salas/{sala}/vozSenales/{para}/{id}` (oferta,
+respuesta, ice; quien recibe lo lee y lo borra). Micro con cancelación de eco y ruido; 🎙️/🔇 silencia; se ve quién habla
+(AnalyserNode). Al cambiar de circuito cuelga y vuelve a conectar sola. Probado: 3 aparatos en memoria y 2 con el
+emulador de Firebase y las reglas (14 casos de reglas). **Necesita las reglas nuevas pegadas.** Si alguien no conecta
+nunca (redes de empresa, algunos datos móviles), haría falta TURN (Cloudflare Realtime TURN, credenciales por el Worker).
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
 ### Próximos pasos
-- Ideas del usuario del 21-11, analizadas y pendientes de que decida: 1) **micro abierto** con los amigos (WebRTC
-  en malla, señalización por Firebase → reglas nuevas; STUN gratis, TURN de Cloudflare para redes difíciles; cancelación
-  de eco y auriculares; también «pulsar para hablar»). 2) **Música según vatios/pulso**: Amazon Music no tiene API para
+- Ideas del usuario del 21-11 (el micro ya está hecho, 22-11). 2) **Música según vatios/pulso**: Amazon Music no tiene API para
   webs; Spotify sin «audio features» para apps nuevas y desde 2026 el modo desarrollo exige Premium y máx. 5 usuarios;
   viable: canciones propias subidas una vez a la web (IndexedDB, el BPM lo calcula RideCrew) o dos listas de YouTube
   (suave/caña) que cambian con el bloque. 3) **intervals.icu**: API con OAuth (hay que pedir alta de app) o clave

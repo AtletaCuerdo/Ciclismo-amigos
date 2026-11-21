@@ -149,6 +149,48 @@
             ".validate": false
           }
         },
+        "voz": {
+          "$uid": {
+            ".write": "auth != null && auth.provider !== 'anonymous' && auth.uid === $uid",
+            ".validate": "newData.hasChildren(['nombre', 't'])",
+            "nombre": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+            },
+            "t": {
+              ".validate": "newData.isNumber() && newData.val() <= now"
+            },
+            "mudo": {
+              ".validate": "newData.isBoolean()"
+            },
+            "$otro": {
+              ".validate": false
+            }
+          }
+        },
+        "vozSenales": {
+          "$para": {
+            ".write": "auth != null && auth.provider !== 'anonymous' && auth.uid === $para && !newData.exists()",
+            "$id": {
+              ".write": "auth != null && auth.provider !== 'anonymous' && ((!data.exists() && newData.child('de').val() === auth.uid) || (data.exists() && !newData.exists() && (auth.uid === $para || data.child('de').val() === auth.uid)))",
+              ".validate": "newData.hasChildren(['de', 'tipo', 'datos', 't'])",
+              "de": {
+                ".validate": "newData.isString()"
+              },
+              "tipo": {
+                ".validate": "newData.val() === 'oferta' || newData.val() === 'respuesta' || newData.val() === 'ice'"
+              },
+              "datos": {
+                ".validate": "newData.isString() && newData.val().length <= 20000"
+              },
+              "t": {
+                ".validate": "newData.isNumber() && newData.val() <= now"
+              },
+              "$otro": {
+                ".validate": false
+              }
+            }
+          }
+        },
         "emojis": {
           "$uid": {
             ".write": "auth != null && auth.provider !== 'anonymous' && auth.uid === $uid",
