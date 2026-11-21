@@ -338,7 +338,8 @@ cada una (las 30″/30″ no la cambian). Sin reglas nuevas. El usuario confirma
 
 21-11 (3): la conexión con TriCoach va con la cuenta (`perfil.tricoach`, se sincroniza con el perfil; sin reglas nuevas):
 al conectar en un aparato sale en todos (la app instalada en el PC de Jesús no tenía el token del otro navegador). En
-TriCoach Entrenos, las sesiones de RideCrew («… · rodillo» en Strava) solo se emparejan con el entreno del mismo título.
+TriCoach Entrenos, las sesiones de RideCrew («… · rodillo» en Strava) solo se emparejan con el entreno del mismo título. Confirmado por el
+usuario el 22-11: la carpeta ya sale en el portátil y el emparejamiento es correcto.
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
