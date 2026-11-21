@@ -26,6 +26,7 @@ import { miRecord } from '../recorrido/records';
 import { VATIOS_BOTS } from '../recorrido/bots';
 import { ChatGrupo } from './ChatGrupo';
 import { PanelVoz } from './PanelVoz';
+import { MenuRadio, type PropsRadio } from './MenuRadio';
 import type { EstadoVoz } from '../multijugador/voz';
 import { EMOJIS } from '../multijugador/useSalida';
 import type { Mensaje } from '../multijugador/useSalida';
@@ -146,6 +147,8 @@ interface Props {
   miNombre?: string;
   /** Emojis rápidos (solo en la salida): el mío, si lo acabo de lanzar, y cómo lanzar uno. */
   emojis: { mio: string | null; onEnviar: (e: string) => void } | null;
+  /** 📻 Radio por estilos y DJ automático. */
+  radio?: PropsRadio;
   /** 🎙️ Voz con los amigos de la salida (micro abierto). */
   voz?: {
     estado: EstadoVoz;
@@ -387,6 +390,7 @@ export default function VistaRecorrido({
   chat,
   emojis,
   voz,
+  radio,
   miNombre,
   circuito,
   rodilloControlado,
@@ -761,6 +765,7 @@ export default function VistaRecorrido({
             <span className="etiqueta-boton">{masAbierto ? ' Cerrar' : ' Más'}</span>
           </button>
           <div className={`hud-botones-extra ${masAbierto ? 'abierto' : ''}`}>
+          {radio && <MenuRadio radio={radio} />}
           <div className="menu-bots-ancla" ref={anclaBotsRef}>
             <button
               className={`boton-secundario ${bots.lista.length ? 'activo' : ''}`}

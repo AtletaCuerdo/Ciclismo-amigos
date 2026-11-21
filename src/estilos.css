@@ -5043,3 +5043,67 @@ a.boton-secundario {
 .voz-solo {
   opacity: 0.7;
 }
+
+/* 📻 Radio */
+.menu-radio {
+  width: min(360px, calc(100vw - 32px));
+}
+.radio-sonando {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(34, 211, 238, 0.12);
+  border: 1px solid rgba(34, 211, 238, 0.5);
+}
+.radio-mandos {
+  display: flex;
+  gap: 6px;
+}
+.radio-emisoras {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.radio-emisora {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  min-height: 52px;
+  padding: 6px 8px;
+}
+.radio-emisora span:last-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.radio-emisora small {
+  font-size: 11px;
+  opacity: 0.75;
+  line-height: 1.2;
+}
+.radio-emoji {
+  font-size: 22px;
+  flex: none;
+}
+.radio-dj {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+.radio-dj input {
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  flex: none;
+}
+.radio-dj span {
+  display: flex;
+  flex-direction: column;
+}
+.radio-dj small {
+  opacity: 0.8;
+}

@@ -99,6 +99,7 @@ import { PantallaResumenes } from './components/PantallaResumenes';
 import { CircuitoElegido, PantallaCircuitos } from './components/PantallaCircuitos';
 import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
 import { mantenerPantallaEncendida, soltarPantalla } from './pantallaEncendida';
+import { DjAutomatico, RADIO_APAGADA, Radio, type EstadoRadio, type IdEmisora } from './musica/radio';
 import { ESTADO_VOZ_APAGADA, Voz, canalFirebase, type EstadoVoz } from './multijugador/voz';
 import { CIRCUITO, LONGITUD_VUELTA_M, pendiente as pendienteRuta, usarCircuito } from './recorrido/perfil';
 import { CIRCUITOS, CRUCES, CRUCE_CAMBIO_M, circuitoPorId, longitudDe } from './recorrido/circuitos';
@@ -1294,6 +1295,52 @@ export default function App() {
     } else if (vozQueridaRef.current && !vozRef.current) encenderVoz();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [salida.estado, enRecorrido]);
+
+  // ---- 📻 Radio por estilos y DJ automático ----
+  const radioRef = useRef<Radio | null>(null);
+  const [radio, setRadio] = useState<EstadoRadio>(RADIO_APAGADA);
+  const [dj, setDj] = useState(() => leerLocal('rodillos.radioDj') === 'si');
+  useEffect(() => guardarLocal('rodillos.radioDj', dj ? 'si' : 'no'), [dj]);
+  /** La emisora que eligió el ciclista (a la que vuelve el DJ al aflojar). */
+  const emisoraBaseRef = useRef<IdEmisora>('rock');
+  const djRef = useRef(new DjAutomatico());
+  const radioDe = () => (radioRef.current ??= new Radio(setRadio));
+  const ponerEmisora = (id: IdEmisora) => {
+    emisoraBaseRef.current = id;
+    djRef.current.modo = 'base';
+    void radioDe().poner(id);
+  };
+  const apagarRadio = () => radioRef.current?.apagar();
+  // El DJ, una vez por segundo: % del FTP que toca en el entreno o que llevas rodando libre
+  const intensidadDjRef = useRef(0);
+  useEffect(() => {
+    if (!enRecorrido || !dj || !radio.emisora) return;
+    const id = setInterval(() => {
+      const ftp = perfil.ftp || 200;
+      const w = objetivoRef.current ?? actualRef.current.potencia;
+      if (w === undefined || !corriendoRef.current) return;
+      // Rodando libre, media de unos 10 s para que un acelerón suelto no cambie la música
+      intensidadDjRef.current += (w / ftp - intensidadDjRef.current) * (objetivoRef.current !== undefined ? 1 : 0.1);
+      const toca = djRef.current.decidir(intensidadDjRef.current, emisoraBaseRef.current, Date.now());
+      if (toca && toca !== radioRef.current?.emisora) void radioRef.current?.poner(toca);
+    }, 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enRecorrido, dj, radio.emisora !== null, perfil.ftp]);
+  // Al salir del recorrido se apaga
+  useEffect(() => {
+    if (!enRecorrido) radioRef.current?.apagar();
+  }, [enRecorrido]);
+  // Sin DJ, de vuelta a tu emisora si estaba en la de las series
+  useEffect(() => {
+    if (!dj && djRef.current.modo === 'cana') {
+      djRef.current.modo = 'base';
+      if (radioRef.current?.emisora) void radioRef.current.poner(emisoraBaseRef.current);
+    }
+  }, [dj]);
+  // Cuando habla un amigo por el micro, la radio baja (en iPhone/iPad no se puede)
+  const hablaAlguien = voz.otros.some((o) => o.hablando);
+  useEffect(() => radioRef.current?.agachar(hablaAlguien), [hablaAlguien]);
 
   // Amigo junto al que aparecer al entrar (se elige en el inicio)
   const juntoARef = useRef<string | null>(null);
@@ -2632,6 +2679,14 @@ export default function App() {
                 : null
             }
             emojis={{ mio: miEmoji, onEnviar: lanzarEmoji }}
+            radio={{
+              estado: radio,
+              dj,
+              onPoner: ponerEmisora,
+              onOtra: () => radioRef.current?.otra(),
+              onApagar: apagarRadio,
+              onDj: setDj,
+            }}
             voz={{
               estado: voz,
               disponible: salida.estado === 'dentro' && !!salida.miUid,

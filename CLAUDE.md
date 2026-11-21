@@ -327,6 +327,15 @@ respuesta, ice; quien recibe lo lee y lo borra). Micro con cancelación de eco y
 emulador de Firebase y las reglas (14 casos de reglas). **Necesita las reglas nuevas pegadas.** Si alguien no conecta
 nunca (redes de empresa, algunos datos móviles), haría falta TURN (Cloudflare Realtime TURN, credenciales por el Worker).
 
+22-11 (2): 📻 radio en el recorrido (`musica/radio.ts` + `components/MenuRadio.tsx`, botón junto a 🤖 Bots): 6 estilos
+(Reguetón, EDM, Rock clásico, Éxitos actuales, Heavy metal, «Estilo GTA» = G-funk de la costa oeste + synthwave; la música
+de los juegos de verdad no, tiene derechos). Emisoras reales de internet elegidas en Radio Browser (más votadas, HTTPS,
+sin anuncios si se puede); se pide la dirección al día con `/json/url/{uuid}` (de1/nl1/at1, CORS abierto) y, si fallan
+todas, busca otra por etiqueta. Se dice qué emisora suena; «🔀 Otra» pasa a la siguiente del estilo. Fundido de 2 s y
+bajar la radio cuando habla un amigo por el micro (no en iOS: el volumen de una web no se puede tocar). 🎛️ DJ automático
+(`DjAutomatico`, clave `rodillos.radioDj`): ≥ 88 % del FTP 5 s → EDM; < 75 % 45 s seguidos → tu emisora; mínimo 90 s en
+cada una (las 30″/30″ no la cambian). Sin reglas nuevas. Sin probar el sonido aquí (la red del entorno no llega a las radios).
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
@@ -334,7 +343,7 @@ nunca (redes de empresa, algunos datos móviles), haría falta TURN (Cloudflare 
 - Ideas del usuario del 21-11 (el micro ya está hecho, 22-11). 2) **Música según vatios/pulso**: Amazon Music no tiene API para
   webs; Spotify sin «audio features» para apps nuevas y desde 2026 el modo desarrollo exige Premium y máx. 5 usuarios;
   viable: canciones propias subidas una vez a la web (IndexedDB, el BPM lo calcula RideCrew) o dos listas de YouTube
-  (suave/caña) que cambian con el bloque. El usuario prefiere (22-11) un **modo radio** con 3-4 emisoras «a lo GTA» para
+  (suave/caña) que cambian con el bloque. Hecho el 22-11 el **modo radio** (ver arriba); idea original: un **modo radio** con 3-4 emisoras «a lo GTA» para
   todos sin preparar nada: emisoras reales por internet (Radio Browser API, gratis y abierta; solo enlaces HTTPS; no
   renombrarlas como nuestras, se dice cuál suena) y «DJ automático» que cambia de emisora entre series y descansos.
   Pendiente de su visto bueno y de los estilos. 3) **intervals.icu**: API con OAuth (hay que pedir alta de app) o clave
