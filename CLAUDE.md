@@ -324,7 +324,7 @@ solo dentro de la salida). WebRTC en malla (llama el de uid menor), STUN de Goog
 Firebase: `salas/{sala}/voz/{uid}` (presencia con onDisconnect, `mudo`) y `salas/{sala}/vozSenales/{para}/{id}` (oferta,
 respuesta, ice; quien recibe lo lee y lo borra). Micro con cancelación de eco y ruido; 🎙️/🔇 silencia; se ve quién habla
 (AnalyserNode). Al cambiar de circuito cuelga y vuelve a conectar sola. Probado: 3 aparatos en memoria y 2 con el
-emulador de Firebase y las reglas (14 casos de reglas). **Necesita las reglas nuevas pegadas.** Si alguien no conecta
+emulador de Firebase y las reglas (14 casos de reglas). Reglas pegadas por el usuario el 22-11; falta probarlo entre dos casas. Si alguien no conecta
 nunca (redes de empresa, algunos datos móviles), haría falta TURN (Cloudflare Realtime TURN, credenciales por el Worker).
 
 22-11 (2): 📻 radio en el recorrido (`musica/radio.ts` + `components/MenuRadio.tsx`, botón junto a 🤖 Bots): 6 estilos
