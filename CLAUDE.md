@@ -334,7 +334,7 @@ sin anuncios si se puede); se pide la dirección al día con `/json/url/{uuid}` 
 todas, busca otra por etiqueta. Se dice qué emisora suena; «🔀 Otra» pasa a la siguiente del estilo. Fundido de 2 s y
 bajar la radio cuando habla un amigo por el micro (no en iOS: el volumen de una web no se puede tocar). 🎛️ DJ automático
 (`DjAutomatico`, clave `rodillos.radioDj`): ≥ 88 % del FTP 5 s → EDM; < 75 % 45 s seguidos → tu emisora; mínimo 90 s en
-cada una (las 30″/30″ no la cambian). Sin reglas nuevas. Sin probar el sonido aquí (la red del entorno no llega a las radios).
+cada una (las 30″/30″ no la cambian). Sin reglas nuevas. El usuario confirma el 22-11 que la radio funciona perfectamente.
 
 21-11 (3): la conexión con TriCoach va con la cuenta (`perfil.tricoach`, se sincroniza con el perfil; sin reglas nuevas):
 al conectar en un aparato sale en todos (la app instalada en el PC de Jesús no tenía el token del otro navegador). En
