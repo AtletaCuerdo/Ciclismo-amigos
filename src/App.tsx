@@ -1221,6 +1221,7 @@ export default function App() {
           metros: t.metros,
           strava: estadoStravaAqui(),
           stravaAtleta: leerConexion()?.atleta,
+          stravaId: leerConexion()?.atletaId,
         });
       })
       .catch(() => undefined); // sin las reglas nuevas: se intenta la próxima vez

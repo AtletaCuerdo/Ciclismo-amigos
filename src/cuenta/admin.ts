@@ -33,7 +33,7 @@ export interface Ficha {
 /** `strava` undefined: en este aparato no se sabe (se deja lo que dijo el último que lo sabía). */
 export async function publicarFicha(
   uid: string,
-  datos: { nombre: string; sesiones: number; metros: number; strava?: boolean; stravaAtleta?: string },
+  datos: { nombre: string; sesiones: number; metros: number; strava?: boolean; stravaAtleta?: string; stravaId?: number | string },
 ) {
   const { fb } = await cargarFirebase();
   const u = fb.auth.currentUser;
@@ -53,6 +53,35 @@ export async function publicarFicha(
     alta,
     t: fb.serverTimestamp(),
   });
+  // Copia para la pestaña «Usuarios» de TriCoach Entrenos (donde Jesús ve las tres apps juntas)
+  const stravaId = strava && datos.strava !== undefined ? datos.stravaId : undefined;
+  await enviarATricoach(await u.getIdToken(), {
+    nombre: datos.nombre, sesiones: datos.sesiones, metros: Math.round(datos.metros), strava,
+    stravaAtleta: strava ? stravaAtleta : undefined, stravaId,
+  }).catch(() => undefined);
+}
+
+const CLAVE_ENVIO = 'rodillos.fichaTricoach';
+/** Como mucho una vez cada 6 h, salvo que cambie algo (nombre, Strava…); sesiones y metros no cuentan */
+async function enviarATricoach(idToken: string, ficha: Record<string, unknown>) {
+  const huella = JSON.stringify({ ...ficha, sesiones: undefined, metros: undefined });
+  try {
+    const antes = JSON.parse(localStorage.getItem(CLAVE_ENVIO) || 'null') as { h: string; t: number } | null;
+    if (antes && antes.h === huella && Date.now() - antes.t < 6 * 3600_000) return;
+  } catch {
+    /* sin almacenamiento */
+  }
+  const r = await fetch('https://entrenos.tricoach.es/api/ridecrew/ficha', {
+    method: 'POST',
+    body: JSON.stringify({ idToken, ...ficha }),
+  });
+  if (r.ok) {
+    try {
+      localStorage.setItem(CLAVE_ENVIO, JSON.stringify({ h: huella, t: Date.now() }));
+    } catch {
+      /* sin almacenamiento */
+    }
+  }
 }
 
 /**
@@ -78,6 +107,13 @@ export async function esAdmin(uid: string) {
 export async function leerFichas(): Promise<{ fichas: Ficha[]; sinCuenta: number }> {
   const { fb } = await cargarFirebase();
   const snap = await fb.get(fb.ref(fb.db, 'fichas'));
+  // El administrador pasa todas las fichas a TriCoach Entrenos (las lee allí el Worker con este mismo permiso)
+  void fb.auth.currentUser
+    ?.getIdToken()
+    .then((idToken) =>
+      fetch('https://entrenos.tricoach.es/api/ridecrew/fichas', { method: 'POST', body: JSON.stringify({ idToken }) }),
+    )
+    .catch(() => undefined);
   const lista: Ficha[] = [];
   snap.forEach((hijo) => {
     const v = hijo.val();
