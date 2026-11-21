@@ -137,6 +137,25 @@ export function PantallaEntrenamientos({
           <h2 style={{ color: cat.color }}>{cat.nombre}</h2>
         </div>
         <p className="detalle">{cat.descripcion}</p>
+        {categoria === 'amigos' && (
+          <div className="escaparate-tricoach">
+            <div>
+              <strong>Entrenos de TriCoach</strong>
+              <p>
+                Entrenamiento personalizado de triatlón, ciclismo y carrera. Sesiones de rodillo diseñadas por un
+                entrenador para sus deportistas, con los vatios a la medida de tu FTP.
+              </p>
+            </div>
+            <div className="escaparate-tricoach-acciones">
+              <button className="boton-principal" onClick={() => setFiltro('tricoach')}>
+                Ver los entrenos de TriCoach
+              </button>
+              <a className="boton-secundario" href="https://tricoach.es" target="_blank" rel="noreferrer">
+                Conoce TriCoach ↗
+              </a>
+            </div>
+          </div>
+        )}
         {categoria === 'amigos' && errorAmigos && <p className="aviso">{errorAmigos}</p>}
         {categoria === 'amigos' && errorBorrar && <p className="aviso">{errorBorrar}</p>}
         {categoria === 'amigos' && deAmigos.length > 0 && (

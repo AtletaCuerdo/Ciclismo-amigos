@@ -304,6 +304,7 @@ con `GET entrenos.tricoach.es/api/ridecrew/semana` (Bearer): bloques en orden co
 del FTP de RideCrew (vatios exactos) y agrupa «A B A B…» en intervalos; categoría con `categoriaSegunIntensidad`. Caché
 de la semana en `rodillos.tricoachSemana` (se tira el lunes, hora de España). «👥 Pasar a Compartidos» las comparte con
 `origen: 'tricoach'` (etiqueta «Entreno de TriCoach» y filtro en Compartidos). **Sin reglas nuevas.**
+Arriba de Compartidos, escaparate fijo «Entrenos de TriCoach» (`.escaparate-tricoach`): filtra los suyos y enlaza a tricoach.es.
 
 21-11 (2): estrellas invitadas en el menú 🤖 Bots («⭐ Estrellas invitadas», un toque pone y otro quita): Pogačar (maillot de
 campeón del mundo: `avatar.arcoiris` → uniforme `uArcoiris` del sombreador del maillot, rayas en pecho, espalda y puños;
