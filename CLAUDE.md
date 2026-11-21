@@ -304,6 +304,8 @@ con `GET entrenos.tricoach.es/api/ridecrew/semana` (Bearer): bloques en orden co
 del FTP de RideCrew (vatios exactos) y agrupa «A B A B…» en intervalos; categoría con `categoriaSegunIntensidad`. Caché
 de la semana en `rodillos.tricoachSemana` (se tira el lunes, hora de España). «👥 Pasar a Compartidos» las comparte con
 `origen: 'tricoach'` (etiqueta «Entreno de TriCoach» y filtro en Compartidos). **Sin reglas nuevas.**
+En el iPhone (RideCrew en Bluefy, Entrenos en Safari) la redirección no sirve: **código de 6 letras** que da Entrenos
+(«Conectar RideCrew») y se escribe en la carpeta (`conectarConCodigo` → `POST /api/ridecrew/canjear`).
 Arriba de Compartidos, escaparate fijo «Entrenos de TriCoach» (`.escaparate-tricoach`): filtra los suyos y enlaza a tricoach.es.
 21-11 (2): logro «🏅 Entrenado por TriCoach» (5 entrenos de TriCoach completados: `resumen.tricoach`, contado en
 `logrosSesionRef.tricoach` al completar uno con `origen: 'tricoach'`; `VERSION_LOGROS` = 5) y sello en la escena final

@@ -430,7 +430,9 @@ function FichaEntrenamiento({
 
 /** Cabecera de «Tu semana con TriCoach»: conectar, estado, actualizar y desconectar. */
 function CabeceraTricoach({ tricoach }: { tricoach: ReturnType<typeof useSemanaTricoach> }) {
+  const [codigo, setCodigo] = useState('');
   if (!tricoach.conectado) {
+    const valido = codigo.replace(/[^a-z0-9]/gi, '').length === 6;
     return (
       <div className="tricoach-conectar">
         <p>
@@ -438,11 +440,33 @@ function CabeceraTricoach({ tricoach }: { tricoach: ReturnType<typeof useSemanaT
           cada semana en TriCoach Entrenos, listas para hacer en ERG.
         </p>
         <p className="detalle">
-          Se conecta una sola vez: se abre TriCoach Entrenos, pulsas «Permitir» y vuelves aquí.
+          Se conecta una sola vez: en TriCoach Entrenos pulsa <strong>«Conectar RideCrew»</strong> (junto a tu Strava) y
+          escribe aquí el código de 6 letras que te da.
         </p>
+        <form
+          className="tricoach-codigo"
+          onSubmit={(ev) => {
+            ev.preventDefault();
+            if (valido) void tricoach.conectarConCodigo(codigo);
+          }}
+        >
+          <input
+            value={codigo}
+            onChange={(ev) => setCodigo(ev.target.value.toUpperCase())}
+            placeholder="Código"
+            maxLength={8}
+            autoCapitalize="characters"
+            autoComplete="off"
+            spellCheck={false}
+            aria-label="Código de TriCoach Entrenos"
+          />
+          <button className="boton-principal" disabled={!valido || tricoach.cargando}>
+            {tricoach.cargando ? 'Conectando…' : 'Conectar'}
+          </button>
+        </form>
         {tricoach.error && <p className="aviso">{tricoach.error}</p>}
-        <button className="boton-principal boton-grande" onClick={tricoach.conectar}>
-          🔗 Conectar con TriCoach Entrenos
+        <button className="boton-secundario" onClick={tricoach.conectar}>
+          O abre TriCoach Entrenos en este navegador y pulsa «Permitir»
         </button>
       </div>
     );

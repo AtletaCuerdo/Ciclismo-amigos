@@ -177,6 +177,26 @@ export function useSemanaTricoach(activo: boolean, ftp: number) {
     const vuelta = window.location.origin + window.location.pathname;
     window.location.href = `${ENTRENOS}/?vincular=ridecrew&vuelta=${encodeURIComponent(vuelta)}`;
   };
+  /** Con el código de 6 letras que da TriCoach Entrenos («Conectar RideCrew»): vale en cualquier navegador. */
+  const conectarConCodigo = async (codigo: string) => {
+    setCargando(true);
+    try {
+      const r = await fetch(`${API}/canjear`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo: codigo.trim() }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.token) throw new Error(j.error || `Error ${r.status}`);
+      escribir(CLAVE_TOKEN, j.token);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se ha podido conectar');
+      setCargando(false);
+      return;
+    }
+    await recargar();
+  };
   const desconectar = async () => {
     const token = leer(CLAVE_TOKEN);
     if (token) await fetch(`${API}/desvincular`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
@@ -187,5 +207,5 @@ export function useSemanaTricoach(activo: boolean, ftp: number) {
   };
 
   const entrenos = sesiones.map((s) => aEntrenamiento(s, ftp)).filter((e): e is Entrenamiento => !!e);
-  return { conectado, entrenos, cargando, error, recargar, conectar, desconectar };
+  return { conectado, entrenos, cargando, error, recargar, conectar, conectarConCodigo, desconectar };
 }
