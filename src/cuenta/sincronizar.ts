@@ -14,7 +14,7 @@
 import { establecerEspejo, guardarEntrenoLocal, listarEntrenos, cargarEntreno, borrarEntreno as borrarLocal } from '../entrenamiento/almacen';
 import type { Entreno, EntrenoGuardado, Muestra } from '../entrenamiento/tipos';
 import type { Entrenamiento } from '../entrenamientos/tipos';
-import { edadSexo, normalizarAvatar, type Perfil } from '../recorrido/avatar';
+import { edadSexo, normalizarAvatar, tokenTricoachValido, type Perfil } from '../recorrido/avatar';
 import { mezclarDespensa, normalizarDespensa } from '../entrenamiento/ridecoins';
 
 type Fb = typeof import('../multijugador/firebase');
@@ -114,6 +114,10 @@ export class Nube {
         ...edadSexo(local.perfil),
         ...edadSexo(nubePerfil),
         despensa: mezclarDespensa(local.perfil.despensa, nubePerfil.despensa),
+        // La conexión con TriCoach: la de la nube o, si no hay, la de este aparato
+        ...((tokenTricoachValido(nubePerfil.tricoach) ?? local.perfil.tricoach)
+          ? { tricoach: tokenTricoachValido(nubePerfil.tricoach) ?? local.perfil.tricoach }
+          : {}),
       };
       // Lo comprado o tomado en este aparato y aún no subido
       if (JSON.stringify(r.perfil.despensa) !== JSON.stringify(normalizarDespensa(nubePerfil.despensa))) {

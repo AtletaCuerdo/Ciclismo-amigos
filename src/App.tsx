@@ -427,7 +427,11 @@ export default function App() {
   const compartidos = useCompartidos(pantalla === 'entrenamientos' || pantalla === 'crear' || enRecorrido);
   // Los compartidos por mí ya están en «propios»: no se repiten
   // Sesiones de rodillo que el entrenador ha puesto esta semana en TriCoach Entrenos
-  const tricoach = useSemanaTricoach(pantalla === 'entrenamientos' || enRecorrido, perfil.ftp);
+  // La conexión con TriCoach va con la cuenta: al conectar en un aparato, sale en todos
+  const tricoach = useSemanaTricoach(pantalla === 'entrenamientos' || enRecorrido, perfil.ftp, perfil.tricoach, (t) => {
+    const { tricoach: _antes, ...resto } = perfilRef.current;
+    cambiarPerfil(t ? { ...resto, tricoach: t } : resto);
+  });
   const todosLosEntrenos = useMemo(
     () => [...CATALOGO, ...propios, ...compartidos.amigos.filter((e) => !e.deAmigo?.mio)],
     [propios, compartidos.amigos],

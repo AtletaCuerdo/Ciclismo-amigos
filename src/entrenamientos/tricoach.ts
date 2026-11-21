@@ -6,7 +6,7 @@
  * `#tricoach=<token>`. El token se guarda en este navegador y sirve solo para leer sus sesiones de
  * rodillo de la semana (POST /api/ridecrew/semana). Las de la semana pasada desaparecen solas el lunes.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { categoriaSegunIntensidad } from './importar';
 import type { Bloque, Entrenamiento } from './tipos';
 
@@ -158,9 +158,33 @@ function aEntrenamiento(s: SesionTricoach, ftp: number): Entrenamiento | null {
 
 type Cache = { lunes: string; sesiones: SesionTricoach[] };
 
-/** Sesiones de rodillo de esta semana (se guardan para verlas sin conexión hasta el lunes). */
-export function useSemanaTricoach(activo: boolean, ftp: number) {
+/** Permiso de TriCoach guardado en este navegador (o null). */
+export const tokenTricoachAqui = () => leer(CLAVE_TOKEN);
+
+/**
+ * Sesiones de rodillo de esta semana (se guardan para verlas sin conexión hasta el lunes).
+ * `tokenCuenta`: el permiso que viene con tu cuenta de RideCrew (si conectaste en otro aparato);
+ * `alCambiarToken`: para guardarlo en la cuenta al conectar aquí (o quitarlo al desconectar).
+ */
+export function useSemanaTricoach(
+  activo: boolean,
+  ftp: number,
+  tokenCuenta?: string,
+  alCambiarToken?: (token: string | null) => void,
+) {
+  // Conectado en otro aparato: el permiso llega con la cuenta y se guarda también aquí
+  if (tokenCuenta && !leer(CLAVE_TOKEN)) escribir(CLAVE_TOKEN, tokenCuenta);
   const [conectado, setConectado] = useState(() => !!leer(CLAVE_TOKEN));
+  useEffect(() => {
+    if (tokenCuenta && !conectado) setConectado(true);
+  }, [tokenCuenta, conectado]);
+  // Conectado aquí (o antes de que existiera esto): se sube a la cuenta para los demás aparatos
+  const alCambiarRef = useRef(alCambiarToken);
+  alCambiarRef.current = alCambiarToken;
+  useEffect(() => {
+    const t = leer(CLAVE_TOKEN);
+    if (conectado && t && t !== tokenCuenta) alCambiarRef.current?.(t);
+  }, [conectado, tokenCuenta]);
   const [sesiones, setSesiones] = useState<SesionTricoach[]>(() => {
     try {
       const c = JSON.parse(leer(CLAVE_CACHE) || 'null') as Cache | null;
@@ -183,6 +207,7 @@ export function useSemanaTricoach(activo: boolean, ftp: number) {
       if (r.status === 401) {
         escribir(CLAVE_TOKEN, null);
         setConectado(false);
+        alCambiarRef.current?.(null);
         throw new Error(j.error || 'Vuelve a conectar con TriCoach Entrenos');
       }
       if (!r.ok) throw new Error(j.error || `Error ${r.status}`);
@@ -212,6 +237,7 @@ export function useSemanaTricoach(activo: boolean, ftp: number) {
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.token) throw new Error(j.error || `Error ${r.status}`);
       escribir(CLAVE_TOKEN, j.token);
+      alCambiarRef.current?.(j.token);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se ha podido conectar');
@@ -226,6 +252,7 @@ export function useSemanaTricoach(activo: boolean, ftp: number) {
     escribir(CLAVE_TOKEN, null);
     escribir(CLAVE_CACHE, null);
     setConectado(false);
+    alCambiarRef.current?.(null);
     setSesiones([]);
   };
 

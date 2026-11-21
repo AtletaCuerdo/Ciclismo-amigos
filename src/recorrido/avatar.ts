@@ -78,7 +78,15 @@ export interface Perfil {
   fcMax?: number;
   /** RideCoins gastados y nutrición comprada y tomada (ver ridecoins.ts). */
   despensa?: Despensa;
+  /**
+   * Permiso de TriCoach Entrenos para leer tus sesiones de rodillo (ver tricoach.ts). Va con la
+   * cuenta para que «Tu semana con TriCoach» salga en todos tus aparatos tras conectar en uno.
+   */
+  tricoach?: string;
 }
+
+/** Token de TriCoach válido (64 letras hexadecimales) o nada. */
+export const tokenTricoachValido = (t: unknown) => (typeof t === 'string' && /^[a-f0-9]{64}$/.test(t) ? t : undefined);
 
 /** Edad, sexo y FC máxima válidos de un perfil guardado (lo demás se descarta). */
 export function edadSexo(g: { edad?: unknown; sexo?: unknown; fcMax?: unknown }): Pick<Perfil, 'edad' | 'sexo' | 'fcMax'> {
@@ -210,6 +218,7 @@ export function cargarPerfil(): Perfil {
         ftp: ftp >= 50 && ftp <= 600 ? ftp : 200,
         ...edadSexo(g),
         ...(g.despensa ? { despensa: normalizarDespensa(g.despensa) } : {}),
+        ...(tokenTricoachValido(g.tricoach) ? { tricoach: g.tricoach } : {}),
       };
     }
   } catch {
