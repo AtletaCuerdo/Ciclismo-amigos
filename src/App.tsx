@@ -1899,7 +1899,7 @@ export default function App() {
   const hayErg = sensores.ftms.tieneControl || rodilloAnt.tieneControl;
 
   const tarjetas: { fuente: Fuente; titulo: string; detalle: string }[] = [
-    { fuente: 'ftms', titulo: 'Rodillo inteligente', detalle: 'FTMS · servicio 0x1826' },
+    { fuente: 'ftms', titulo: 'Rodillo inteligente', detalle: 'FTMS o Tacx FE-C (Flow, Vortex, Neo…)' },
     { fuente: 'pm', titulo: 'Potenciómetro', detalle: 'Cycling Power · servicio 0x1818' },
     { fuente: 'csc', titulo: 'Sensor velocidad/cadencia', detalle: 'CSC · servicio 0x1816' },
     { fuente: 'hr', titulo: 'Pulsómetro', detalle: 'Heart Rate · servicio 0x180D' },

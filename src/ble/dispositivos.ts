@@ -31,6 +31,24 @@ export const UUID = {
   HEART_RATE_MEASUREMENT: 0x2a37,
 } as const;
 
+/**
+ * «FE-C por Bluetooth» de Tacx (Flow Smart, Vortex, Bushido, Neo antiguos…): los rodillos Tacx sin
+ * FTMS (o con firmware viejo) mandan y reciben por Bluetooth los mismos mensajes que por ANT+ FE-C.
+ * Es lo que usan Zwift y MyWhoosh con ellos. Datos por FEC2 (notificaciones) y órdenes por FEC3.
+ */
+export const TACX_FEC = {
+  SERVICIO: '6e40fec1-b5a3-f393-e0a9-e50e24dcca9e',
+  DATOS: '6e40fec2-b5a3-f393-e0a9-e50e24dcca9e',
+  ORDENES: '6e40fec3-b5a3-f393-e0a9-e50e24dcca9e',
+} as const;
+
+/** Mensaje ANT (página de 8 bytes) para el canal 5, como lo envuelve Tacx: A4 09 4F 05 … XOR. */
+function mensajeFec(pagina: number[]) {
+  const m = [0xa4, 0x09, 0x4f, 0x05, ...pagina];
+  m.push(m.reduce((a, b) => a ^ b, 0));
+  return new Uint8Array(m).buffer;
+}
+
 /** Convierte un buffer a texto hexadecimal para el log. */
 function hex(datos: ArrayBuffer | DataView) {
   const bytes =
@@ -88,6 +106,8 @@ export interface CallbacksRodillo {
 
 export class RodilloFtms extends SensorBle {
   private cp: BluetoothRemoteGATTCharacteristic | null = null;
+  /** Rodillo Tacx sin FTMS: órdenes por FE-C sobre Bluetooth. */
+  private fec: BluetoothRemoteGATTCharacteristic | null = null;
   // Comando enviado que espera su respuesta por indicación
   private pendiente: { opcode: number; resolver: (r: RespuestaCP | null) => void } | null = null;
 
@@ -99,11 +119,23 @@ export class RodilloFtms extends SensorBle {
   }
 
   get tieneControl() {
-    return this.conectado && !!this.cp;
+    return this.conectado && (!!this.cp || !!this.fec);
+  }
+
+  /** Rodillos FTMS y, además, los Tacx que solo hablan FE-C por Bluetooth (Flow Smart y otros). */
+  protected opcionesBusqueda(): RequestDeviceOptions {
+    return {
+      filters: [{ services: [UUID.FTMS] }, { services: [TACX_FEC.SERVICIO] }, { namePrefix: 'Tacx' }],
+      optionalServices: [UUID.FTMS, TACX_FEC.SERVICIO, UUID.CYCLING_POWER, UUID.CSC],
+    };
   }
 
   protected async configurar(server: BluetoothRemoteGATTServer) {
-    const servicio = await server.getPrimaryService(UUID.FTMS);
+    const servicio = await server.getPrimaryService(UUID.FTMS).catch(() => null);
+    if (!servicio) {
+      await this.configurarTacx(server);
+      return;
+    }
 
     // Datos en directo
     const ibd = await servicio.getCharacteristic(UUID.INDOOR_BIKE_DATA);
@@ -141,6 +173,55 @@ export class RodilloFtms extends SensorBle {
     this.pendiente?.resolver(null);
     this.pendiente = null;
     this.cp = null;
+    this.fec = null;
+  }
+
+  /** Tacx por FE-C sobre Bluetooth: velocidad (página 16), cadencia y vatios (página 25). */
+  private async configurarTacx(server: BluetoothRemoteGATTServer) {
+    const servicio = await server.getPrimaryService(TACX_FEC.SERVICIO).catch(() => {
+      throw new Error('Este rodillo no tiene control por Bluetooth (ni FTMS ni FE-C de Tacx). Conéctalo como potenciómetro.');
+    });
+    const datos = await servicio.getCharacteristic(TACX_FEC.DATOS);
+    await this.suscribir(datos, (dv) => {
+      const b = new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength);
+      // A4 · largo · 4E/4F · canal · página (8 bytes) · XOR
+      if (b.length < 12 || b[0] !== 0xa4 || (b[2] !== 0x4e && b[2] !== 0x4f)) return;
+      const p = b.slice(4, 12);
+      if (p[0] === 0x10) {
+        const v = (p[4] | (p[5] << 8)) / 1000;
+        const d: DatosRodillo = { velocidad: v * 3.6 };
+        if (p[6] !== 0xff && p[6] > 0) d.pulso = p[6];
+        this.cb.onDatos(d);
+      } else if (p[0] === 0x19) {
+        const d: DatosRodillo = {};
+        if (p[2] !== 0xff) d.cadencia = p[2];
+        const w = p[5] | ((p[6] & 0x0f) << 8);
+        if (w !== 0xfff) d.potencia = w;
+        this.cb.onDatos(d);
+      }
+    });
+    this.fec = await servicio.getCharacteristic(TACX_FEC.ORDENES);
+    this.cb.onRango(null);
+    this.eventos.onLog('Rodillo Tacx: control por FE-C sobre Bluetooth (ERG y pendiente)', 'ok');
+  }
+
+  /** Manda una página FE-C al Tacx (una a la vez, por la cola de Bluetooth). */
+  private paginaFec(pagina: number[], descripcion: string) {
+    return this.enCola(async () => {
+      const c = this.fec;
+      if (!c || !this.device?.gatt?.connected) return false;
+      this.eventos.onLog(`→ ${descripcion}`, 'info');
+      try {
+        const datos = mensajeFec(pagina);
+        if (typeof c.writeValueWithoutResponse === 'function' && c.properties.writeWithoutResponse) await c.writeValueWithoutResponse(datos);
+        else if (typeof c.writeValueWithResponse === 'function') await c.writeValueWithResponse(datos);
+        else await c.writeValue(datos);
+        return true;
+      } catch (e) {
+        this.eventos.onLog(`✗ ${descripcion}: ${mensajeError(e)}`, 'error');
+        return false;
+      }
+    });
   }
 
   private alRecibirCP(dv: DataView) {
@@ -221,11 +302,23 @@ export class RodilloFtms extends SensorBle {
   }
 
   fijarPotencia(vatios: number) {
+    if (this.fec) {
+      // Página 49: potencia objetivo en pasos de 0,25 W
+      const v = Math.max(0, Math.min(16383, Math.round(vatios * 4)));
+      return this.paginaFec([0x31, 0xff, 0xff, 0xff, 0xff, 0xff, v & 0xff, v >> 8], `Tacx ERG ${Math.round(vatios)} W`);
+    }
     return this.ordenar(() => Comandos.targetPower(vatios), `Set Target Power ${Math.round(vatios)} W`);
   }
 
   /** @param rebufo ahorro de aire yendo a rueda (0 … 0,3): el rodillo resiste menos. */
-  fijarPendiente(pendiente: number, rebufo = 0) {
+  async fijarPendiente(pendiente: number, rebufo = 0) {
+    if (this.fec) {
+      // Páginas 50 (viento: 0,51 kg/m, menos con rebufo) y 51 (pendiente en 0,01 % desde −200 %, rodadura 0,004)
+      const g = Math.round((Math.max(-200, Math.min(200, pendiente)) + 200) * 100);
+      const aire = Math.round(Math.max(0, Math.min(1, 1 - rebufo)) * 100);
+      await this.paginaFec([0x32, 0xff, 0xff, 0xff, 0xff, 51, 127, aire], `Tacx viento${rebufo > 0 ? ` (rebufo −${Math.round(rebufo * 100)} %)` : ''}`);
+      return this.paginaFec([0x33, 0xff, 0xff, 0xff, 0xff, g & 0xff, g >> 8, 80], `Tacx pendiente ${pendiente.toFixed(1)} %`);
+    }
     return this.ordenar(
       () => Comandos.simulacion(pendiente, 0, 0.004, 0.51 * (1 - rebufo)),
       `Simulación pendiente ${pendiente.toFixed(1)} %${rebufo > 0 ? ` · rebufo −${Math.round(rebufo * 100)} % de aire` : ''}`,

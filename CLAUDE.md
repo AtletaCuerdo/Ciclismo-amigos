@@ -341,6 +341,12 @@ al conectar en un aparato sale en todos (la app instalada en el PC de Jesús no 
 TriCoach Entrenos, las sesiones de RideCrew («… · rodillo» en Strava) solo se emparejan con el entreno del mismo título. Confirmado por el
 usuario el 22-11: la carpeta ya sale en el portátil y el emparejamiento es correcto.
 
+23-11: Tacx por «FE-C sobre Bluetooth» (amigo con Tacx Flow Smart 2020: Zwift y MyWhoosh le hacen ERG, RideCrew no lo
+encontraba porque solo buscaba FTMS 0x1826). `RodilloFtms` busca también el servicio Tacx `6e40fec1-…` y nombres «Tacx»;
+si no hay FTMS usa FEC2 (notificaciones: páginas 16 y 25 → velocidad, cadencia, vatios) y FEC3 (órdenes: mensaje ANT
+`A4 09 4F 05 <página> XOR`; páginas 49 ERG, 50 viento/rebufo, 51 pendiente). Misma tarjeta «Rodillo inteligente». Sin
+probar con el aparato.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
