@@ -36,6 +36,7 @@ import {
   tieneMaterial,
   existencias,
   monedasGanadas,
+  normalizarDespensa,
   nutricionPorId,
   tomar,
   type IdNutricion,
@@ -1970,7 +1971,19 @@ export default function App() {
       vivo = false;
     };
   }, [versionHistorial, usuario?.uid]);
-  const saldo = Math.max(0, ganadas - (perfil.despensa?.gastado ?? 0));
+  const saldo = Math.max(0, ganadas + (perfil.despensa?.regalo ?? 0) - (perfil.despensa?.gastado ?? 0));
+  /** Solo el administrador: RideCoins de regalo para probar la tienda y las paradas. */
+  const regalarmeMonedas = (n: number) => {
+    const p = perfilRef.current;
+    const d = normalizarDespensa(p.despensa);
+    cambiarPerfil({ ...p, despensa: { ...d, regalo: (d.regalo ?? 0) + n } });
+  };
+  // Los primeros 10.000 de regalo se le ponen solos al administrador (después, con el botón de la tienda).
+  // Tras sincronizar con la nube: si ya los tenía en otro aparato, la mezcla se queda con el mayor.
+  useEffect(() => {
+    if (soyAdmin && sync.tipo === 'ok' && !perfil.despensa?.regalo) regalarmeMonedas(10000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [soyAdmin, sync.tipo]);
   const comprarNutricion = (id: IdNutricion) => {
     if (saldo < nutricionPorId(id).precio) return;
     cambiarPerfil({ ...perfil, despensa: comprar(perfil.despensa, id) });
@@ -2407,6 +2420,7 @@ export default function App() {
         <PantallaTienda
           saldo={saldo}
           despensa={perfil.despensa}
+          onRegalo={soyAdmin ? () => regalarmeMonedas(10000) : undefined}
           onComprar={comprarNutricion}
           onVolver={volver}
           avatar={perfil.avatar}

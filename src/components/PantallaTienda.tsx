@@ -45,8 +45,11 @@ export function PantallaTienda({
   onVolver,
   avatar,
   onMaterial,
+  onRegalo,
 }: {
   saldo: number;
+  /** Solo el administrador: +10.000 RideCoins para probar. */
+  onRegalo?: () => void;
   despensa?: Despensa;
   onComprar: (id: IdNutricion) => void;
   onVolver: () => void;
@@ -72,6 +75,11 @@ export function PantallaTienda({
         <strong>{saldo.toLocaleString('es-ES')}</strong>
         <span>RideCoins</span>
       </div>
+      {onRegalo && (
+        <button className="boton-secundario" onClick={onRegalo} title="Solo lo ves tú, como administrador">
+          🎁 Añadirme 10.000 RideCoins (administrador)
+        </button>
+      )}
 
       <h3>Nutrición</h3>
       <p className="detalle">

@@ -361,6 +361,9 @@ está donde le toca por lo pedaleado. Pegado a otro no se para. Sin reglas nueva
 ese sitio (vuelve en la vuelta siguiente); «Seguir sin tomar nada» también olvida la parada.
 Botón de salir según el sitio (`salir` en `INFO_PARADA`: «Seguir sin masaje» en el fisio). El emoji 🪙 sale como un
 cuadrado en Windows 10: en pantalla va `<Moneda />` (components/Moneda.tsx, moneda dorada con «R» en CSS, `.moneda`).
+23-11 (4): RideCoins de regalo para que el administrador lo pruebe todo: `despensa.regalo` (contador que solo sube, se suma al
+saldo; al sincronizar gana el mayor). Los primeros 10.000 se ponen solos tras sincronizar; más con «🎁 Añadirme 10.000» en la
+tienda (solo `soyAdmin`). Sin reglas nuevas.
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).

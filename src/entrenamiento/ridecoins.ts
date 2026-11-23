@@ -68,6 +68,8 @@ export interface Despensa {
   usadas: Partial<Record<IdNutricion, number>>;
   /** Material comprado (ids de MATERIAL): se tiene para siempre. */
   material?: string[];
+  /** RideCoins regalados (solo el administrador, para probar): se suman al saldo. */
+  regalo?: number;
 }
 
 export const despensaVacia = (): Despensa => ({ gastado: 0, compradas: {}, usadas: {} });
@@ -146,6 +148,7 @@ export function normalizarDespensa(x: unknown): Despensa {
     compradas: lista(d.compradas),
     usadas: lista(d.usadas),
     ...(material.length ? { material: [...new Set(material)].sort() } : {}),
+    ...(contador(d.regalo) ? { regalo: contador(d.regalo) } : {}),
   };
 }
 
@@ -167,6 +170,7 @@ export function mezclarDespensa(a?: Despensa, b?: Despensa): Despensa {
     compradas: max(x.compradas, y.compradas),
     usadas: max(x.usadas, y.usadas),
     ...(material.length ? { material } : {}),
+    ...(Math.max(x.regalo ?? 0, y.regalo ?? 0) ? { regalo: Math.max(x.regalo ?? 0, y.regalo ?? 0) } : {}),
   };
 }
 
