@@ -25,7 +25,7 @@ import {
 } from './recursos';
 import { crestas, datosRuidoPeriodico, fbm } from './ruido';
 import { trazadoDe, type Trazado } from './trazado';
-import { CRUCES, circuitoPorId } from './circuitos';
+import { CRUCES, circuitoPorId, longitudDe } from './circuitos';
 import { INFO_PARADA, LADO_PARADA_M, PARADAS } from './paradas';
 import type { TipoParada } from '../entrenamiento/ridecoins';
 import { nombreDeSubida } from './segmentos';
@@ -486,6 +486,10 @@ export class EscenaRecorrido {
    */
   private giro: { s: number; lado: 1 | -1; carril: number } | null = null;
   private giroDir = new THREE.Vector3();
+  /** Velódromo: media recta (h) y radio de las curvas (R) del óvalo, centrado en el origen. */
+  private ovalo: { h: number; R: number } | null = null;
+  /** Velódromo: peralte en cada punto del trazado (pendiente lateral; > 0 sube hacia la derecha). */
+  private peralte: Float32Array | null = null;
 
   /** Empieza a girar en el cruce que está en `s` (m) hacia ese lado. null: sigue recto. */
   girarEnCruce(s: number | null, lado: 1 | -1 = 1) {
@@ -606,6 +610,7 @@ export class EscenaRecorrido {
     this.escena.add(this.ambiente);
 
     this.indice = new IndiceCarretera(this.tr);
+    if (CIRCUITO.forma.ovalo) this.prepararVelodromo();
     if (CIRCUITO.paisaje === 'sierra') {
       const paso = Math.round(200 / PASO_M);
       const n = Math.floor(this.tr.n / paso);
@@ -624,11 +629,12 @@ export class EscenaRecorrido {
 
     this.crearTerreno();
     this.crearCarretera();
-    this.crearQuitamiedosYVallas();
+    if (!this.ovalo) this.crearQuitamiedosYVallas();
     this.crearVegetacion();
     this.crearCasas();
     this.crearMurosPiedra();
-    this.crearEspectadores();
+    // En el velódromo, el público está en las gradas
+    if (!this.ovalo) this.crearEspectadores();
     this.crearPajaros();
     this.crearMolinos();
     this.crearAgua();
@@ -636,7 +642,8 @@ export class EscenaRecorrido {
     if (this.costa) this.crearFaro();
     this.crearNubes();
     this.crearSalidaYMarcas();
-    this.crearTaludes();
+    if (!this.ovalo) this.crearTaludes();
+    if (this.ovalo) this.crearGradasVelodromo();
     this.crearCartelesPendiente();
     this.crearParadas();
 
@@ -701,7 +708,8 @@ export class EscenaRecorrido {
       this.cielo.removeFromParent();
 
       // Asfalto: 2 × 2 m por repetición (las líneas van aparte)
-      if (this.materialAsfalto) {
+      // (El velódromo se queda con su hormigón liso: el asfalto con grietas no pega en una pista)
+      if (this.materialAsfalto && !this.ovalo) {
         for (const t of [asfalto, asfaltoNormal, asfaltoRugosidad]) t.repeat.set(4, 1);
         this.materialAsfalto.map = asfalto;
         this.materialAsfalto.normalMap = asfaltoNormal;
@@ -902,6 +910,12 @@ export class EscenaRecorrido {
 
   /** Altura del terreno: igual a la carretera cerca de ella, colinas lejos y el hueco del lago. */
   private alturaTerreno(x: number, z: number, cercano = this.indice.cercano(x, z)) {
+    if (this.ovalo) {
+      // Velódromo: el césped de dentro, llano; fuera, llano bajo las gradas y colinas suaves lejos
+      if (this.distanciaOvalo(x, z) < 0) return cercano.alt;
+      const w = suavizado(70, 600, cercano.distancia);
+      return cercano.alt * (1 - w) + this.fondo(x, z) * w;
+    }
     const w = suavizado(ZONA_LLANA_M, 300, cercano.distancia);
     let h = cercano.alt * (1 - w) + (w > 0 ? this.fondo(x, z) * w : 0);
     const dl = Math.hypot(x - this.lago.x, z - this.lago.z);
@@ -928,6 +942,8 @@ export class EscenaRecorrido {
   }
 
   private enLago(x: number, z: number, margen = 15) {
+    // Velódromo: nada dentro del óvalo ni sobre las gradas
+    if (this.ovalo && this.distanciaOvalo(x, z) < 55 + margen / 3) return true;
     if (Math.hypot(x - this.lago.x, z - this.lago.z) < this.lago.r + margen) return true;
     // Tampoco encima de la gasolinera, el bar, la cafetería o el fisio (ni árboles, ni casas, ni muros)
     for (const p of this.paradas) if (Math.hypot(x - p.x, z - p.z) < 16 + margen / 3) return true;
@@ -1104,8 +1120,8 @@ export class EscenaRecorrido {
       const y = altitud(s);
       const rx = -this.tr.dz[i];
       const rz = this.tr.dx[i];
-      pos.set([this.tr.x[i] + rx * lateralA, y + alturaA, this.tr.z[i] + rz * lateralA], k * 6);
-      pos.set([this.tr.x[i] + rx * lateralB, y + alturaB, this.tr.z[i] + rz * lateralB], k * 6 + 3);
+      pos.set([this.tr.x[i] + rx * lateralA, y + alturaA + this.alzado(i, lateralA), this.tr.z[i] + rz * lateralA], k * 6);
+      pos.set([this.tr.x[i] + rx * lateralB, y + alturaB + this.alzado(i, lateralB), this.tr.z[i] + rz * lateralB], k * 6 + 3);
       uv.set([0, s / uvRepetir, 1, s / uvRepetir], k * 4);
       if (k < n) {
         const a = k * 2;
@@ -1124,6 +1140,10 @@ export class EscenaRecorrido {
   }
 
   private crearCarretera() {
+    if (this.ovalo) {
+      this.crearPistaVelodromo();
+      return;
+    }
     // Mientras carga la textura real, asfalto de color liso
     const asfalto = new THREE.MeshStandardMaterial({ color: 0x4a4d52, roughness: 0.92, side: THREE.DoubleSide });
     this.materialAsfalto = asfalto;
@@ -2769,6 +2789,218 @@ export class EscenaRecorrido {
     }
   }
 
+  // =========================================================================
+  // Velódromo
+  // =========================================================================
+
+  /** Medidas del óvalo y peralte de las curvas (≈22° en el centro, con 25 m de transición). */
+  private prepararVelodromo() {
+    const ovalo = CIRCUITO.forma.ovalo!;
+    this.ovalo = { h: ovalo.recta / 2, R: (longitudDe(CIRCUITO) - 2 * ovalo.recta) / (2 * Math.PI) };
+    const n = this.tr.n;
+    // Curvatura (1/m, > 0 a la izquierda) con los puntos de ±5 m
+    const k = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const a = (i - 1 + n) % n;
+      const b = (i + 1) % n;
+      const c = this.tr.dx[a] * this.tr.dz[b] - this.tr.dz[a] * this.tr.dx[b];
+      k[i] = -Math.asin(Math.max(-1, Math.min(1, c))) / (2 * PASO_M);
+    }
+    const r = Math.round(25 / PASO_M);
+    const p = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      let suma = 0;
+      for (let j = -r; j <= r; j++) suma += k[(i + j + n) % n];
+      p[i] = Math.max(-0.42, Math.min(0.42, (suma / (2 * r + 1)) * 38));
+    }
+    this.peralte = p;
+  }
+
+  /** Distancia al eje del óvalo (negativa dentro). */
+  private distanciaOvalo(x: number, z: number) {
+    const o = this.ovalo!;
+    return Math.hypot(Math.max(0, Math.abs(x) - o.h), z) - o.R;
+  }
+
+  /**
+   * Altura que da el peralte en el punto i del trazado, a `lateral` m del eje: el borde de dentro
+   * se queda a ras y el de fuera sube; más allá de la pista, lo mismo que su borde.
+   */
+  private alzado(i: number, lateral: number) {
+    const p = this.peralte?.[i] ?? 0;
+    if (!p) return 0;
+    const mitad = ANCHO_CARRETERA / 2;
+    return Math.max(0, (Math.max(-mitad, Math.min(mitad, lateral)) + mitad * Math.sign(p)) * p);
+  }
+
+  /** Tramos de la vuelta sin las salidas (por ahí no hay valla ni gradas: pasan los ramales). */
+  private tramosSinSalidas(hueco: number): [number, number][] {
+    const salidas = (CRUCES[CIRCUITO.id] ?? []).map((c) => c.km * 1000).sort((a, b) => a - b);
+    const tramos: [number, number][] = [];
+    let desde = 0;
+    for (const s of salidas) {
+      tramos.push([desde, s - hueco]);
+      desde = s + hueco;
+    }
+    tramos.push([desde, LONGITUD_VUELTA_M]);
+    return tramos.filter(([a, b]) => b - a > 5);
+  }
+
+  /** Pista de hormigón con sus líneas, la franja azul de dentro y la valla de fuera. */
+  private crearPistaVelodromo() {
+    const L = LONGITUD_VUELTA_M;
+    const pista = new THREE.MeshStandardMaterial({ color: 0xa9b2bb, roughness: 0.85, side: THREE.DoubleSide });
+    this.materialAsfalto = pista;
+    this.cinta(-ANCHO_CARRETERA / 2, ANCHO_CARRETERA / 2, 0.3, 0.3, 0, L, pista, 2);
+    const pintura = (color: number, desfase = -2) =>
+      new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.6,
+        side: THREE.DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: desfase,
+        polygonOffsetUnits: desfase,
+      });
+    // Franja azul por dentro (la «côte d'azur»), a ras del césped
+    this.cinta(-ANCHO_CARRETERA / 2 - 1.4, -ANCHO_CARRETERA / 2, 0.29, 0.3, 0, L, pintura(0x2a66c9, -1), 3);
+    // Línea negra de medida, roja de sprinters y azul de stayers
+    this.cinta(-3.78, -3.62, 0.31, 0.31, 0, L, pintura(0x141414));
+    this.cinta(-2.9, -2.74, 0.31, 0.31, 0, L, pintura(0xd42a2a));
+    this.cinta(-0.6, -0.44, 0.31, 0.31, 0, L, pintura(0x1f5fd8));
+    // Valla de fuera: azul acolchada, con remate blanco
+    const valla = new THREE.MeshStandardMaterial({ color: 0x1d4f91, roughness: 0.7, side: THREE.DoubleSide });
+    const remate = new THREE.MeshStandardMaterial({ color: 0xf2f4f7, roughness: 0.5, side: THREE.DoubleSide });
+    const lado = ANCHO_CARRETERA / 2 + 0.05;
+    for (const [a, b] of this.tramosSinSalidas(12)) {
+      this.cinta(lado, lado, 0.3, 1.15, a, b, valla, 4);
+      this.cinta(lado, lado + 0.25, 1.15, 1.2, a, b, remate, 4);
+    }
+    // Carteles con el nombre en la valla de las rectas
+    const cartel = new THREE.MeshStandardMaterial({
+      map: texturaTexto('VELÓDROMO JUAN SIN CABRA', '#1d4f91', '#ffffff', 1024, 128),
+      roughness: 0.6,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+      side: THREE.DoubleSide,
+    });
+    const geo = new THREE.PlaneGeometry(6.4, 0.8);
+    const punto: PuntoRuta = { pos: new THREE.Vector3(), dx: 0, dz: 0 };
+    const o = this.ovalo!;
+    for (const centro of [0, L / 2]) {
+      for (let s = centro - o.h + 20; s <= centro + o.h - 20; s += 22) {
+        if ((CRUCES[CIRCUITO.id] ?? []).some((c) => Math.abs(c.km * 1000 - s) < 16)) continue;
+        this.puntoEn(s, lado - 0.03, punto);
+        const m = new THREE.Mesh(geo, cartel);
+        m.position.copy(punto.pos).add(new THREE.Vector3(0, 0.42, 0));
+        // De cara a la pista (hacia la izquierda de la marcha)
+        m.rotation.y = Math.atan2(punto.dz, -punto.dx);
+        this.escena.add(m);
+      }
+    }
+  }
+
+  /** Gradas alrededor de la pista con público, focos y el nombre del velódromo en lo alto. */
+  private crearGradasVelodromo() {
+    const L = LONGITUD_VUELTA_M;
+    const dentro = ANCHO_CARRETERA / 2 + 0.3;
+    const fondo = 24;
+    const [hDentro, hFondo] = [1.3, 11];
+    // Asientos: filas de colores a lo largo de la pista
+    const lienzoGradas = lienzo(256, 64);
+    const g = lienzoGradas.ctx;
+    const filas = 20;
+    const colores = ['#1d4f91', '#22d3ee', '#1d4f91', '#3b82f6'];
+    for (let f = 0; f < filas; f++) {
+      g.fillStyle = '#c9ced6';
+      g.fillRect((f / filas) * 256, 0, 256 / filas, 64);
+      g.fillStyle = colores[f % colores.length];
+      for (let a = 0; a < 64; a += 8) g.fillRect((f / filas) * 256 + 2, a + 1, 256 / filas - 5, 6);
+    }
+    const tex = new THREE.CanvasTexture(lienzoGradas.c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.anisotropy = 4;
+    const asientos = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8, side: THREE.DoubleSide });
+    const hormigon = new THREE.MeshStandardMaterial({ color: 0x9aa1a9, roughness: 0.95, side: THREE.DoubleSide });
+    const tramos = this.tramosSinSalidas(13);
+    for (const [a, b] of tramos) {
+      this.cinta(dentro, fondo, hDentro, hFondo, a, b, asientos, 4.5);
+      // Muro de atrás (hasta el suelo, también donde el peralte las sube) y el frente bajo la primera fila
+      this.cinta(fondo, fondo, -6, hFondo + 1.2, a, b, hormigon, 8);
+      this.cinta(dentro, dentro, -6, hDentro, a, b, hormigon, 8);
+    }
+
+    // Público: figuras sencillas sentadas, de cara a la pista (instanciadas)
+    const cuerpo = new THREE.CylinderGeometry(0.15, 0.19, 0.6, 7).scale(1, 1, 0.75).translate(0, 0.3, 0);
+    const cabeza = new THREE.SphereGeometry(0.11, 7, 5).translate(0, 0.74, 0);
+    // (las dos sin índice: mergeGeometries no junta una con índice y otra sin él)
+    const figura = mergeGeometries([cuerpo.toNonIndexed(), cabeza.toNonIndexed()])!;
+    const rnd = aleatorio(808);
+    const matrices: THREE.Matrix4[] = [];
+    const tonos: THREE.Color[] = [];
+    const paleta = [0xd94a3a, 0x2c7be5, 0xf2c14e, 0x2fb67c, 0xf5f5f5, 0x1b1f2a, 0xe8772e, 0x8e5bd6, 0x22d3ee, 0xe0569b];
+    const punto: PuntoRuta = { pos: new THREE.Vector3(), dx: 0, dz: 0 };
+    const q = new THREE.Quaternion();
+    const eje = new THREE.Vector3(0, 1, 0);
+    const prob = 0.28 * this.factor;
+    for (const [a, b] of tramos) {
+      for (let s = a + 1; s < b - 1; s += 0.62) {
+        for (let f = 0; f < filas; f++) {
+          if (rnd() > prob) continue;
+          const lat = dentro + ((f + 0.5) / filas) * (fondo - dentro);
+          const alto = hDentro + ((lat - dentro) / (fondo - dentro)) * (hFondo - hDentro);
+          this.puntoEn(s + (rnd() - 0.5) * 0.2, lat, punto);
+          const m = new THREE.Matrix4();
+          q.setFromAxisAngle(eje, Math.atan2(-punto.dz, punto.dx) + Math.PI + (rnd() - 0.5) * 0.5);
+          const t = 0.9 + rnd() * 0.2;
+          m.compose(punto.pos.clone().add(new THREE.Vector3(0, alto - 0.3, 0)), q, new THREE.Vector3(t, t, t));
+          matrices.push(m);
+          tonos.push(new THREE.Color(paleta[Math.floor(rnd() * paleta.length)]));
+        }
+      }
+    }
+    const gente = new THREE.InstancedMesh(figura, new THREE.MeshStandardMaterial({ roughness: 0.85 }), matrices.length);
+    matrices.forEach((m, i) => {
+      gente.setMatrixAt(i, m);
+      gente.setColorAt(i, tonos[i]);
+    });
+    this.escena.add(gente);
+
+    // Torres de focos por fuera de las gradas
+    const matTorre = new THREE.MeshStandardMaterial({ color: 0x8a9099, roughness: 0.5, metalness: 0.6 });
+    const matFoco = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff4d6, emissiveIntensity: 1.2 });
+    for (let k = 0; k < 6; k++) {
+      const s = (k / 6) * L + 80;
+      const i = Math.round(enVuelta(s) / PASO_M) % this.tr.n;
+      this.puntoEn(s, fondo + 6, punto);
+      const base = punto.pos.clone().setY(altitud(s) - 1);
+      const torre = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.6, 34, 10), matTorre);
+      torre.position.copy(base).add(new THREE.Vector3(0, 17, 0));
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(5, 3, 0.6), [matTorre, matTorre, matTorre, matTorre, matFoco, matTorre]);
+      panel.position.copy(base).add(new THREE.Vector3(0, 34 + this.alzado(i, fondo), 0));
+      // Mirando hacia el centro, un poco hacia abajo
+      panel.lookAt(new THREE.Vector3(0, altitud(s), 0));
+      this.escena.add(torre, panel);
+    }
+
+    // El nombre del velódromo en lo alto de las gradas de las dos rectas
+    const nombre = new THREE.MeshStandardMaterial({
+      map: texturaTexto(CIRCUITO.nombre.toUpperCase(), '#0b1220', '#22d3ee', 2048, 256),
+      emissive: 0x22d3ee,
+      emissiveIntensity: 0.15,
+      roughness: 0.5,
+      side: THREE.DoubleSide,
+    });
+    for (const s of [0, L / 2]) {
+      this.puntoEn(s, fondo - 0.5, punto);
+      const cartel = new THREE.Mesh(new THREE.PlaneGeometry(44, 5.5), nombre);
+      cartel.position.copy(punto.pos).add(new THREE.Vector3(0, hFondo + 4.2, 0));
+      cartel.rotation.y = Math.atan2(punto.dz, -punto.dx);
+      this.escena.add(cartel);
+    }
+  }
+
   private crearSalidaYMarcas() {
     // Arco de salida/meta en el km 0
     const i = 0;
@@ -3151,7 +3383,8 @@ export class EscenaRecorrido {
     const l = Math.hypot(dx, dz) || 1;
     const px = this.tr.x[i] * (1 - f) + this.tr.x[j] * f;
     const pz = this.tr.z[i] * (1 - f) + this.tr.z[j] * f;
-    salida.pos.set(px - (dz / l) * lateral, altitud(s) + 0.3, pz + (dx / l) * lateral);
+    const alzado = this.peralte ? this.alzado(i, lateral) * (1 - f) + this.alzado(j, lateral) * f : 0;
+    salida.pos.set(px - (dz / l) * lateral, altitud(s) + 0.3 + alzado, pz + (dx / l) * lateral);
     salida.dx = dx / l;
     salida.dz = dz / l;
     return salida;

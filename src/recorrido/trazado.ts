@@ -41,7 +41,32 @@ export function trazadoDe(c: DefCircuito, paso: number): Trazado {
   const nd = Math.round(longitud);
   const bx = new Float64Array(nd + 1);
   const bz = new Float64Array(nd + 1);
-  for (let i = 0; i <= nd; i++) {
+  const ovalo = c.forma.ovalo;
+  if (ovalo) {
+    // Velódromo: recta de meta en z = +R hacia +x, curva a la izquierda, recta de enfrente y otra curva
+    const h = ovalo.recta / 2;
+    const R = (longitud - 2 * ovalo.recta) / (2 * Math.PI);
+    const curva1 = h + Math.PI * R;
+    const recta2 = curva1 + ovalo.recta;
+    const curva2 = recta2 + Math.PI * R;
+    for (let i = 0; i <= nd; i++) {
+      const d = ((i % nd) / nd) * longitud;
+      let x: number;
+      let z: number;
+      if (d < h) [x, z] = [d, R];
+      else if (d < curva1) {
+        const f = Math.PI / 2 - (d - h) / R;
+        [x, z] = [h + R * Math.cos(f), R * Math.sin(f)];
+      } else if (d < recta2) [x, z] = [h - (d - curva1), -R];
+      else if (d < curva2) {
+        const f = -Math.PI / 2 - (d - recta2) / R;
+        [x, z] = [-h + R * Math.cos(f), R * Math.sin(f)];
+      } else [x, z] = [-h + (d - curva2), R];
+      bx[i] = x;
+      bz[i] = z;
+    }
+  }
+  for (let i = 0; i <= nd && !ovalo; i++) {
     const u = (i % nd) / nd;
     const p = curva.getPointAt(u);
     let desvio = 0;

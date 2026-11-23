@@ -27,6 +27,11 @@ export interface DefCircuito {
      * El radio mínimo de cada una es ≈ onda² / (4π²·amplitud).
      */
     meandros?: [number, number, number][];
+    /**
+     * Óvalo de velódromo (en lugar de la curva anterior): dos rectas de `recta` m unidas por dos
+     * curvas de 180°. Empieza en mitad de la recta de meta y gira a la izquierda.
+     */
+    ovalo?: { recta: number };
   };
   /** Lago junto a la carretera: en el metro `s`, a `distancia` hacia dentro, de radio `r`. */
   lago: { s: number; distancia: number; r: number } | null;
@@ -41,7 +46,12 @@ export interface DefCircuito {
    */
   mar?: { desde: number; hasta: number };
   /** Paisaje: colinas con cultivos, ribera con cereal dorado, sierra con pinares y roca o costa. */
-  paisaje: 'colinas' | 'ribera' | 'sierra' | 'costa';
+  paisaje: 'colinas' | 'ribera' | 'sierra' | 'costa' | 'velodromo';
+  /**
+   * Velódromo: sus salidas (cruces) solo se abren cada tantas vueltas dadas dentro (contadas desde
+   * que se entra). Sin indicar: siempre abiertas.
+   */
+  salidaCadaVueltas?: number;
   /**
    * Cómo se une el perfil entre puntos clave: con coseno (cada punto clave es un rellano) o
    * `suave` (un puerto largo sube seguido, sin rellanos). Sin indicar: coseno.
@@ -267,6 +277,27 @@ export const CIRCUITOS: DefCircuito[] = [
     extra: [['Paseo marítimo', 0.2, 3.2]],
     metas: [1.6, 11.2],
   },
+  {
+    id: 'velodromo',
+    nombre: 'Velódromo Juan sin cabra',
+    descripcion: 'Pista llana de 1 km con curvas peraltadas y gradas llenas. Cada 5 vueltas se abre la salida a los otros circuitos.',
+    sala: 'velodromo',
+    puntos: [
+      [0, 40],
+      [0.5, 40],
+      [1, 40],
+    ],
+    // Rectas de 200 m y curvas de 300 m (radio ~95 m)
+    forma: { n: 4, rx: 1, rz: 1, ondas: [], ovalo: { recta: 200 } },
+    lago: null,
+    rio: null,
+    paisaje: 'velodromo',
+    salidaCadaVueltas: 5,
+    relieve: { base: 40, escala: 0.25 },
+    desnivelSegmento: 10,
+    extra: [],
+    metas: [],
+  },
 ];
 
 /** Salida de un cruce: a qué circuito lleva y en qué km de él apareces. */
@@ -284,7 +315,7 @@ export interface Cruce {
 
 /**
  * Cruces de cada circuito (dos por vuelta, siempre en llano, y desde cada uno se llega a los otros
- * tres). Cada circuito es un mundo aparte: al girar se carga el otro y apareces en su km indicado,
+ * tres; el velódromo, desde un cruce de cada uno). Cada circuito es un mundo aparte: al girar se carga el otro y apareces en su km indicado,
  * también en llano. El desnivel grabado sale de la pendiente, así que el salto de altitud no cuenta.
  */
 /** Metros pasado el cruce en los que se cambia al otro circuito (ya al final del ramal del 3D). */
@@ -292,20 +323,25 @@ export const CRUCE_CAMBIO_M = 20;
 
 export const CRUCES: Record<string, Cruce[]> = {
   vuelta17: [
-    { km: 1, derecha: { circuito: 'sierra', km: 1.5 } },
+    { km: 1, izquierda: { circuito: 'velodromo', km: 0.46 }, derecha: { circuito: 'sierra', km: 1.5 } },
     { km: 8.5, izquierda: { circuito: 'ribera', km: 9.5 }, derecha: { circuito: 'costa', km: 2.5 } },
   ],
   ribera: [
     { km: 9.5, izquierda: { circuito: 'vuelta17', km: 8.5 }, derecha: { circuito: 'costa', km: 1.5 } },
-    { km: 18.5, derecha: { circuito: 'sierra', km: 1.5 } },
+    { km: 18.5, izquierda: { circuito: 'velodromo', km: 0.46 }, derecha: { circuito: 'sierra', km: 1.5 } },
   ],
   sierra: [
     { km: 1.5, izquierda: { circuito: 'vuelta17', km: 1 }, derecha: { circuito: 'ribera', km: 18.5 } },
-    { km: 12, derecha: { circuito: 'costa', km: 11 } },
+    { km: 12, izquierda: { circuito: 'velodromo', km: 0.54 }, derecha: { circuito: 'costa', km: 11 } },
   ],
   costa: [
     { km: 2.5, izquierda: { circuito: 'vuelta17', km: 8.5 }, derecha: { circuito: 'ribera', km: 9.5 } },
-    { km: 11, izquierda: { circuito: 'sierra', km: 12 } },
+    { km: 11, izquierda: { circuito: 'sierra', km: 12 }, derecha: { circuito: 'velodromo', km: 0.54 } },
+  ],
+  // Las dos salidas, en la recta de enfrente (sin peralte): por dentro y por fuera, entre las gradas
+  velodromo: [
+    { km: 0.46, izquierda: { circuito: 'vuelta17', km: 1 }, derecha: { circuito: 'ribera', km: 18.5 } },
+    { km: 0.54, izquierda: { circuito: 'sierra', km: 12 }, derecha: { circuito: 'costa', km: 11 } },
   ],
 };
 

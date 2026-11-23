@@ -1529,6 +1529,7 @@ export default function App() {
    */
   const pasarACircuito = (id: string, sobra: number) => {
     elegirCircuito(id);
+    inicioCircuitoRef.current = { id, s: sobra };
     setAdelanto(sobra - grabacion.distanciaM);
     cronoRef.current.cancelar();
     setTramosActivos([]);
@@ -1554,14 +1555,34 @@ export default function App() {
   };
 
   // ---- Cruces: a 600 m de uno se puede elegir girar a otro circuito ----
+  /** Dónde (m) se entró en el circuito actual: para contar las vueltas del velódromo. */
+  const inicioCircuitoRef = useRef<{ id: string; s: number } | null>(null);
   const [eleccionCruce, setEleccionCruce] = useState<{ km: number; lado: 'izquierda' | 'derecha' } | null>(null);
   const enLaVuelta = ((distanciaRef.current % LONGITUD_VUELTA_M) + LONGITUD_VUELTA_M) % LONGITUD_VUELTA_M;
+  // Velódromo: sus salidas solo se abren cada N vueltas (contadas desde que se entra en él)
+  const cadaVueltas = circuitoPorId(circuitoId).salidaCadaVueltas ?? 0;
+  if (!enRecorrido) inicioCircuitoRef.current = null;
+  else if (inicioCircuitoRef.current?.id !== circuitoId) inicioCircuitoRef.current = { id: circuitoId, s: distanciaRef.current };
+  const vueltasDentro = (s: number) => (s - (inicioCircuitoRef.current?.s ?? 0)) / LONGITUD_VUELTA_M + 0.05;
+  const salidaAbierta = (metros: number) => {
+    if (!cadaVueltas) return true;
+    const v = Math.floor(vueltasDentro(distanciaRef.current + metros));
+    return v >= cadaVueltas && v % cadaVueltas === 0;
+  };
+  /** Velódromo: vueltas dadas y cuántas faltan para que se abra la salida (0: abierta en esta). */
+  const infoVelodromo = cadaVueltas && enRecorrido
+    ? (() => {
+        const hechas = Math.max(0, Math.floor(vueltasDentro(distanciaRef.current)));
+        const faltan = hechas >= cadaVueltas && hechas % cadaVueltas === 0 ? 0 : cadaVueltas - (hechas % cadaVueltas);
+        return { hechas, faltan };
+      })()
+    : null;
   // Pegado a otro («siempre juntos») no se gira: el ritmo y el camino los marca él
   const proximoCruce = pegadoRef.current
     ? null
     : (CRUCES[circuitoId] ?? [])
         .map((c) => ({ cruce: c, metros: c.km * 1000 - enLaVuelta }))
-        .find((c) => c.metros > 0 && c.metros <= 600) ?? null;
+        .find((c) => c.metros > 0 && c.metros <= 600 && salidaAbierta(c.metros)) ?? null;
   // ---- Sitios para parar (gasolinera, cafetería, bar, fisio): aviso a 600 m, «Parar» o «Seguir» ----
   // Tú sigues pedaleando: solo tu ciclista se echa al arcén, entra y vuelve donde le toca
   const [pararEn, setPararEn] = useState<number | null>(null);
@@ -2656,6 +2677,7 @@ export default function App() {
                   }
                 : null,
             }}
+            velodromo={infoVelodromo}
             cruce={
               proximoCruce
                 ? {

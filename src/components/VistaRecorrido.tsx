@@ -137,6 +137,8 @@ interface Props {
     eleccion: 'izquierda' | 'derecha' | null;
     onElegir: (lado: 'izquierda' | 'derecha' | null) => void;
   } | null;
+  /** Velódromo: vueltas dadas dentro y cuántas faltan para que se abra la salida (0: abierta). */
+  velodromo?: { hechas: number; faltan: number } | null;
   /** FC máxima (para el color del pulso por zonas). */
   fcMax: number;
   /** Giro en un cruce ya elegido: punto del cruce (m), lado y nombre del circuito al que se va. */
@@ -377,6 +379,7 @@ export default function VistaRecorrido({
   llegadaCruce,
   juntos,
   cruce,
+  velodromo,
   avatar,
   calidad,
   leerYo,
@@ -1206,6 +1209,16 @@ export default function VistaRecorrido({
       )}
 
       {parada && !cruce && <AvisoParada parada={parada} />}
+      {velodromo && !cruce && (
+        <div className="aviso-cruce-mini aviso-velodromo" role="status">
+          <span>
+            🏟️ Vuelta {velodromo.hechas + 1} ·{' '}
+            {velodromo.faltan === 0
+              ? 'salida abierta en esta vuelta'
+              : `salida en ${velodromo.faltan} ${velodromo.faltan === 1 ? 'vuelta' : 'vueltas'}`}
+          </span>
+        </div>
+      )}
       {parada?.dentro && <DentroParada parada={parada} />}
       {cruce && !cruceDecidido && (
         <div className="aviso-cruce">

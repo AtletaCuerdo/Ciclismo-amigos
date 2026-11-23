@@ -365,6 +365,18 @@ cuadrado en Windows 10: en pantalla va `<Moneda />` (components/Moneda.tsx, mone
 saldo; al sincronizar gana el mayor). Los primeros 10.000 se ponen solos tras sincronizar; más con «🎁 Añadirme 10.000» en la
 tienda (solo `soyAdmin`). Sin reglas nuevas.
 
+23-11 (5): 5.º circuito, «Velódromo Juan sin cabra» (`id: 'velodromo'`, `paisaje: 'velodromo'`, sala `velodromo`; las reglas
+ya valen para cualquier sala): óvalo de 1 km (`forma.ovalo`: rectas de 200 m y curvas de radio ~95 m, en `trazadoDe`), llano.
+En escena.ts (`this.ovalo`): peralte en las curvas (`prepararVelodromo`/`alzado`: ~22°, el borde de dentro a ras y el de
+fuera sube; lo usan `cinta` y `puntoEn`, así que ciclistas y cámara van sobre él), pista de hormigón liso con franja azul
+y líneas negra/roja/azul, valla azul con carteles, gradas con público instanciado, focos y el nombre en lo alto
+(`crearPistaVelodromo`, `crearGradasVelodromo`); sin quitamiedos, taludes ni público de meta; terreno llano dentro y nada
+de árboles ni casas a < 55 m (`distanciaOvalo` en `enLago`). Salidas: dos cruces en la recta de enfrente (km 0,46 y
+0,54, a los otros 4 circuitos; sin valla ni gradas ahí) que solo se abren cada 5 vueltas dadas dentro
+(`salidaCadaVueltas`, `inicioCircuitoRef` en App); aviso «🏟️ Vuelta N · salida en M vueltas» (`.aviso-velodromo`).
+Entradas: un lado libre de un cruce de cada circuito (Lago km 1 y Ribera km 18,5 izquierda; Sierra km 12 izquierda;
+Faro km 11 derecha). Prueba: `pruebas/velodromo.html?s=…&v=trasera|lateral|cenital`.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
