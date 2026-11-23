@@ -5,6 +5,7 @@
 import { MATERIAL, NUTRICION_TIENDA as NUTRICION, existencias, tieneMaterial, type Despensa, type IdNutricion, type Material } from '../entrenamiento/ridecoins';
 import type { Avatar } from '../recorrido/avatar';
 import { FisicaVirtual, equipoAvatar } from '../recorrido/fisica';
+import { Moneda } from './Moneda';
 
 /**
  * Lo que gana una pieza frente a lo básico (bici de ruta, perfil bajo y casco de ruta), con la
@@ -60,7 +61,7 @@ export function PantallaTienda({
   return (
     <section className="panel tienda">
       <div className="cabecera-panel">
-        <h2>🪙 Tienda</h2>
+        <h2><Moneda /> Tienda</h2>
         <button className="boton-secundario" onClick={onVolver}>
           Volver
         </button>
@@ -99,7 +100,7 @@ export function PantallaTienda({
                 {tengo > 0 && <span className="tienda-tengo">Tienes {tengo}</span>}
               </div>
               <button className="boton-principal" disabled={saldo < n.precio} onClick={() => onComprar(n.id)}>
-                🪙 {n.precio}
+                <Moneda /> {n.precio}
               </button>
             </div>
           );
@@ -144,7 +145,7 @@ export function PantallaTienda({
                 )
               ) : (
                 <button className="boton-principal" disabled={saldo < m.precio} onClick={() => onMaterial(m)}>
-                  🪙 {m.precio}
+                  <Moneda /> {m.precio}
                 </button>
               )}
             </div>

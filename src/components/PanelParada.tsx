@@ -4,11 +4,14 @@
  * el tiempo y los km siguen; solo tu ciclista entra y vuelve a salir donde le toca.
  */
 import type { Nutricion } from '../entrenamiento/ridecoins';
+import { Moneda } from './Moneda';
 
 interface Info {
   nombre: string;
   emoji: string;
   frase: string;
+  /** Texto del botón para irse sin nada («Seguir sin masaje» en el fisio). */
+  salir: string;
 }
 export interface PropsParada {
   aviso: (Info & { metros: number; parar: boolean; onParar: (si: boolean) => void }) | null;
@@ -78,13 +81,13 @@ export function DentroParada({ parada }: { parada: PropsParada }) {
                   {n.cafeina ? ' · con cafeína' : ''}
                 </small>
               </span>
-              <span className="parada-precio">🪙 {n.precio}</span>
+              <span className="parada-precio"><Moneda /> {n.precio}</span>
             </button>
           ))}
         </div>
-        <p className="parada-saldo">Tienes 🪙 {d.saldo.toLocaleString('es-ES')} RideCoins</p>
+        <p className="parada-saldo">Tienes <Moneda /> {d.saldo.toLocaleString('es-ES')} RideCoins</p>
         <button className="boton-secundario" onClick={d.onSalir}>
-          Seguir sin tomar nada
+          {d.salir}
         </button>
         <small className="parada-nota">Tú sigue pedaleando: el entreno, el tiempo y los km no se paran.</small>
       </div>

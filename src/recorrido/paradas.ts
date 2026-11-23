@@ -12,11 +12,11 @@ export interface Parada {
   km: number;
 }
 
-export const INFO_PARADA: Record<TipoParada, { nombre: string; emoji: string; rotulo: string; color: string; frase: string }> = {
-  gasolinera: { nombre: 'Gasolinera', emoji: '⛽', rotulo: 'GASOLINERA', color: '#d9361e', frase: 'Algo dulce y algo que despierte' },
-  cafeteria: { nombre: 'Cafetería', emoji: '☕', rotulo: 'CAFETERÍA', color: '#7a4a2a', frase: 'El café de media mañana' },
-  bar: { nombre: 'Bar', emoji: '🍺', rotulo: 'BAR', color: '#1f6f3a', frase: 'Un pincho y algo fresco' },
-  fisio: { nombre: 'Fisioterapia', emoji: '💆', rotulo: 'FISIOTERAPIA', color: '#1d6fb8', frase: 'Unas piernas como nuevas' },
+export const INFO_PARADA: Record<TipoParada, { nombre: string; emoji: string; rotulo: string; color: string; frase: string; salir: string }> = {
+  gasolinera: { nombre: 'Gasolinera', emoji: '⛽', rotulo: 'GASOLINERA', color: '#d9361e', frase: 'Algo dulce y algo que despierte', salir: 'Seguir sin tomar nada' },
+  cafeteria: { nombre: 'Cafetería', emoji: '☕', rotulo: 'CAFETERÍA', color: '#7a4a2a', frase: 'El café de media mañana', salir: 'Seguir sin tomar nada' },
+  bar: { nombre: 'Bar', emoji: '🍺', rotulo: 'BAR', color: '#1f6f3a', frase: 'Un pincho y algo fresco', salir: 'Seguir sin tomar nada' },
+  fisio: { nombre: 'Fisioterapia', emoji: '💆', rotulo: 'FISIOTERAPIA', color: '#1d6fb8', frase: 'Unas piernas como nuevas', salir: 'Seguir sin masaje' },
 };
 
 export const PARADAS: Record<string, Parada[]> = {

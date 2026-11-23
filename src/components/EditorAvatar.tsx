@@ -13,6 +13,7 @@ import {
   type Perfil,
 } from '../recorrido/avatar';
 import { materialPorId, tieneMaterial, type TipoMaterial } from '../entrenamiento/ridecoins';
+import { Moneda } from './Moneda';
 
 // La vista previa usa Three.js: se descarga solo al abrir el editor
 const VistaPreviaAvatar = lazy(() => import('./VistaPreviaAvatar'));
@@ -65,7 +66,7 @@ function Opciones<T extends string>({
           >
             {o.nombre}
             {o.descripcion && <small>{o.descripcion}</small>}
-            {p !== null && <small className="precio-material">🔒 🪙 {p}</small>}
+            {p !== null && <small className="precio-material">🔒 <Moneda /> {p}</small>}
           </button>
         );
       })}

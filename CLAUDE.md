@@ -359,6 +359,8 @@ toma al momento, sustituye al efecto que hubiera (`comprarEnParada` en App). Men
 está donde le toca por lo pedaleado. Pegado a otro no se para. Sin reglas nuevas.
 23-11 (3): «⬆️ Seguir» no quitaba el aviso (solo ponía «no parar»): ahora `seguidoEn` (App) lo esconde hasta pasar
 ese sitio (vuelve en la vuelta siguiente); «Seguir sin tomar nada» también olvida la parada.
+Botón de salir según el sitio (`salir` en `INFO_PARADA`: «Seguir sin masaje» en el fisio). El emoji 🪙 sale como un
+cuadrado en Windows 10: en pantalla va `<Moneda />` (components/Moneda.tsx, moneda dorada con «R» en CSS, `.moneda`).
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).

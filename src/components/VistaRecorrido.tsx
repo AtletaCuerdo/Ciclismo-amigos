@@ -38,6 +38,7 @@ import { TarjetaConexion, type InfoConexion } from './TarjetaConexion';
 import { conNivel } from '../entrenamiento/nivelPublico';
 import type { Nutricion } from '../entrenamiento/ridecoins';
 import { ESCENAS, type EscenaFinal } from './EscenaFinal';
+import { Moneda } from './Moneda';
 
 export interface DatosHud extends DatosYo {
   potencia?: number;
@@ -1057,7 +1058,7 @@ export default function VistaRecorrido({
                       </button>
                     ))
                 ) : (
-                  <small>No llevas nada. Compra en la tienda 🪙 con tus RideCoins (desde el inicio).</small>
+                  <small>No llevas nada. Compra en la tienda <Moneda /> con tus RideCoins (desde el inicio).</small>
                 )}
               </div>
             )}

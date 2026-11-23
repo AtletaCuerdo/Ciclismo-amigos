@@ -5207,3 +5207,26 @@ a.boton-secundario {
   opacity: 0.65;
   text-align: center;
 }
+
+/* Moneda de RideCoins (en lugar del emoji 🪙, que Windows 10 no tiene) */
+.moneda {
+  display: inline-block;
+  width: 0.95em;
+  height: 0.95em;
+  border-radius: 50%;
+  vertical-align: -0.12em;
+  background: radial-gradient(circle at 35% 30%, #fff3b0 0 12%, #f7c948 30%, #d99a1e 75%, #a86b0c 100%);
+  box-shadow: inset 0 0 0 0.09em #b77a12, 0 0 0 0.03em rgba(0, 0, 0, 0.25);
+  position: relative;
+}
+.moneda::after {
+  content: 'R';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.6em;
+  font-weight: 800;
+  line-height: 1;
+  color: #8a5608;
+}

@@ -14,6 +14,7 @@ import { EscenaFondo, type EscenaFinal } from './EscenaFinal';
 import { analizarFc } from '../entrenamiento/analisisFc';
 import { AnalisisFrecuencia } from './AnalisisFrecuencia';
 import type { EntrenoGuardado } from '../entrenamiento/tipos';
+import { Moneda } from './Moneda';
 
 interface Props {
   entreno: Entreno;
@@ -153,7 +154,7 @@ export function ResumenEntreno({
 
       {r.monedas !== undefined && (
         <div className="aviso-monedas" role="status">
-          <strong>🪙 +{r.monedas} RideCoins</strong>
+          <strong><Moneda /> +{r.monedas} RideCoins</strong>
           {r.monedasDetalle && r.monedasDetalle.length > 0 && (
             <span className="detalle">{r.monedasDetalle.map(([c, n]) => `${c} +${n}`).join(' · ')}</span>
           )}
@@ -292,7 +293,7 @@ export function ResumenEntreno({
             )}
             {r.monedas !== undefined && (
               <span className="resumen-mini-monedas">
-                <strong>+{r.monedas}</strong>🪙 RideCoins
+                <strong>+{r.monedas}</strong><Moneda /> RideCoins
               </span>
             )}
           </div>

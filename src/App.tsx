@@ -105,6 +105,7 @@ import { AVISO_PARADA_M, INFO_PARADA, PARADAS } from './recorrido/paradas';
 import { ESTADO_VOZ_APAGADA, Voz, canalFirebase, type EstadoVoz } from './multijugador/voz';
 import { CIRCUITO, LONGITUD_VUELTA_M, pendiente as pendienteRuta, usarCircuito } from './recorrido/perfil';
 import { CIRCUITOS, CRUCES, CRUCE_CAMBIO_M, circuitoPorId, longitudDe } from './recorrido/circuitos';
+import { Moneda } from './components/Moneda';
 import {
   CIELOS,
   cieloSegunHora,
@@ -2260,7 +2261,7 @@ export default function App() {
               <span>Diseña tus propias series</span>
             </button>
             <button className="accion accion-tienda" onClick={() => setPantalla('tienda')}>
-              <span className="accion-icono" aria-hidden>🪙</span>
+              <span className="accion-icono" aria-hidden><Moneda /></span>
               <strong>Tienda · {saldo.toLocaleString('es-ES')} RideCoins</strong>
               <span>Gana RideCoins rodando y cámbialos por geles, ruedas, cascos y bicis más rápidas</span>
             </button>
