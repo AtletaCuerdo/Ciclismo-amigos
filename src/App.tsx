@@ -1563,6 +1563,8 @@ export default function App() {
   // ---- Sitios para parar (gasolinera, cafetería, bar, fisio): aviso a 600 m, «Parar» o «Seguir» ----
   // Tú sigues pedaleando: solo tu ciclista se echa al arcén, entra y vuelve donde le toca
   const [pararEn, setPararEn] = useState<number | null>(null);
+  /** Sitio al que se dijo «Seguir»: su aviso se quita (hasta la vuelta siguiente). */
+  const [seguidoEn, setSeguidoEn] = useState<number | null>(null);
   const [dentroParada, setDentroParada] = useState<{ km: number; desde: number } | null>(null);
   const proximaParada =
     pegadoRef.current || dentroParada || !enRecorrido
@@ -1570,6 +1572,10 @@ export default function App() {
       : ((PARADAS[circuitoId] ?? [])
           .map((p) => ({ parada: p, metros: p.km * 1000 - enLaVuelta }))
           .find((x) => x.metros > -30 && x.metros <= AVISO_PARADA_M) ?? null);
+  // Pasado el sitio al que se dijo «Seguir», su aviso vuelve a valer para la vuelta siguiente
+  useEffect(() => {
+    if (seguidoEn !== null && proximaParada?.parada.km !== seguidoEn) setSeguidoEn(null);
+  });
   // Al llegar al sitio elegido, se entra; si se pasa de largo (o deja de tocar), se olvida
   useEffect(() => {
     if (pararEn === null) return;
@@ -2609,12 +2615,16 @@ export default function App() {
             llegadaCruce={llegadaCruce}
             parada={{
               aviso:
-                proximaParada && proximaParada.metros > 12
+                proximaParada && proximaParada.metros > 12 && seguidoEn !== proximaParada.parada.km
                   ? {
                       ...INFO_PARADA[proximaParada.parada.tipo],
                       metros: proximaParada.metros,
                       parar: pararEn === proximaParada.parada.km,
-                      onParar: (si: boolean) => setPararEn(si ? proximaParada.parada.km : null),
+                      onParar: (si: boolean) => {
+                        setPararEn(si ? proximaParada.parada.km : null);
+                        // «Seguir»: el aviso se quita del todo
+                        if (!si) setSeguidoEn(proximaParada.parada.km);
+                      },
                     }
                   : null,
               arcenKm: dentroParada?.km ?? (pararEn !== null && proximaParada && proximaParada.metros < 160 ? pararEn : null),
@@ -2624,7 +2634,10 @@ export default function App() {
                     saldo,
                     menu: menuDe(paradaDentro.tipo),
                     onComprar: comprarEnParada,
-                    onSalir: () => setDentroParada(null),
+                    onSalir: () => {
+                      setPararEn(null);
+                      setDentroParada(null);
+                    },
                   }
                 : null,
             }}

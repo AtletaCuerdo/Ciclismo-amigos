@@ -357,6 +357,8 @@ toma al momento, sustituye al efecto que hubiera (`comprarEnParada` en App). Men
 12′), refresco de cola + pincho de tortilla 85 (+5 %, 10′), café + tostadas 80 (+5 %, 10′), masaje de piernas 90 (+3 %,
 20′). Sin marcas (ni Maxibon ni Red Bull ni Coca-Cola). El entreno, el ERG, el tiempo y los km siguen; al salir el ciclista
 está donde le toca por lo pedaleado. Pegado a otro no se para. Sin reglas nuevas.
+23-11 (3): «⬆️ Seguir» no quitaba el aviso (solo ponía «no parar»): ahora `seguidoEn` (App) lo esconde hasta pasar
+ese sitio (vuelve en la vuelta siguiente); «Seguir sin tomar nada» también olvida la parada.
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
