@@ -353,7 +353,7 @@ Edificios sencillos en `escena.crearParadas` (lado derecho salvo agua; sin valla
 `enLago`). Aviso a 600 m «Parar / Seguir» (`AvisoParada`, como el de los cruces); al elegir parar, el ciclista va al
 arcén (`escena.irAlArcen`) y al llegar sale la pantalla de dentro (`DentroParada`) con el menú: se paga con RideCoins y se
 toma al momento, sustituye al efecto que hubiera (`comprarEnParada` en App). Menús en `NUTRICION` con `parada`
-(fuera de la tienda: `NUTRICION_TIENDA`): helado sándwich de galleta 70 (+5 %, 8′), bebida energética + donut 95 (+6 %,
+(fuera de la tienda: `NUTRICION_TIENDA`): helado «Mas y Von» 70 (+5 %, 8′), bebida energética + donut 95 (+6 %,
 12′), refresco de cola + pincho de tortilla 85 (+5 %, 10′), café + tostadas 80 (+5 %, 10′), masaje de piernas 90 (+3 %,
 20′). Sin marcas (ni Maxibon ni Red Bull ni Coca-Cola). El entreno, el ERG, el tiempo y los km siguen; al salir el ciclista
 está donde le toca por lo pedaleado. Pegado a otro no se para. Sin reglas nuevas.
