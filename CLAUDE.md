@@ -347,6 +347,17 @@ si no hay FTMS usa FEC2 (notificaciones: páginas 16 y 25 → velocidad, cadenci
 `A4 09 4F 05 <página> XOR`; páginas 49 ERG, 50 viento/rebufo, 51 pendiente). Misma tarjeta «Rodillo inteligente». Sin
 probar con el aparato.
 
+23-11 (2): sitios para parar (idea de los amigos de Jesús): una ⛽ gasolinera, una ☕ cafetería, un 🍺 bar y un 💆 fisio por
+circuito (`recorrido/paradas.ts`, `PARADAS`; en la sierra en los tramos suaves: en rampa el talud tapaba el edificio).
+Edificios sencillos en `escena.crearParadas` (lado derecho salvo agua; sin vallas, árboles ni casas encima: `sinParadas` y
+`enLago`). Aviso a 600 m «Parar / Seguir» (`AvisoParada`, como el de los cruces); al elegir parar, el ciclista va al
+arcén (`escena.irAlArcen`) y al llegar sale la pantalla de dentro (`DentroParada`) con el menú: se paga con RideCoins y se
+toma al momento, sustituye al efecto que hubiera (`comprarEnParada` en App). Menús en `NUTRICION` con `parada`
+(fuera de la tienda: `NUTRICION_TIENDA`): helado sándwich de galleta 70 (+5 %, 8′), bebida energética + donut 95 (+6 %,
+12′), refresco de cola + pincho de tortilla 85 (+5 %, 10′), café + tostadas 80 (+5 %, 10′), masaje de piernas 90 (+3 %,
+20′). Sin marcas (ni Maxibon ni Red Bull ni Coca-Cola). El entreno, el ERG, el tiempo y los km siguen; al salir el ciclista
+está donde le toca por lo pedaleado. Pegado a otro no se para. Sin reglas nuevas.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

@@ -26,7 +26,8 @@ import { ResumenEntreno } from './components/ResumenEntreno';
 import { TarjetaConexion, type InfoConexion } from './components/TarjetaConexion';
 import { guardarEntreno, listarEntrenos } from './entrenamiento/almacen';
 import {
-  NUTRICION,
+  NUTRICION_TIENDA,
+  menuDe,
   calcularMonedas,
   comprar,
   comprarMaterial,
@@ -100,6 +101,7 @@ import { CircuitoElegido, PantallaCircuitos } from './components/PantallaCircuit
 import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
 import { mantenerPantallaEncendida, soltarPantalla } from './pantallaEncendida';
 import { DjAutomatico, RADIO_APAGADA, Radio, type EstadoRadio, type IdEmisora } from './musica/radio';
+import { AVISO_PARADA_M, INFO_PARADA, PARADAS } from './recorrido/paradas';
 import { ESTADO_VOZ_APAGADA, Voz, canalFirebase, type EstadoVoz } from './multijugador/voz';
 import { CIRCUITO, LONGITUD_VUELTA_M, pendiente as pendienteRuta, usarCircuito } from './recorrido/perfil';
 import { CIRCUITOS, CRUCES, CRUCE_CAMBIO_M, circuitoPorId, longitudDe } from './recorrido/circuitos';
@@ -1558,6 +1560,42 @@ export default function App() {
     : (CRUCES[circuitoId] ?? [])
         .map((c) => ({ cruce: c, metros: c.km * 1000 - enLaVuelta }))
         .find((c) => c.metros > 0 && c.metros <= 600) ?? null;
+  // ---- Sitios para parar (gasolinera, cafetería, bar, fisio): aviso a 600 m, «Parar» o «Seguir» ----
+  // Tú sigues pedaleando: solo tu ciclista se echa al arcén, entra y vuelve donde le toca
+  const [pararEn, setPararEn] = useState<number | null>(null);
+  const [dentroParada, setDentroParada] = useState<{ km: number; desde: number } | null>(null);
+  const proximaParada =
+    pegadoRef.current || dentroParada || !enRecorrido
+      ? null
+      : ((PARADAS[circuitoId] ?? [])
+          .map((p) => ({ parada: p, metros: p.km * 1000 - enLaVuelta }))
+          .find((x) => x.metros > -30 && x.metros <= AVISO_PARADA_M) ?? null);
+  // Al llegar al sitio elegido, se entra; si se pasa de largo (o deja de tocar), se olvida
+  useEffect(() => {
+    if (pararEn === null) return;
+    if (!proximaParada || proximaParada.parada.km !== pararEn) {
+      setPararEn(null);
+      return;
+    }
+    if (proximaParada.metros <= 12) {
+      setDentroParada({ km: pararEn, desde: Date.now() });
+      setPararEn(null);
+    }
+  });
+  // Dentro como mucho 40 s: si no se elige nada, se sale solo
+  useEffect(() => {
+    if (!dentroParada) return;
+    const id = setTimeout(() => setDentroParada(null), 40_000);
+    return () => clearTimeout(id);
+  }, [dentroParada]);
+  useEffect(() => {
+    if (!enRecorrido) {
+      setPararEn(null);
+      setDentroParada(null);
+    }
+  }, [enRecorrido]);
+  const paradaDentro = dentroParada ? (PARADAS[circuitoId] ?? []).find((p) => p.km === dentroParada.km) ?? null : null;
+
   // Giro en curso: a 40 m del cruce elegido, el 3D empieza a preparar la curva por el ramal
   const [giroCruce, setGiroCruce] = useState<{ s: number; lado: 1 | -1; destino: string; km: number } | null>(null);
   // Al llegar al circuito nuevo, su escena aparece con un fundido (el nombre del circuito)
@@ -1953,6 +1991,14 @@ export default function App() {
     cambiarPerfil({ ...perfil, despensa: tomar(perfil.despensa, n.id) });
     nutricionSesionRef.current.push(n.id);
     setEfecto({ id: n.id, hasta: Date.now() + n.duracionS * 1000 });
+  };
+  /** En un sitio del recorrido: se compra y se toma en el acto (sustituye al efecto que hubiera). */
+  const comprarEnParada = (n: Nutricion) => {
+    if (saldo < n.precio || pegadoRef.current) return;
+    cambiarPerfil({ ...perfil, despensa: tomar(comprar(perfil.despensa, n.id), n.id) });
+    nutricionSesionRef.current.push(n.id);
+    setEfecto({ id: n.id, hasta: Date.now() + n.duracionS * 1000 });
+    setDentroParada(null);
   };
   // El efecto se acaba solo (el reloj `ahora` repinta cada segundo)
   const efectoActivo =
@@ -2561,6 +2607,27 @@ export default function App() {
             fcMax={fcMaxima(perfil)}
             giro={giroCruce}
             llegadaCruce={llegadaCruce}
+            parada={{
+              aviso:
+                proximaParada && proximaParada.metros > 12
+                  ? {
+                      ...INFO_PARADA[proximaParada.parada.tipo],
+                      metros: proximaParada.metros,
+                      parar: pararEn === proximaParada.parada.km,
+                      onParar: (si: boolean) => setPararEn(si ? proximaParada.parada.km : null),
+                    }
+                  : null,
+              arcenKm: dentroParada?.km ?? (pararEn !== null && proximaParada && proximaParada.metros < 160 ? pararEn : null),
+              dentro: paradaDentro
+                ? {
+                    ...INFO_PARADA[paradaDentro.tipo],
+                    saldo,
+                    menu: menuDe(paradaDentro.tipo),
+                    onComprar: comprarEnParada,
+                    onSalir: () => setDentroParada(null),
+                  }
+                : null,
+            }}
             cruce={
               proximoCruce
                 ? {
@@ -2766,7 +2833,7 @@ export default function App() {
             onSeguirLibre={seguirLibre}
             onTerminar={(escena) => void terminar(escena)}
             nutricion={{
-              despensa: NUTRICION.map((n) => ({ n, quedan: existencias(perfil.despensa, n.id) })),
+              despensa: NUTRICION_TIENDA.map((n) => ({ n, quedan: existencias(perfil.despensa, n.id) })),
               efecto: efectoActivo,
               bloqueada: !!pegadoRef.current,
               tomadaEn: efecto ? efecto.hasta - nutricionPorId(efecto.id).duracionS * 1000 : null,

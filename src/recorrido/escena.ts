@@ -26,6 +26,8 @@ import {
 import { crestas, datosRuidoPeriodico, fbm } from './ruido';
 import { trazadoDe, type Trazado } from './trazado';
 import { CRUCES, circuitoPorId } from './circuitos';
+import { INFO_PARADA, LADO_PARADA_M, PARADAS } from './paradas';
+import type { TipoParada } from '../entrenamiento/ridecoins';
 import { nombreDeSubida } from './segmentos';
 import { cieloActual } from './cielos';
 import { conNivel } from '../entrenamiento/nivelPublico';
@@ -447,6 +449,10 @@ export class EscenaRecorrido {
   private tr = crearTrazado();
   private indice: IndiceCarretera;
   private lago: { x: number; z: number; r: number; nivel: number };
+  /** Sitios para parar (gasolinera, bar…): dónde van, para no poner árboles ni casas encima. */
+  private paradas: { tipo: TipoParada; s: number; lado: 1 | -1; x: number; z: number }[] = [];
+  /** Parando en un sitio: mi ciclista se echa al arcén de ese lado (null: carretera normal). */
+  private arcen: 1 | -1 | null = null;
   /**
    * En montaña, puntos de la carretera cada 200 m con su altitud: el paisaje lejano sube y baja
    * con ella (si no, la carretera del puerto iría por encima de todo). En llano, null.
@@ -614,6 +620,7 @@ export class EscenaRecorrido {
     this.lago = this.situarLago();
     this.rio = this.situarRio();
     this.costa = this.situarCosta();
+    this.situarParadas();
 
     this.crearTerreno();
     this.crearCarretera();
@@ -631,6 +638,7 @@ export class EscenaRecorrido {
     this.crearSalidaYMarcas();
     this.crearTaludes();
     this.crearCartelesPendiente();
+    this.crearParadas();
 
     this.yo = new Ciclista3D(avatar);
     this.escena.add(this.yo.raiz);
@@ -921,6 +929,8 @@ export class EscenaRecorrido {
 
   private enLago(x: number, z: number, margen = 15) {
     if (Math.hypot(x - this.lago.x, z - this.lago.z) < this.lago.r + margen) return true;
+    // Tampoco encima de la gasolinera, el bar, la cafetería o el fisio (ni árboles, ni casas, ni muros)
+    for (const p of this.paradas) if (Math.hypot(x - p.x, z - p.z) < 16 + margen / 3) return true;
     // Ni en el mar ni en la playa
     if (this.costa && this.mar(x, z) > -margen - 25) return true;
     return !!this.rio && this.distanciaRio(x, z) < this.rio.ancho / 2 + margen;
@@ -1249,10 +1259,23 @@ export class EscenaRecorrido {
       const bajada = altitud(c.hasta + 40) < altitud(c.desde - 40) - 3;
       if (c.radio < 230 || bajada) quitamiedos.push([c.desde - 50, c.hasta + 50, -c.lado]);
     }
-    for (const [a, b, lado] of quitamiedos) {
+    // Ni quitamiedos ni vallas delante de la gasolinera, el bar…: se corta el tramo ±14 m alrededor
+    const sinParadas = (tramos: [number, number][]) =>
+      tramos.flatMap(([a, b]) => {
+        let trozos: [number, number][] = [[a, b]];
+        for (const p of this.paradas) {
+          const ps = enVuelta(p.s);
+          trozos = trozos.flatMap(([x, y]): [number, number][] =>
+            ps + 14 < x || ps - 14 > y ? [[x, y]] : ([[x, ps - 14], [ps + 14, y]] as [number, number][]).filter(([u, v]) => v - u > 6),
+          );
+        }
+        return trozos;
+      });
+    for (const [a0, b0, lado] of quitamiedos)
+      for (const [a, b] of sinParadas([[a0, b0]])) {
       this.cinta(lado * 6.2, lado * 6.2, 0.55, 0.9, a, b, metal, 4);
       this.postes([[a, b]], lado * 6.25, 4, new THREE.BoxGeometry(0.1, 0.9, 0.12), metal, 0.45);
-    }
+      }
 
     // Paneles de flechas por fuera de las curvas cerradas y señal de curva 120 m antes
     const chevron = { [1]: new THREE.MeshStandardMaterial({ map: texturaChevron(true), roughness: 0.5, side: THREE.DoubleSide }), [-1]: new THREE.MeshStandardMaterial({ map: texturaChevron(false), roughness: 0.5, side: THREE.DoubleSide }) };
@@ -1287,7 +1310,7 @@ export class EscenaRecorrido {
         desde = null;
       }
     }
-    const usados = llanos.slice(0, 4);
+    const usados = sinParadas(llanos.slice(0, 4));
     for (const lado of [-9, 9]) {
       this.postes(usados, lado, 3, new THREE.BoxGeometry(0.12, 1.2, 0.12), madera, 0.6);
       for (const alto of [0.5, 0.95]) {
@@ -2956,6 +2979,139 @@ export class EscenaRecorrido {
     }
   }
 
+  /** Echa a mi ciclista al arcén del lado del sitio en el km dado (para parar) o lo devuelve a su carril. */
+  irAlArcen(km: number | null) {
+    this.arcen = km === null ? null : (this.paradas.find((p) => Math.abs(p.s - km * 1000) < 1)?.lado ?? 1);
+  }
+
+  /** Dónde va cada sitio: a la derecha de la marcha y, si ahí hay agua (lago, río, mar), a la izquierda. */
+  private situarParadas() {
+    for (const p of PARADAS[CIRCUITO.id] ?? []) {
+      const s = p.km * 1000;
+      const k = Math.round(enVuelta(s) / PASO_M) % this.tr.n;
+      const l = Math.hypot(this.tr.dx[k], this.tr.dz[k]) || 1;
+      const [rx, rz] = [-this.tr.dz[k] / l, this.tr.dx[k] / l];
+      const en = (lado: number) => ({ x: this.tr.x[k] + rx * lado * (LADO_PARADA_M + 4), z: this.tr.z[k] + rz * lado * (LADO_PARADA_M + 4) });
+      const der = en(1);
+      const lado: 1 | -1 = this.enLago(der.x, der.z, 8) ? -1 : 1;
+      this.paradas.push({ tipo: p.tipo, s, lado, ...en(lado) });
+    }
+  }
+
+  /**
+   * Los edificios: gasolinera (marquesina y surtidores), cafetería (toldo a rayas y mesas), bar
+   * (terraza) y clínica de fisioterapia (cruz verde). Formas sencillas, como las casas: ligeras.
+   */
+  private crearParadas() {
+    const mat = (color: number | string, rugosidad = 0.8) => new THREE.MeshStandardMaterial({ color, roughness: rugosidad });
+    const asfalto = mat(0x45494f, 0.95);
+    const cristal = new THREE.MeshStandardMaterial({ color: 0x1d2a38, roughness: 0.15, metalness: 0.3 });
+    const blanco = mat(0xf2f0ea);
+    const caja = (g: THREE.Group, w: number, h: number, d: number, m: THREE.Material, x: number, y: number, z: number) => {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+      b.position.set(x, y, z);
+      b.castShadow = true;
+      b.receiveShadow = true;
+      g.add(b);
+      return b;
+    };
+    const rotulo = (g: THREE.Group, texto: string, fondo: string, w: number, h: number, x: number, y: number, z: number) => {
+      const m = new THREE.MeshStandardMaterial({ map: texturaTexto(texto, fondo, '#ffffff', 512, 128), roughness: 0.5 });
+      const r = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
+      r.position.set(x, y, z);
+      g.add(r);
+    };
+    // Mesa de terraza con sombrilla (cafetería y bar)
+    const mesa = (g: THREE.Group, x: number, z: number, lona: THREE.Material) => {
+      caja(g, 0.9, 0.05, 0.9, blanco, x, 0.75, z);
+      caja(g, 0.08, 0.75, 0.08, blanco, x, 0.38, z);
+      caja(g, 0.06, 2.3, 0.06, blanco, x, 1.15, z);
+      const s = new THREE.Mesh(new THREE.ConeGeometry(1.4, 0.5, 8), lona);
+      s.position.set(x, 2.35, z);
+      s.castShadow = true;
+      g.add(s);
+    };
+    for (const p of this.paradas) {
+      const info = INFO_PARADA[p.tipo];
+      const g = new THREE.Group();
+      const k = Math.round(enVuelta(p.s) / PASO_M) % this.tr.n;
+      const cx = this.tr.x[k];
+      const cz = this.tr.z[k];
+      const y = altitud(p.s) + 0.12;
+      g.position.set(p.x, y, p.z);
+      g.lookAt(cx, y, cz); // la fachada (+Z) mira a la carretera
+      // Explanada de asfalto desde el borde de la carretera hasta la fachada
+      const hasta = LADO_PARADA_M + 4 - ANCHO_CARRETERA / 2;
+      const explanada = new THREE.Mesh(new THREE.PlaneGeometry(18, hasta), asfalto);
+      explanada.rotation.x = -Math.PI / 2;
+      explanada.position.set(0, 0.05, hasta / 2);
+      explanada.receiveShadow = true;
+      g.add(explanada);
+      // Zócalo para que no quede en el aire si el terreno baja un poco
+      caja(g, 12, 2, 9, mat(0x8a8178), 0, -0.9, -4.5);
+      const color = info.color;
+      if (p.tipo === 'gasolinera') {
+        caja(g, 10, 3.6, 7, blanco, 0, 1.8, -4.5);
+        caja(g, 10.05, 0.5, 7.05, mat(color), 0, 3.4, -4.5);
+        caja(g, 4, 2.2, 0.1, cristal, -1.5, 1.2, -0.95);
+        // Marquesina sobre los surtidores
+        caja(g, 13, 0.6, 7, blanco, 0, 4.9, 4.5);
+        caja(g, 13.05, 0.35, 7.05, mat(color), 0, 4.55, 4.5);
+        for (const [px, pz] of [[-5.5, 2], [5.5, 2], [-5.5, 7], [5.5, 7]]) caja(g, 0.35, 4.6, 0.35, blanco, px, 2.3, pz);
+        for (const px of [-2.5, 2.5]) {
+          caja(g, 0.9, 1.7, 0.6, mat(color, 0.5), px, 0.85, 4.5);
+          caja(g, 0.7, 0.35, 0.05, cristal, px, 1.35, 4.83);
+        }
+        rotulo(g, `${info.emoji} ${info.rotulo}`, info.color, 7, 1.2, 0, 4.9, 8.05);
+      } else if (p.tipo === 'cafeteria') {
+        caja(g, 9, 4, 7, mat(0xf0e2c8), 0, 2, -4.5);
+        caja(g, 2.6, 2.4, 0.1, cristal, -2.4, 1.6, -0.95);
+        caja(g, 1.2, 2.3, 0.1, mat(0x5a3a22), 1.6, 1.15, -0.95);
+        // Toldo a rayas
+        const lienzoToldo = document.createElement('canvas');
+        lienzoToldo.width = 128;
+        lienzoToldo.height = 16;
+        const cx2 = lienzoToldo.getContext('2d')!;
+        for (let i = 0; i < 8; i++) {
+          cx2.fillStyle = i % 2 ? '#f6efe2' : info.color;
+          cx2.fillRect(i * 16, 0, 16, 16);
+        }
+        const texToldo = new THREE.CanvasTexture(lienzoToldo);
+        texToldo.colorSpace = THREE.SRGBColorSpace;
+        const toldo = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.12, 2.4), new THREE.MeshStandardMaterial({ map: texToldo, roughness: 0.8 }));
+        toldo.position.set(0, 3, 0.2);
+        toldo.rotation.x = 0.35;
+        toldo.castShadow = true;
+        g.add(toldo);
+        rotulo(g, `${info.emoji} ${info.rotulo}`, info.color, 6, 1, 0, 3.55, -0.93);
+        const lona = mat(info.color);
+        mesa(g, -2.5, 3.5, lona);
+        mesa(g, 2.5, 3.5, lona);
+      } else if (p.tipo === 'bar') {
+        caja(g, 8, 4, 7, mat(0xc77b4a), 0, 2, -4.5);
+        caja(g, 8.1, 0.4, 7.1, mat(0x6b3a22), 0, 4.1, -4.5);
+        caja(g, 2.2, 2.2, 0.1, cristal, -2.3, 1.5, -0.95);
+        caja(g, 1.3, 2.3, 0.1, mat(0x2b1a10), 1.8, 1.15, -0.95);
+        rotulo(g, `${info.emoji} ${info.rotulo}`, info.color, 4.2, 1, 0, 3.4, -0.93);
+        const lona = mat(info.color);
+        mesa(g, -2.8, 3.2, lona);
+        mesa(g, 0.2, 4.2, lona);
+        mesa(g, 3, 3, lona);
+      } else {
+        caja(g, 10, 5, 7, blanco, 0, 2.5, -4.5);
+        caja(g, 10.05, 0.6, 7.05, mat(color), 0, 0.3, -4.5);
+        for (const x of [-3, 0, 3]) caja(g, 2, 1.4, 0.1, cristal, x, 3.4, -0.95);
+        caja(g, 1.6, 2.3, 0.1, cristal, 0, 1.15, -0.95);
+        rotulo(g, `${info.emoji} ${info.rotulo}`, info.color, 7, 1.1, 0, 4.55, -0.93);
+        // Cruz verde de clínica, en la esquina
+        const verde = mat(0x22a55a, 0.4);
+        caja(g, 1.6, 0.5, 0.15, verde, 4.2, 4.3, -0.85);
+        caja(g, 0.5, 1.6, 0.15, verde, 4.2, 4.3, -0.85);
+      }
+      this.escena.add(g);
+    }
+  }
+
   // =========================================================================
   // Posición en la carretera
   // =========================================================================
@@ -3182,6 +3338,7 @@ export class EscenaRecorrido {
     // A rueda (alguien 0,3-12 m por delante), mi ciclista se coloca detrás de él
     let carrilObjetivo = MI_CARRIL;
     let huecoMin = Infinity;
+    const alArcen = this.arcen;
     for (const e of this.otros.values()) {
       if (e.fantasma || e.pegado) continue;
       let h = (e.sRender - this.sYo) % LONGITUD_VUELTA_M;
@@ -3194,6 +3351,8 @@ export class EscenaRecorrido {
     }
     // Muy pegado (menos que una bici), medio cuerpo al lado para no atravesarlo al adelantar
     if (huecoMin < 2.2) carrilObjetivo += carrilObjetivo > 0 ? -0.9 : 0.9;
+    // Parando en un sitio: al arcén de su lado, pegado a la línea
+    if (alArcen) carrilObjetivo = alArcen * (ANCHO_CARRETERA / 2 - 0.6);
     this.carrilYo += (carrilObjetivo - this.carrilYo) * Math.min(1, dt * 0.8);
     const p = this.puntoEn(this.sYo, this.carrilYo, this.punto);
     const pxYo = p.pos.x;

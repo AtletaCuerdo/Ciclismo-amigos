@@ -9,7 +9,21 @@
  */
 import type { EntrenoGuardado, Muestra } from './tipos';
 
-export type IdNutricion = 'guayaba' | 'gel30' | 'gel30c' | 'gel50' | 'gel50c';
+export type IdNutricion =
+  | 'guayaba'
+  | 'gel30'
+  | 'gel30c'
+  | 'gel50'
+  | 'gel50c'
+  // Lo que se compra al parar en un sitio del recorrido (ver recorrido/paradas.ts)
+  | 'helado'
+  | 'energetica'
+  | 'colaTortilla'
+  | 'cafeTostadas'
+  | 'masaje';
+
+/** Sitios del recorrido donde se puede parar a comprar (o a por un masaje). */
+export type TipoParada = 'gasolinera' | 'cafeteria' | 'bar' | 'fisio';
 
 export interface Nutricion {
   id: IdNutricion;
@@ -21,6 +35,8 @@ export interface Nutricion {
   /** Velocidad de más mientras dura (0,02 = +2 %). */
   mejora: number;
   duracionS: number;
+  /** Solo se compra parando en este sitio del recorrido (no está en la tienda): pega más y dura más. */
+  parada?: TipoParada;
 }
 
 export const NUTRICION: Nutricion[] = [
@@ -29,7 +45,18 @@ export const NUTRICION: Nutricion[] = [
   { id: 'gel30c', nombre: 'Gel 30 g con cafeína', emoji: '⚡', carbos: 30, cafeina: true, precio: 35, mejora: 0.035, duracionS: 240 },
   { id: 'gel50', nombre: 'Gel 50 g', emoji: '🧪', carbos: 50, cafeina: false, precio: 40, mejora: 0.03, duracionS: 360 },
   { id: 'gel50c', nombre: 'Gel 50 g con cafeína', emoji: '🚀', carbos: 50, cafeina: true, precio: 55, mejora: 0.04, duracionS: 360 },
+  // En los sitios del recorrido: más caro que los geles, pero pega más y dura más
+  { id: 'helado', nombre: 'Helado sándwich de galleta', emoji: '🍦', carbos: 40, cafeina: false, precio: 70, mejora: 0.05, duracionS: 480, parada: 'gasolinera' },
+  { id: 'energetica', nombre: 'Bebida energética + donut', emoji: '🥤', carbos: 60, cafeina: true, precio: 95, mejora: 0.06, duracionS: 720, parada: 'gasolinera' },
+  { id: 'colaTortilla', nombre: 'Refresco de cola + pincho de tortilla', emoji: '🥘', carbos: 55, cafeina: true, precio: 85, mejora: 0.05, duracionS: 600, parada: 'bar' },
+  { id: 'cafeTostadas', nombre: 'Café + tostadas', emoji: '☕', carbos: 45, cafeina: true, precio: 80, mejora: 0.05, duracionS: 600, parada: 'cafeteria' },
+  { id: 'masaje', nombre: 'Masaje de piernas', emoji: '💆', carbos: 0, cafeina: false, precio: 90, mejora: 0.03, duracionS: 1200, parada: 'fisio' },
 ];
+
+/** Lo que se vende en la tienda (lo de los sitios del recorrido solo se compra allí). */
+export const NUTRICION_TIENDA = NUTRICION.filter((n) => !n.parada);
+/** El menú de cada sitio del recorrido. */
+export const menuDe = (tipo: TipoParada) => NUTRICION.filter((n) => n.parada === tipo);
 
 export const nutricionPorId = (id: IdNutricion) => NUTRICION.find((n) => n.id === id)!;
 

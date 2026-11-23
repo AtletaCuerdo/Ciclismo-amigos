@@ -2,7 +2,7 @@
  * 🪙 Tienda: gastar RideCoins en nutrición para tomarla durante la sesión.
  * Más adelante: bici, ruedas, casco, maillot y avatar.
  */
-import { MATERIAL, NUTRICION, existencias, tieneMaterial, type Despensa, type IdNutricion, type Material } from '../entrenamiento/ridecoins';
+import { MATERIAL, NUTRICION_TIENDA as NUTRICION, existencias, tieneMaterial, type Despensa, type IdNutricion, type Material } from '../entrenamiento/ridecoins';
 import type { Avatar } from '../recorrido/avatar';
 import { FisicaVirtual, equipoAvatar } from '../recorrido/fisica';
 
@@ -76,6 +76,11 @@ export function PantallaTienda({
       <p className="detalle">
         Durante la sesión, pulsa «🍬 Nutrición» y elige qué tomar: tu ciclista irá más rápido unos minutos con los
         mismos vatios. Solo hace efecto una a la vez.
+      </p>
+      <p className="detalle">
+        En cada circuito hay además una ⛽ gasolinera, una ☕ cafetería, un 🍺 bar y un 💆 fisio junto a la carretera: te
+        avisan 600 m antes y, si paras, lo que tomas allí pega más fuerte y dura más (también cuesta más). Tú sigues
+        pedaleando: solo tu ciclista entra y vuelve a salir.
       </p>
       <div className="tienda-lista">
         {NUTRICION.map((n) => {

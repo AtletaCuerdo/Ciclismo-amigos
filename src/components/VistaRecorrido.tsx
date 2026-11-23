@@ -26,6 +26,7 @@ import { miRecord } from '../recorrido/records';
 import { VATIOS_BOTS } from '../recorrido/bots';
 import { ChatGrupo } from './ChatGrupo';
 import { PanelVoz } from './PanelVoz';
+import { AvisoParada, DentroParada, type PropsParada } from './PanelParada';
 import { MenuRadio, type PropsRadio } from './MenuRadio';
 import type { EstadoVoz } from '../multijugador/voz';
 import { EMOJIS } from '../multijugador/useSalida';
@@ -147,6 +148,8 @@ interface Props {
   miNombre?: string;
   /** Emojis rápidos (solo en la salida): el mío, si lo acabo de lanzar, y cómo lanzar uno. */
   emojis: { mio: string | null; onEnviar: (e: string) => void } | null;
+  /** Sitios para parar (gasolinera, cafetería, bar, fisio): aviso, arcén y menú. */
+  parada?: PropsParada;
   /** 📻 Radio por estilos y DJ automático. */
   radio?: PropsRadio;
   /** 🎙️ Voz con los amigos de la salida (micro abierto). */
@@ -391,6 +394,7 @@ export default function VistaRecorrido({
   emojis,
   voz,
   radio,
+  parada,
   miNombre,
   circuito,
   rodilloControlado,
@@ -509,6 +513,9 @@ export default function VistaRecorrido({
     if (nutricion.tomadaEn && Date.now() - nutricion.tomadaEn < 2000) escena.current?.miComer();
   }, [nutricion.tomadaEn]);
   useEffect(() => escena.current?.ponerMiDorsal(miNombre || null), [miNombre, cargando]);
+  // Parando en un sitio: mi ciclista se echa al arcén (y vuelve a su carril al salir)
+  const arcenKm = parada?.arcenKm ?? null;
+  useEffect(() => escena.current?.irAlArcen(arcenKm), [arcenKm, cargando]);
   const [menuEmojis, setMenuEmojis] = useState(false);
   const [menuCircuito, setMenuCircuito] = useState(false);
   // Sin nada conectado (p. ej. al retomar una sesión tras cerrarse la web), el panel sale abierto
@@ -1197,6 +1204,8 @@ export default function VistaRecorrido({
         </div>
       )}
 
+      {parada && !cruce && <AvisoParada parada={parada} />}
+      {parada?.dentro && <DentroParada parada={parada} />}
       {cruce && !cruceDecidido && (
         <div className="aviso-cruce">
           <span className="aviso-cruce-titulo">🔀 Cruce en {Math.round(cruce.metros / 10) * 10} m</span>
