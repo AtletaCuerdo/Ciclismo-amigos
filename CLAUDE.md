@@ -377,6 +377,15 @@ de árboles ni casas a < 55 m (`distanciaOvalo` en `enLago`). Salidas: dos cruce
 Entradas: un lado libre de un cruce de cada circuito (Lago km 1 y Ribera km 18,5 izquierda; Sierra km 12 izquierda;
 Faro km 11 derecha). Prueba: `pruebas/velodromo.html?s=…&v=trasera|lateral|cenital`.
 
+23-11 (6): 〰️ horquilla (idea de Jesús: en la calle un 8×4′ a 240 W se hace a 230-250 W con media 240). `horquilla` (W: 5, 10,
+15 o 20, `HORQUILLAS`) en los bloques constantes y en la parte dura de las series (editor: «〰️ Horquilla No/±N W»; se
+comparte, `validar` en compartidos.ts) y en `Tramo`. Para cualquier entreno (también el catálogo), en los mandos del
+entreno del recorrido «〰️ Sin horquilla / Horquilla ±N W» (clave `rodillos.horquilla`): `desplegar(bloques, horquillaGeneral)`
+la pone en los tramos constantes de ≥ 1′ y ≥ 76 % del FTP (la del bloque manda). `oscilacionW(tramo, t)` (tipos.ts): puntos
+cada ~18 s alternando arriba y abajo (semilla = inicio del tramo), unidos con rectas, empieza y acaba en el objetivo, nunca
+pasa de ±N y la media del tramo es exactamente 0; App la suma a `objetivoW` (el ERG la recibe cada segundo). En el panel:
+«〰️ media 240 W (±10)». El TSS planificado no cambia.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

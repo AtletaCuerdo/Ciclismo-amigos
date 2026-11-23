@@ -32,7 +32,7 @@ const mmss = (s: number) => `${Math.floor(s / 60)}:${Math.round(s % 60).toString
 export function textoVatios(t: Tramo, ftp: number) {
   const a = Math.round((t.desde * ftp) / 100);
   const b = Math.round((t.hasta * ftp) / 100);
-  return t.libre ? 'a tope' : a === b ? `${a} W` : `${a}→${b} W`;
+  return t.libre ? 'a tope' : a === b ? `${a} W${t.horquilla ? ` ±${t.horquilla}` : ''}` : `${a}→${b} W`;
 }
 
 /**
@@ -42,7 +42,7 @@ export function textoVatios(t: Tramo, ftp: number) {
 export function ListaIntervalos({ tramos, ftp }: { tramos: Tramo[]; ftp: number }) {
   const grupos = new Map<string, { veces: number; t: Tramo }>();
   for (const t of tramos) {
-    const clave = `${t.duracion}|${t.desde}|${t.hasta}|${t.libre ? 1 : 0}`;
+    const clave = `${t.duracion}|${t.desde}|${t.hasta}|${t.libre ? 1 : 0}|${t.horquilla ?? 0}`;
     const g = grupos.get(clave);
     if (g) g.veces++;
     else grupos.set(clave, { veces: 1, t });

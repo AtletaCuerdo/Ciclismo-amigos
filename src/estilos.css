@@ -5230,3 +5230,32 @@ a.boton-secundario {
   line-height: 1;
   color: #8a5608;
 }
+
+/* Horquilla: en el editor (por bloque) y en los mandos del entreno */
+.horquilla-bloque {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  border: 1px dashed rgba(34, 211, 238, 0.45);
+}
+.horquilla-bloque select {
+  min-height: 32px;
+}
+.hud-horquilla {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.hud-horquilla select {
+  background: transparent;
+  color: #fff;
+  border: none;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.hud-horquilla select option {
+  color: #111;
+}

@@ -29,9 +29,21 @@ export const CATEGORIAS: { id: Categoria; nombre: string; descripcion: string; c
 /** Bloques con los que se construye un entrenamiento (potencias en % del FTP). */
 export type Bloque =
   /** `libre`: sin ERG, a tope (tests); la potencia es solo orientativa. */
-  | { tipo: 'constante'; duracionS: number; potencia: number; libre?: boolean }
+  | { tipo: 'constante'; duracionS: number; potencia: number; libre?: boolean; horquilla?: number }
   | { tipo: 'rampa'; duracionS: number; desde: number; hasta: number }
-  | { tipo: 'intervalos'; repeticiones: number; onS: number; onPotencia: number; offS: number; offPotencia: number };
+  | {
+      tipo: 'intervalos';
+      repeticiones: number;
+      onS: number;
+      onPotencia: number;
+      offS: number;
+      offPotencia: number;
+      /** Horquilla de la parte dura (W): ver `Tramo.horquilla`. */
+      horquilla?: number;
+    };
+
+/** Horquillas que se pueden elegir (W arriba y abajo). */
+export const HORQUILLAS = [5, 10, 15, 20] as const;
 
 export interface Entrenamiento {
   id: string;
@@ -59,27 +71,97 @@ export interface Tramo {
   hasta: number;
   /** Sin ERG: el ciclista va a tope y el rodillo simula la pendiente del recorrido. */
   libre?: boolean;
+  /**
+   * Horquilla (W): el objetivo sube y baja hasta estos vatios arriba y abajo, como en la calle, y la
+   * media del tramo sigue siendo la misma (ver `oscilacionW`).
+   */
+  horquilla?: number;
 }
 
-export function desplegar(bloques: Bloque[]): Tramo[] {
+/**
+ * Tramos «duros» a los que se pone la horquilla de todo el entreno (la que se elige al rodar
+ * cualquier entreno, también los del catálogo): constantes, de al menos 1 minuto y desde el 76 % del
+ * FTP (tempo o más). Calentamientos, rampas, descansos y series cortas se quedan fijos.
+ */
+const esDuro = (duracion: number, potencia: number) => duracion >= 60 && potencia >= 76;
+
+/**
+ * Despliega los bloques en tramos. `horquillaGeneral` (W, 0 = sin): la que se pone a los tramos
+ * duros de cualquier entreno; la que lleve el propio bloque (puesta en el editor) manda sobre ella.
+ */
+export function desplegar(bloques: Bloque[], horquillaGeneral = 0): Tramo[] {
   const tramos: Tramo[] = [];
   let t = 0;
-  const anadir = (duracion: number, desde: number, hasta: number, libre?: boolean) => {
+  const anadir = (duracion: number, desde: number, hasta: number, libre?: boolean, horquilla?: number) => {
     if (duracion <= 0) return;
-    tramos.push({ inicio: t, duracion, desde, hasta, ...(libre ? { libre } : {}) });
+    const h = libre ? 0 : (horquilla ?? (desde === hasta && esDuro(duracion, desde) ? horquillaGeneral : 0));
+    tramos.push({ inicio: t, duracion, desde, hasta, ...(libre ? { libre } : {}), ...(h > 0 && duracion >= 20 ? { horquilla: h } : {}) });
     t += duracion;
   };
   for (const b of bloques) {
-    if (b.tipo === 'constante') anadir(b.duracionS, b.potencia, b.potencia, b.libre);
-    else if (b.tipo === 'rampa') anadir(b.duracionS, b.desde, b.hasta);
+    if (b.tipo === 'constante') anadir(b.duracionS, b.potencia, b.potencia, b.libre, b.horquilla);
+    else if (b.tipo === 'rampa') anadir(b.duracionS, b.desde, b.hasta, false, 0);
     else {
       for (let i = 0; i < b.repeticiones; i++) {
-        anadir(b.onS, b.onPotencia, b.onPotencia);
-        anadir(b.offS, b.offPotencia, b.offPotencia);
+        anadir(b.onS, b.onPotencia, b.onPotencia, false, b.horquilla);
+        anadir(b.offS, b.offPotencia, b.offPotencia, false, 0);
       }
     }
   }
   return tramos;
+}
+
+/** Cada cuánto cambia de sentido la horquilla (s): el rodillo tarda 2-3 s en ajustarse. */
+const PASO_HORQUILLA_S = 18;
+
+/**
+ * Lo que se suma al objetivo (W) en el segundo `t` del tramo por su horquilla: sube y baja con
+ * suavidad entre puntos cada ~18 s, empieza y acaba en el objetivo, nunca se sale de ±horquilla y
+ * la media del tramo es exactamente 0 (la media del bloque es la que se pedía). Siempre igual para
+ * el mismo tramo (la semilla es su inicio), así no salta al repintar.
+ */
+export function oscilacionW(tr: Tramo, t: number) {
+  const a = tr.horquilla ?? 0;
+  if (!a || t < 0 || t > tr.duracion) return 0;
+  const n = Math.max(2, Math.round(tr.duracion / PASO_HORQUILLA_S));
+  const v = puntosHorquilla(n, a, tr.inicio);
+  const x = (t / tr.duracion) * n;
+  const k = Math.min(n - 1, Math.floor(x));
+  const f = x - k;
+  return v[k] + (v[k + 1] - v[k]) * f;
+}
+
+const cachePuntos = new Map<string, number[]>();
+/** Puntos de la horquilla (n + 1, el primero y el último 0) con media 0 al unirlos con rectas. */
+function puntosHorquilla(n: number, a: number, semilla: number) {
+  const clave = `${n}|${a}|${semilla}`;
+  const guardado = cachePuntos.get(clave);
+  if (guardado) return guardado;
+  let x = (Math.floor(semilla) * 2654435761) >>> 0 || 1;
+  const rnd = () => {
+    x ^= x << 13;
+    x >>>= 0;
+    x ^= x >>> 17;
+    x ^= x << 5;
+    x >>>= 0;
+    return x / 4294967296;
+  };
+  const v = new Array<number>(n + 1).fill(0);
+  // Por dentro, arriba y abajo alternando (con algo de azar en cuánto y alguna repetición)
+  let signo = rnd() < 0.5 ? 1 : -1;
+  for (let k = 1; k < n; k++) {
+    v[k] = signo * a * (0.45 + 0.55 * rnd());
+    if (rnd() < 0.8) signo = -signo;
+  }
+  // Media 0: con rectas entre puntos y los extremos en 0, la media es la suma de los de dentro / n
+  if (n > 1) {
+    const media = v.slice(1, n).reduce((s, y) => s + y, 0) / (n - 1);
+    for (let k = 1; k < n; k++) v[k] -= media;
+    const max = Math.max(...v.map(Math.abs));
+    if (max > a) for (let k = 1; k < n; k++) v[k] *= a / max;
+  }
+  cachePuntos.set(clave, v);
+  return v;
 }
 
 export function duracionTotal(tramos: Tramo[]) {

@@ -22,7 +22,13 @@ function validar(x: unknown): Entrenamiento | null {
   const bloques: Bloque[] = [];
   for (const b of e.bloques as Bloque[]) {
     if (b?.tipo === 'constante' && num(b.duracionS, 1, 36000) && num(b.potencia, 0, 300))
-      bloques.push({ tipo: 'constante', duracionS: b.duracionS, potencia: b.potencia, ...(b.libre ? { libre: true } : {}) });
+      bloques.push({
+        tipo: 'constante',
+        duracionS: b.duracionS,
+        potencia: b.potencia,
+        ...(b.libre ? { libre: true } : {}),
+        ...(num(b.horquilla, 1, 50) ? { horquilla: b.horquilla } : {}),
+      });
     else if (b?.tipo === 'rampa' && num(b.duracionS, 1, 36000) && num(b.desde, 0, 300) && num(b.hasta, 0, 300))
       bloques.push({ tipo: 'rampa', duracionS: b.duracionS, desde: b.desde, hasta: b.hasta });
     else if (
@@ -33,7 +39,15 @@ function validar(x: unknown): Entrenamiento | null {
       num(b.onPotencia, 0, 300) &&
       num(b.offPotencia, 0, 300)
     )
-      bloques.push({ ...b });
+      bloques.push({
+        tipo: 'intervalos',
+        repeticiones: b.repeticiones,
+        onS: b.onS,
+        onPotencia: b.onPotencia,
+        offS: b.offS,
+        offPotencia: b.offPotencia,
+        ...(num(b.horquilla, 1, 50) ? { horquilla: b.horquilla } : {}),
+      });
     else return null;
   }
   return {

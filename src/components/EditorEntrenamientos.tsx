@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   CATEGORIAS,
+  HORQUILLAS,
   desplegar,
   duracionTotal,
   formatoDuracion,
@@ -93,6 +94,32 @@ function Potencia({ pct, onCambiar, unidad, ftp, sufijoPct }: { pct: number; onC
   return <Numero key="pct" valor={pct} min={20} max={250} sufijo={sufijoPct} onCambiar={onCambiar} />;
 }
 
+/**
+ * Horquilla de la parte dura: el objetivo sube y baja esos vatios, como en la calle, y la media del
+ * bloque se mantiene.
+ */
+function Horquilla({ valor, onCambiar }: { valor?: number; onCambiar: (h: number | undefined) => void }) {
+  return (
+    <label className="horquilla-bloque" title="Como en la calle: los vatios suben y bajan y la media del bloque se mantiene">
+      <span>〰️ Horquilla</span>
+      <select value={valor ?? 0} onChange={(e) => onCambiar(Number(e.target.value) || undefined)}>
+        <option value={0}>No</option>
+        {HORQUILLAS.map((h) => (
+          <option key={h} value={h}>
+            ±{h} W
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** Quita la clave `horquilla` si se pone a «No» (así no se guarda vacía). */
+function conHorquilla<T extends { horquilla?: number }>(b: T, h: number | undefined): T {
+  const { horquilla: _fuera, ...resto } = b;
+  return (h ? { ...resto, horquilla: h } : resto) as T;
+}
+
 function EditorBloque({ b, onCambiar, unidad, ftp }: { b: Bloque; onCambiar: (b: Bloque) => void; unidad: Unidad; ftp: number }) {
   const P = (pct: number, cambiar: (v: number) => void, sufijoPct = '%') => (
     <Potencia pct={pct} onCambiar={cambiar} unidad={unidad} ftp={ftp} sufijoPct={sufijoPct} />
@@ -103,6 +130,7 @@ function EditorBloque({ b, onCambiar, unidad, ftp }: { b: Bloque; onCambiar: (b:
         <Duracion s={b.duracionS} onCambiar={(v) => onCambiar({ ...b, duracionS: v })} />
         <span>a</span>
         {P(b.potencia, (v) => onCambiar({ ...b, potencia: v }), '% FTP')}
+        {!b.libre && <Horquilla valor={b.horquilla} onCambiar={(h) => onCambiar(conHorquilla(b, h))} />}
       </div>
     );
   }
@@ -127,6 +155,7 @@ function EditorBloque({ b, onCambiar, unidad, ftp }: { b: Bloque; onCambiar: (b:
       <Duracion s={b.offS} onCambiar={(v) => onCambiar({ ...b, offS: v })} />
       <span>a</span>
       {P(b.offPotencia, (v) => onCambiar({ ...b, offPotencia: v }))}
+      <Horquilla valor={b.horquilla} onCambiar={(h) => onCambiar(conHorquilla(b, h))} />
     </div>
   );
 }

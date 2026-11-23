@@ -56,7 +56,18 @@ import { CATALOGO } from './entrenamientos/catalogo';
 import { cargarPropios, guardarPropios } from './entrenamientos/propios';
 import { useCompartidos } from './entrenamientos/compartidos';
 import { VINO_DE_TRICOACH, useSemanaTricoach } from './entrenamientos/tricoach';
-import { desplegar, duracionTotal, finCalentamiento, potenciaEn, tramoEn, tss, type Entrenamiento, type Tramo } from './entrenamientos/tipos';
+import {
+  HORQUILLAS,
+  desplegar,
+  duracionTotal,
+  finCalentamiento,
+  oscilacionW,
+  potenciaEn,
+  tramoEn,
+  tss,
+  type Entrenamiento,
+  type Tramo,
+} from './entrenamientos/tipos';
 import { EMOJI_MS, cargarNombre, guardarNombre, useConectados, useSalida, type Ciclista } from './multijugador/useSalida';
 import { cargarAjustes, guardarAjustes, palancaNovoForce, potenciaDeAjustes, presetNovoForce } from './potenciaVirtual';
 import {
@@ -252,6 +263,17 @@ function mejorMedia(entreno: Entreno, ventana: number) {
 }
 
 type FtpSugerido = { w: number; texto: string };
+
+/** Horquilla elegida para las partes duras de los entrenos (W; 0 = sin horquilla). */
+const CLAVE_HORQUILLA = 'rodillos.horquilla';
+function leerHorquilla() {
+  try {
+    const h = Number(localStorage.getItem(CLAVE_HORQUILLA));
+    return (HORQUILLAS as readonly number[]).includes(h) ? h : 0;
+  } catch {
+    return 0;
+  }
+}
 
 export default function App() {
   // al volver de dar permiso en TriCoach Entrenos, directos a los entrenamientos («Tu semana con TriCoach»)
@@ -662,7 +684,26 @@ export default function App() {
   const objetivoPct = entrenoActivo ? potenciaEn(entrenoActivo.tramos, grabacion.segundos - entrenoActivo.inicioS) : undefined;
   // Intensidad: % de los vatios programados, para subirlos o bajarlos sin cancelar el entreno
   const [intensidad, setIntensidad] = useState(100);
-  const objetivoW = objetivoPct !== undefined ? Math.round((objetivoPct * perfil.ftp * intensidad) / 10000) : undefined;
+  // Horquilla (W) en las partes duras de cualquier entreno: el objetivo oscila y la media se mantiene
+  const [horquilla, setHorquillaEstado] = useState(leerHorquilla);
+  const setHorquilla = (h: number) => {
+    setHorquillaEstado(h);
+    try {
+      localStorage.setItem(CLAVE_HORQUILLA, String(h));
+    } catch {
+      // no es grave
+    }
+  };
+  // Los mismos tramos (mismos tiempos), con la horquilla puesta donde toca
+  const tramosEntreno = useMemo(
+    () => (entrenoActivo ? desplegar(entrenoActivo.entreno.bloques, horquilla) : []),
+    [entrenoActivo?.entreno, horquilla],
+  );
+  const segEntreno = entrenoActivo ? grabacion.segundos - entrenoActivo.inicioS : 0;
+  const tramoHorquilla = entrenoActivo ? tramoEn(tramosEntreno, segEntreno) : undefined;
+  const oscilacion = tramoHorquilla ? oscilacionW(tramoHorquilla, segEntreno - tramoHorquilla.inicio) : 0;
+  const objetivoW =
+    objetivoPct !== undefined ? Math.round((objetivoPct * perfil.ftp * intensidad) / 10000 + oscilacion) : undefined;
   // Exigencia del entreno para «siempre juntos»: su IF (de su TSS y su duración) por la intensidad
   exigeRef.current =
     entrenoActivo && entrenoActivo.total > 0
@@ -2864,8 +2905,11 @@ export default function App() {
               entrenoActivo
                 ? {
                     ...entrenoActivo,
+                    tramos: tramosEntreno,
                     segundos: grabacion.segundos - entrenoActivo.inicioS,
                     objetivoW,
+                    horquilla,
+                    onHorquilla: setHorquilla,
                     ftp: perfil.ftp,
                     erg: hayErg,
                     intensidad,

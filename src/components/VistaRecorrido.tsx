@@ -16,7 +16,7 @@ import {
   infoSubidas,
   pendiente,
 } from '../recorrido/perfil';
-import type { Entrenamiento, Tramo } from '../entrenamientos/tipos';
+import { HORQUILLAS, type Entrenamiento, type Tramo } from '../entrenamientos/tipos';
 import { SelectorEntreno } from './SelectorEntreno';
 import { CIRCUITOS, CRUCE_CAMBIO_M, circuitoPorId, desnivelDe, longitudDe } from '../recorrido/circuitos';
 import { PanelSegmentos } from './PanelSegmentos';
@@ -203,6 +203,9 @@ interface Props {
     onSaltarCalentamiento: () => void;
     /** Pasa al bloque siguiente (sin cambiar el entreno). */
     onSaltarBloque: () => void;
+    /** Horquilla (W, 0 = no) de las partes duras y cómo cambiarla. */
+    horquilla: number;
+    onHorquilla: (w: number) => void;
     /** Vatios y pulso de cada segundo del entreno, para dibujarlos sobre la gráfica. */
     traza: { t: number; w?: number; hr?: number }[];
     fcMax: number;
@@ -286,7 +289,11 @@ function PanelEntreno({
                 <small> W</small>
               </span>
               <span className="hud-etiqueta">
-                {actual.libre ? 'orientativo: da todo' : `objetivo${actual.desde !== actual.hasta ? ' (rampa)' : ''}`}
+                {actual.libre
+                  ? 'orientativo: da todo'
+                  : actual.horquilla
+                    ? `〰️ media ${w(actual.desde)} W (±${actual.horquilla})`
+                    : `objetivo${actual.desde !== actual.hasta ? ' (rampa)' : ''}`}
               </span>
             </div>
             <div>
@@ -344,6 +351,20 @@ function PanelEntreno({
           <button className="hud-entreno-boton" onClick={e.onSaltarBloque} title="Pasar al bloque siguiente">
             ⏭ Saltar bloque
           </button>
+          <label
+            className="hud-entreno-boton hud-horquilla"
+            title="Las partes duras (desde tempo, de 1′ o más) suben y bajan como en la calle; la media de cada bloque se mantiene"
+          >
+            〰️
+            <select value={e.horquilla} onChange={(ev) => e.onHorquilla(Number(ev.target.value))} aria-label="Horquilla">
+              <option value={0}>Sin horquilla</option>
+              {HORQUILLAS.map((h) => (
+                <option key={h} value={h}>
+                  Horquilla ±{h} W
+                </option>
+              ))}
+            </select>
+          </label>
           <button className="hud-entreno-boton" onClick={onCambiar}>
             🔁 Cambiar
           </button>
