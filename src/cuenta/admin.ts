@@ -269,3 +269,44 @@ export function escucharMisRegalos(uid: string, alCambiar: (n: number) => void) 
     quitar?.();
   };
 }
+
+// ---------------------------------------------------------------------------
+// Borrar una cuenta (cuentas de prueba): el administrador la bloquea (`bloqueados/{uid}`: ya no puede
+// volver a subir nada, aunque tenga su historial en algún navegador) y borra todo lo suyo de la nube.
+// La cuenta de Firebase Authentication queda (desde la web no se puede borrar la de otro), pero no sirve.
+// ---------------------------------------------------------------------------
+
+export async function borrarCuenta(uid: string) {
+  const { fb } = await cargarFirebase();
+  if (fb.auth.currentUser?.uid === uid) throw new Error('No puedes borrar tu propia cuenta desde aquí.');
+  // Primero bloquearla, para que no vuelva a subir nada mientras se borra
+  await fb.set(fb.ref(fb.db, `bloqueados/${uid}`), true);
+  const borrar: Record<string, null> = {
+    [`totales/${uid}`]: null,
+    [`usuarios/${uid}`]: null,
+    [`fichas/${uid}`]: null,
+    [`regalos/${uid}`]: null,
+  };
+  // Sus récords de los segmentos y los entrenos que compartió
+  const [records, compartidos] = await Promise.all([
+    fb.get(fb.ref(fb.db, 'records')).catch(() => null),
+    fb.get(fb.ref(fb.db, 'compartidos')).catch(() => null),
+  ]);
+  const r = (records?.val() ?? {}) as Record<string, Record<string, Record<string, unknown>>>;
+  for (const [circuito, segmentos] of Object.entries(r))
+    for (const [segmento, filas] of Object.entries(segmentos ?? {}))
+      if (filas && uid in filas) borrar[`records/${circuito}/${segmento}/${uid}`] = null;
+  const c = (compartidos?.val() ?? {}) as Record<string, { autorUid?: string }>;
+  for (const [clave, x] of Object.entries(c)) if (x?.autorUid === uid) borrar[`compartidos/${clave}`] = null;
+  await fb.update(fb.ref(fb.db), borrar);
+}
+
+/** ¿Ha borrado el administrador mi cuenta? (false si no, o si las reglas aún no lo permiten). */
+export async function cuentaBloqueada(uid: string) {
+  try {
+    const { fb } = await cargarFirebase();
+    return (await fb.get(fb.ref(fb.db, `bloqueados/${uid}`))).val() === true;
+  } catch {
+    return false;
+  }
+}

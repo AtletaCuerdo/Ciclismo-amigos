@@ -3,7 +3,16 @@
  * tiene cuenta, cuánto ha rodado y cuántas plazas de la aplicación de Strava quedan.
  */
 import { useEffect, useState } from 'react';
-import { adminVistoEn, cuentasNuevas, leerFichas, leerRegalos, marcarAdminVisto, regalarMonedas, type Ficha } from '../cuenta/admin';
+import {
+  adminVistoEn,
+  borrarCuenta,
+  cuentasNuevas,
+  leerFichas,
+  leerRegalos,
+  marcarAdminVisto,
+  regalarMonedas,
+  type Ficha,
+} from '../cuenta/admin';
 import { Moneda } from './Moneda';
 
 /** Atletas que admite ahora la aplicación de Strava (subirlo si Strava da más). */
@@ -41,6 +50,31 @@ export function PantallaAdmin({ onVolver, onVisto }: { onVolver: () => void; onV
       setAvisoRegalo('No se pudo regalar. Comprueba que las reglas nuevas de Firebase (las de «regalos») estén pegadas.');
     }
     setRegalando(null);
+  };
+
+  // Borrar una cuenta (las de prueba): todo lo suyo fuera de la nube y bloqueada para siempre
+  const [borrando, setBorrando] = useState<string | null>(null);
+  const borrarLaCuenta = async (f: Ficha) => {
+    if (
+      !window.confirm(
+        `¿Borrar la cuenta de «${f.nombre}» y todo su historial de RideCrew?\n\nSale de la clasificación, de los récords y del panel, y ya no podrá volver a entrar con esa cuenta. No se puede deshacer.`,
+      )
+    )
+      return;
+    setBorrando(f.uid);
+    setAvisoRegalo(null);
+    try {
+      await borrarCuenta(f.uid);
+      setFichas((l) => l?.filter((x) => x.uid !== f.uid) ?? null);
+      setAvisoRegalo(`🗑️ Cuenta de ${f.nombre} borrada.`);
+    } catch (e) {
+      setAvisoRegalo(
+        e instanceof Error && e.message.startsWith('No puedes')
+          ? e.message
+          : 'No se pudo borrar. Comprueba que las reglas nuevas de Firebase (las de «bloqueados») estén pegadas.',
+      );
+    }
+    setBorrando(null);
   };
 
   const cargar = () => {
@@ -123,6 +157,7 @@ export function PantallaAdmin({ onVolver, onVisto }: { onVolver: () => void; onV
                     <th>Alta</th>
                     <th>Última vez</th>
                     <th>RideCoins</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -156,6 +191,17 @@ export function PantallaAdmin({ onVolver, onVisto }: { onVolver: () => void; onV
                             regalados <Moneda /> {regalos[f.uid].toLocaleString('es-ES')}
                           </small>
                         ) : null}
+                      </td>
+                      <td>
+                        <button
+                          className="boton-secundario boton-borrar-cuenta"
+                          disabled={borrando === f.uid}
+                          onClick={() => void borrarLaCuenta(f)}
+                          title="Borrar la cuenta y todo su historial"
+                          aria-label={`Borrar la cuenta de ${f.nombre}`}
+                        >
+                          🗑️
+                        </button>
                       </td>
                     </tr>
                   ))}

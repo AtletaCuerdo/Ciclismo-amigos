@@ -5264,3 +5264,8 @@ a.boton-secundario {
   white-space: nowrap;
   min-height: 36px;
 }
+
+.boton-borrar-cuenta {
+  min-width: 44px;
+  min-height: 36px;
+}

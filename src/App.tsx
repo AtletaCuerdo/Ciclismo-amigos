@@ -8,7 +8,7 @@ import { PanelStrava } from './components/Strava';
 import { PanelFtp } from './components/PanelFtp';
 import { procesarVueltaDeStrava } from './strava/strava';
 import { useInstalar } from './instalar';
-import { cargarFirebase, useUsuario } from './cuenta/cuenta';
+import { cargarFirebase, cerrarSesion, useUsuario } from './cuenta/cuenta';
 import { Nube, desactivarEspejo } from './cuenta/sincronizar';
 import { PantallaCuenta, type EstadoSync } from './components/PantallaCuenta';
 import { ControlesRodillo } from './components/ControlesRodillo';
@@ -107,7 +107,16 @@ import {
 import { calcularTotales, publicarTotales } from './multijugador/rankings';
 import { PantallaRankings } from './components/PantallaRankings';
 import { PantallaAdmin } from './components/PantallaAdmin';
-import { adminVistoEn, avisarAltaSiNueva, cuentasNuevas, escucharMisRegalos, esAdmin, leerFichas, publicarFicha } from './cuenta/admin';
+import {
+  adminVistoEn,
+  avisarAltaSiNueva,
+  cuentaBloqueada,
+  cuentasNuevas,
+  escucharMisRegalos,
+  esAdmin,
+  leerFichas,
+  publicarFicha,
+} from './cuenta/admin';
 import { estadoStravaAqui, leerConexion, URL_INTERMEDIARIO } from './strava/strava';
 import { PantallaResumenes } from './components/PantallaResumenes';
 import { CircuitoElegido, PantallaCircuitos } from './components/PantallaCircuitos';
@@ -1301,6 +1310,15 @@ export default function App() {
   useEffect(() => {
     setSoyAdmin(false);
     if (usuario) void esAdmin(usuario.uid).then(setSoyAdmin);
+  }, [usuario?.uid]);
+  // Cuenta borrada por el administrador (cuentas de prueba): se avisa y se cierra la sesión
+  useEffect(() => {
+    if (!usuario) return;
+    void cuentaBloqueada(usuario.uid).then((si) => {
+      if (!si) return;
+      window.alert('Esta cuenta de RideCrew se ha borrado. Crea una cuenta nueva con otro correo para seguir.');
+      void cerrarSesion();
+    });
   }, [usuario?.uid]);
 
 

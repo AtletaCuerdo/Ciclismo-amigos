@@ -401,6 +401,12 @@ administrador, cada `$uid` lo lee su dueño y solo escribe el administrador. Reg
 `versionHistorial`) y, sin sesiones, se publican totales a 0, pero solo con la nube ya sincronizada (`sync.tipo === 'ok'`).
 Cuentas de prueba: el administrador no puede borrar datos de otros desde la web; se borran a mano en la consola de Firebase
 (`totales`, `fichas`, `usuarios`, `regalos` con su uid, y la cuenta en Authentication).
+24-11 (3): «🗑️ Borrar cuenta» en el panel 🛡️ (`borrarCuenta` en admin.ts): pone `bloqueados/{uid}: true` y borra de una vez
+`totales`, `usuarios`, `fichas`, `regalos`, sus `records` y sus `compartidos`. Reglas: `totales`, `records`, `usuarios` y
+`fichas` solo dejan escribir al dueño si no está bloqueado, y al administrador solo borrar; `bloqueados` lo escribe el
+administrador y cada uno lee el suyo. Al entrar con una cuenta bloqueada sale un aviso y se cierra la sesión
+(`cuentaBloqueada`). La cuenta de Authentication queda (no se puede borrar la de otro desde la web). Reglas probadas en el
+emulador (10 casos). **Necesita las reglas nuevas pegadas.**
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
