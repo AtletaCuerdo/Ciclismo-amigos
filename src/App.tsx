@@ -1254,13 +1254,15 @@ export default function App() {
     listarEntrenos()
       .then((lista) => {
         const t = calcularTotales(lista);
-        if (!cancelado && t.sesiones > 0) return publicarTotales(nombreVisible, t);
+        // Sin sesiones se publica 0 (p. ej. quien borra su única sesión de prueba), pero solo con la
+        // nube ya sincronizada: un navegador que perdió lo guardado no debe dejar su ranking a cero
+        if (!cancelado && (t.sesiones > 0 || sync.tipo === 'ok')) return publicarTotales(nombreVisible, t);
       })
       .catch(() => undefined); // sin conexión o sin las reglas nuevas: se intenta la próxima vez
     return () => {
       cancelado = true;
     };
-  }, [versionHistorial, nombreVisible, usuario?.uid]);
+  }, [versionHistorial, nombreVisible, usuario?.uid, sync.tipo]);
 
   // ---- Ficha para el panel del administrador (solo con cuenta) ----
   // Al volver a una pantalla también se publica, por si se acaba de conectar Strava en Ajustes
@@ -2587,7 +2589,7 @@ export default function App() {
             </button>
             <h2>Historial</h2>
           </div>
-          <Historial version={versionHistorial} />
+          <Historial version={versionHistorial} onBorrado={() => setVersionHistorial((v) => v + 1)} />
         </section>
       )}
 

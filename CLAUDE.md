@@ -397,6 +397,10 @@ pasa de ±N y la media del tramo es exactamente 0; App la suma a `objetivoW` (el
 «RideCoins» con «🎁 +10.000» (`regalarMonedas`, transacción en `regalos/{uid}` = total regalado, solo sube). Cada cuenta lo
 escucha (`escucharMisRegalos`) y se suma a su saldo en App (`regaloNube`), al momento. Reglas: `regalos` lo lee el
 administrador, cada `$uid` lo lee su dueño y solo escribe el administrador. Reglas pegadas por el usuario el 24-11: funciona.
+24-11 (2): borrar una sesión en el historial no tocaba el ranking (`totales/{uid}`): ahora `Historial` avisa (`onBorrado` →
+`versionHistorial`) y, sin sesiones, se publican totales a 0, pero solo con la nube ya sincronizada (`sync.tipo === 'ok'`).
+Cuentas de prueba: el administrador no puede borrar datos de otros desde la web; se borran a mano en la consola de Firebase
+(`totales`, `fichas`, `usuarios`, `regalos` con su uid, y la cuenta en Authentication).
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).

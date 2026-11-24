@@ -21,7 +21,7 @@ const formatoFecha = new Intl.DateTimeFormat('es-ES', {
 });
 
 /** Totales acumulados y lista de entrenamientos guardados en este navegador. */
-export function Historial({ version }: Props) {
+export function Historial({ version, onBorrado }: Props & { onBorrado?: () => void }) {
   const [entrenos, setEntrenos] = useState<EntrenoGuardado[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,6 +49,8 @@ export function Historial({ version }: Props) {
     if (!window.confirm(`¿Borrar el entrenamiento del ${formatoFecha.format(g.inicio)}? No se puede deshacer.`)) return;
     await borrarEntreno(g.id);
     await recargar();
+    // Que los totales del ranking (y la ficha) se vuelvan a calcular sin esta sesión
+    onBorrado?.();
   };
 
   const lista = entrenos ?? [];
