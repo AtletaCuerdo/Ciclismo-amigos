@@ -226,3 +226,46 @@ export async function avisarAltaSiNueva(urlIntermediario: string) {
     // no es grave
   }
 }
+
+// ---------------------------------------------------------------------------
+// RideCoins de regalo del administrador a otras cuentas (para que prueben la tienda y las paradas)
+//
+//   regalos/{uid} = total regalado (número que solo sube). Lo escribe solo el administrador y lo lee
+//   el dueño (se suma a su saldo) y el administrador (para verlo en el panel).
+// ---------------------------------------------------------------------------
+
+/** Suma `n` RideCoins a lo regalado a esa cuenta. */
+export async function regalarMonedas(uid: string, n: number) {
+  const { fb } = await cargarFirebase();
+  const r = await fb.runTransaction(fb.ref(fb.db, `regalos/${uid}`), (v) => (Number(v) || 0) + n);
+  return Number(r.snapshot.val()) || 0;
+}
+
+/** Lo regalado a cada cuenta (solo el administrador puede leerlo). */
+export async function leerRegalos(): Promise<Record<string, number>> {
+  try {
+    const { fb } = await cargarFirebase();
+    const snap = await fb.get(fb.ref(fb.db, 'regalos'));
+    return (snap.val() as Record<string, number> | null) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/** Escucha lo que me ha regalado el administrador (0 si nada o si las reglas aún no lo permiten). */
+export function escucharMisRegalos(uid: string, alCambiar: (n: number) => void) {
+  let quitar: (() => void) | null = null;
+  let vivo = true;
+  void cargarFirebase().then(({ fb }) => {
+    if (!vivo) return;
+    quitar = fb.onValue(
+      fb.ref(fb.db, `regalos/${uid}`),
+      (s) => alCambiar(Math.max(0, Number(s.val()) || 0)),
+      () => alCambiar(0),
+    );
+  });
+  return () => {
+    vivo = false;
+    quitar?.();
+  };
+}

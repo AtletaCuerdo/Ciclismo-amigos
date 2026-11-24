@@ -106,7 +106,7 @@ import {
 import { calcularTotales, publicarTotales } from './multijugador/rankings';
 import { PantallaRankings } from './components/PantallaRankings';
 import { PantallaAdmin } from './components/PantallaAdmin';
-import { adminVistoEn, avisarAltaSiNueva, cuentasNuevas, esAdmin, leerFichas, publicarFicha } from './cuenta/admin';
+import { adminVistoEn, avisarAltaSiNueva, cuentasNuevas, escucharMisRegalos, esAdmin, leerFichas, publicarFicha } from './cuenta/admin';
 import { estadoStravaAqui, leerConexion, URL_INTERMEDIARIO } from './strava/strava';
 import { PantallaResumenes } from './components/PantallaResumenes';
 import { CircuitoElegido, PantallaCircuitos } from './components/PantallaCircuitos';
@@ -2033,7 +2033,14 @@ export default function App() {
       vivo = false;
     };
   }, [versionHistorial, usuario?.uid]);
-  const saldo = Math.max(0, ganadas + (perfil.despensa?.regalo ?? 0) - (perfil.despensa?.gastado ?? 0));
+  // RideCoins que me ha regalado el administrador desde su panel (`regalos/{uid}`)
+  const [regaloNube, setRegaloNube] = useState(0);
+  useEffect(() => {
+    setRegaloNube(0);
+    if (!usuario) return;
+    return escucharMisRegalos(usuario.uid, setRegaloNube);
+  }, [usuario?.uid]);
+  const saldo = Math.max(0, ganadas + (perfil.despensa?.regalo ?? 0) + regaloNube - (perfil.despensa?.gastado ?? 0));
   /** Solo el administrador: RideCoins de regalo para probar la tienda y las paradas. */
   const regalarmeMonedas = (n: number) => {
     const p = perfilRef.current;

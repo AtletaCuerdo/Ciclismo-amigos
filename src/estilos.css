@@ -5259,3 +5259,8 @@ a.boton-secundario {
 .hud-horquilla select option {
   color: #111;
 }
+
+.boton-regalo {
+  white-space: nowrap;
+  min-height: 36px;
+}

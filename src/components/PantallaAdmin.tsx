@@ -3,7 +3,8 @@
  * tiene cuenta, cuánto ha rodado y cuántas plazas de la aplicación de Strava quedan.
  */
 import { useEffect, useState } from 'react';
-import { adminVistoEn, cuentasNuevas, leerFichas, marcarAdminVisto, type Ficha } from '../cuenta/admin';
+import { adminVistoEn, cuentasNuevas, leerFichas, leerRegalos, marcarAdminVisto, regalarMonedas, type Ficha } from '../cuenta/admin';
+import { Moneda } from './Moneda';
 
 /** Atletas que admite ahora la aplicación de Strava (subirlo si Strava da más). */
 const PLAZAS_STRAVA = 10;
@@ -24,8 +25,27 @@ export function PantallaAdmin({ onVolver, onVisto }: { onVolver: () => void; onV
   }, []);
   const nuevas = fichas ? cuentasNuevas(fichas, vistoAntes) : [];
 
+  // RideCoins regalados a cada cuenta (para que prueben la tienda y las paradas)
+  const [regalos, setRegalos] = useState<Record<string, number>>({});
+  const [regalando, setRegalando] = useState<string | null>(null);
+  const [avisoRegalo, setAvisoRegalo] = useState<string | null>(null);
+  const regalar = async (f: Ficha) => {
+    if (!window.confirm(`¿Regalar 10.000 RideCoins a ${f.nombre}?`)) return;
+    setRegalando(f.uid);
+    setAvisoRegalo(null);
+    try {
+      const total = await regalarMonedas(f.uid, 10000);
+      setRegalos((r) => ({ ...r, [f.uid]: total }));
+      setAvisoRegalo(`🎁 Hecho: ${f.nombre} ya tiene 10.000 RideCoins más (le salen al momento, aunque tenga la web abierta).`);
+    } catch {
+      setAvisoRegalo('No se pudo regalar. Comprueba que las reglas nuevas de Firebase (las de «regalos») estén pegadas.');
+    }
+    setRegalando(null);
+  };
+
   const cargar = () => {
     setError(null);
+    void leerRegalos().then(setRegalos);
     leerFichas()
       .then((r) => {
         setFichas(r.fichas);
@@ -88,6 +108,7 @@ export function PantallaAdmin({ onVolver, onVisto }: { onVolver: () => void; onV
             </div>
           </div>
 
+          {avisoRegalo && <p className="aviso">{avisoRegalo}</p>}
           {fichas.length === 0 ? (
             <p className="vacio">Todavía no hay ninguna ficha.</p>
           ) : (
@@ -101,6 +122,7 @@ export function PantallaAdmin({ onVolver, onVisto }: { onVolver: () => void; onV
                     <th>Strava</th>
                     <th>Alta</th>
                     <th>Última vez</th>
+                    <th>RideCoins</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -120,6 +142,21 @@ export function PantallaAdmin({ onVolver, onVisto }: { onVolver: () => void; onV
                       </td>
                       <td>{f.pendiente ? '?' : fecha(f.alta)}</td>
                       <td>{fecha(f.t)}</td>
+                      <td>
+                        <button
+                          className="boton-secundario boton-regalo"
+                          disabled={regalando === f.uid}
+                          onClick={() => void regalar(f)}
+                          title="Para que pruebe la tienda y las paradas"
+                        >
+                          🎁 +10.000
+                        </button>
+                        {regalos[f.uid] ? (
+                          <small>
+                            regalados <Moneda /> {regalos[f.uid].toLocaleString('es-ES')}
+                          </small>
+                        ) : null}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

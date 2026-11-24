@@ -386,6 +386,11 @@ cada ~18 s alternando arriba y abajo (semilla = inicio del tramo), unidos con re
 pasa de ±N y la media del tramo es exactamente 0; App la suma a `objetivoW` (el ERG la recibe cada segundo). En el panel:
 «〰️ media 240 W (±10)». El TSS planificado no cambia.
 
+24-11: regalar RideCoins a otras cuentas (Jesús, para un amigo nuevo que va a probar la web): en el panel 🛡️, columna
+«RideCoins» con «🎁 +10.000» (`regalarMonedas`, transacción en `regalos/{uid}` = total regalado, solo sube). Cada cuenta lo
+escucha (`escucharMisRegalos`) y se suma a su saldo en App (`regaloNube`), al momento. Reglas: `regalos` lo lee el
+administrador, cada `$uid` lo lee su dueño y solo escribe el administrador. **Necesita las reglas nuevas pegadas.**
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
