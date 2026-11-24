@@ -389,7 +389,7 @@ pasa de ±N y la media del tramo es exactamente 0; App la suma a `objetivoW` (el
 24-11: regalar RideCoins a otras cuentas (Jesús, para un amigo nuevo que va a probar la web): en el panel 🛡️, columna
 «RideCoins» con «🎁 +10.000» (`regalarMonedas`, transacción en `regalos/{uid}` = total regalado, solo sube). Cada cuenta lo
 escucha (`escucharMisRegalos`) y se suma a su saldo en App (`regaloNube`), al momento. Reglas: `regalos` lo lee el
-administrador, cada `$uid` lo lee su dueño y solo escribe el administrador. **Necesita las reglas nuevas pegadas.**
+administrador, cada `$uid` lo lee su dueño y solo escribe el administrador. Reglas pegadas por el usuario el 24-11: funciona.
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
