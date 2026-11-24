@@ -68,6 +68,13 @@ tiene que llamarse dentro del propio clic.
 
 ## Estado actual (2026-09-27)
 
+24-11: **Weekend Warriors** (app del club, repo `AtletaCuerdo/weekend-warriors`): su botón «Hacer en RideCrew»
+abre `https://ridecrew.tricoach.es/#ww=<base64url de JSON { v: 1, e: [{ id, n, d, f, b }] }>`.
+`entrenamientos/weekendWarriors.ts` (`LLEGARON_DE_WW`, al cargar el módulo) los valida con `validar` de
+`compartidos.ts` (ahora exportada), les pone categoría con `categoriaSegunIntensidad` y los guarda como propios
+`ww-…` (si llega el mismo id, se sustituye); se sincronizan con la cuenta como cualquier propio. La web abre
+en Entrenamientos con un aviso. **Sin reglas nuevas.** Si cambia el formato, cambiar también `src/ridecrew.ts` de WW.
+
 Nombre visible: **RideCrew** (título «RideCrew by TriCoach», cabecera, icono «RC», rotulación del maillot,
 TCX y Strava). La dirección, el repositorio, Firebase y las claves de localStorage siguen con
 «ciclismo-amigos». Cyclink se descartó: es marca de Shimano en la UE.

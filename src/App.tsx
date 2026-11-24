@@ -56,6 +56,7 @@ import { CATALOGO } from './entrenamientos/catalogo';
 import { cargarPropios, guardarPropios } from './entrenamientos/propios';
 import { useCompartidos } from './entrenamientos/compartidos';
 import { VINO_DE_TRICOACH, useSemanaTricoach } from './entrenamientos/tricoach';
+import { LLEGARON_DE_WW } from './entrenamientos/weekendWarriors';
 import {
   HORQUILLAS,
   desplegar,
@@ -277,7 +278,9 @@ function leerHorquilla() {
 
 export default function App() {
   // al volver de dar permiso en TriCoach Entrenos, directos a los entrenamientos («Tu semana con TriCoach»)
-  const [pantalla, setPantalla] = useState<Pantalla>(VINO_DE_TRICOACH ? 'entrenamientos' : 'inicio');
+  // (y al llegar sesiones de rodillo desde la app de Weekend Warriors)
+  const [pantalla, setPantalla] = useState<Pantalla>(VINO_DE_TRICOACH || LLEGARON_DE_WW ? 'entrenamientos' : 'inicio');
+  const [avisoWW, setAvisoWW] = useState(LLEGARON_DE_WW);
   const [eleccionCielo, setEleccionCielo] = useState<EleccionCielo>(leerEleccionCielo);
   const [datos, setDatos] = useState<Datos>(DATOS_VACIOS);
   const [conexiones, setConexiones] = useState<Record<Fuente, InfoConexion>>({
@@ -2525,6 +2528,11 @@ export default function App() {
         />
       )}
 
+      {pantalla === 'entrenamientos' && avisoWW > 0 && (
+        <div className="aviso aviso-strava" onClick={() => setAvisoWW(0)}>
+          🛡️ {avisoWW === 1 ? 'Entreno de Weekend Warriors guardado' : `${avisoWW} entrenos de Weekend Warriors guardados`} en tus entrenamientos («Mío», empiezan por «WW ·»). Elige uno y ¡a rodar!
+        </div>
+      )}
       {pantalla === 'entrenamientos' && (
         <PantallaEntrenamientos
           deAmigos={compartidos.amigos}

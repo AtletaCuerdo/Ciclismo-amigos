@@ -13,7 +13,7 @@ import { CATEGORIAS, type Bloque, type Entrenamiento } from './tipos';
 const TAMANO_MAX = 20000;
 
 /** Comprueba un entrenamiento leído de la nube (lo ha escrito otra persona). */
-function validar(x: unknown): Entrenamiento | null {
+export function validar(x: unknown): Entrenamiento | null {
   const e = x as Partial<Entrenamiento> | null;
   if (!e || typeof e.nombre !== 'string' || !e.nombre.trim() || !Array.isArray(e.bloques) || e.bloques.length === 0)
     return null;
