@@ -453,6 +453,13 @@ había llegado, parecía estar solo y le quitaba el mando al que ya estaba y rei
 anuncia si venía de carrera libre. **Prueba con el emulador** (solo en desarrollo): `firebase emulators:start --only
 database,auth` (auth 9099, database 9123, proyecto ciclismo-amigos, reglas de firebase/) y abrir `http://localhost:5173/?emulador`
 (firebase.ts conecta al emulador); las cuentas de prueba se crean con `accounts:signUp` del emulador de auth.
+25-11 (7): la causa de la pantalla de Eric (captura: ventana de la app instalada vacía, ni cabecera): al publicar, GitHub
+Pages borra los archivos de la versión anterior; con la página vieja aún guardada (caché de ~10 min) o la web abierta de
+antes, al pedir una pieza que ya no existe (`VistaRecorrido` es `lazy`: se descarga al pulsar «Empezar») la web se quedaba
+vacía. Hoy se publicó muchas veces. Ahora `index.html` (script en línea) recarga sola con `?v=` si falla un archivo de
+`/assets/` o salta `vite:preloadError` (como mucho una vez cada 30 s, `rodillos.recargaVersion` en sessionStorage) y, si a
+los 15 s no ha arrancado, enseña «RideCrew no ha terminado de cargar» con un botón; `ProteccionErrores` también recarga ante
+un fallo de importación. Probado quitando el archivo principal: recarga una vez y luego enseña el botón.
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).

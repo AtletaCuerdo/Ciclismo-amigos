@@ -18,6 +18,10 @@ export class ProteccionErrores extends Component<{ children: ReactNode }, Estado
 
   componentDidCatch(error: Error, info: { componentStack?: string | null }) {
     console.error('RideCrew: fallo al pintar la web', error, info.componentStack);
+    // Una pieza de la web que ya no existe (se ha publicado una versión nueva): recargar con la nueva
+    if (/dynamically imported module|Importing a module script failed|error loading dynamically|ChunkLoadError|Failed to fetch/i.test(error.message)) {
+      (window as unknown as { __recargarVersion?: () => boolean }).__recargarVersion?.();
+    }
   }
 
   render() {

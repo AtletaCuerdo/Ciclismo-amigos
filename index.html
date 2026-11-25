@@ -14,6 +14,48 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Al publicar una versión nueva, los archivos de la anterior desaparecen del servidor. Si el
+      // navegador aún tenía guardada la página vieja (o la web estaba abierta desde antes), al pedir
+      // una pieza que ya no existe (p. ej. el recorrido al pulsar «Empezar») la web se quedaba en
+      // negro. Entonces se recarga sola, con la página nueva (como mucho una vez cada 30 s).
+      (function () {
+        var CLAVE = 'rodillos.recargaVersion';
+        function recargar() {
+          try {
+            var ultima = Number(sessionStorage.getItem(CLAVE) || 0);
+            if (Date.now() - ultima < 30000) return false;
+            sessionStorage.setItem(CLAVE, String(Date.now()));
+          } catch (e) {}
+          var u = new URL(location.href);
+          u.searchParams.set('v', Date.now().toString(36));
+          location.replace(u.toString());
+          return true;
+        }
+        window.__recargarVersion = recargar;
+        window.addEventListener(
+          'error',
+          function (e) {
+            var t = e.target;
+            if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK') && /\/assets\//.test(t.src || t.href || '')) recargar();
+          },
+          true,
+        );
+        window.addEventListener('vite:preloadError', function (e) {
+          if (recargar()) e.preventDefault();
+        });
+        // Si aun así no arranca, que no se quede la pantalla vacía
+        setTimeout(function () {
+          var r = document.getElementById('root');
+          if (r && !r.firstChild)
+            r.innerHTML =
+              '<div style="max-width:560px;margin:60px auto;padding:16px;color:#e5edf7;font:16px system-ui,sans-serif;text-align:center">' +
+              '<p>RideCrew no ha terminado de cargar.</p>' +
+              '<button style="padding:12px 20px;border-radius:12px;border:0;background:#22d3ee;color:#0b1220;font-weight:700;font-size:16px" ' +
+              'onclick="var u=new URL(location.href);u.searchParams.set(\'v\',Date.now().toString(36));location.replace(u)">🔄 Recargar</button></div>';
+        }, 15000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
