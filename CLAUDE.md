@@ -501,6 +501,9 @@ Probado con el emulador: navegador de antes, dos aparatos, borrar propio, sin in
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
 ### Próximos pasos
+- **Comprobar el consumo de Firebase el 02-12-2026** (Jesús lo pidió; hay un recordatorio programado): captura de Realtime
+  Database → Uso. Antes de los arreglos del 26-11: **203 MB de descarga en 7 días** (+235 % sobre la semana anterior),
+  6,44 MB guardados, plan Spark (10 GB/mes). Si ha bajado, apuntarlo; si no, buscar qué más descarga.
 - **Elite Turbo Muin** (25-11, amigo nuevo): rodillo de fluido sin palanca ni control (el apaño de la palanca 1-8 es del
   Novo Force de Aitor, magnético: no sirve aquí). Hace falta un sensor: Misuro B+ (vatios con la curva de Elite; en
   ordenador/Android sale en «Potenciómetro»; en iPhone/iPad, con «Ver todos», sin probar) o, mejor y más barato, un sensor
