@@ -682,6 +682,10 @@ export default function App() {
     return m.s + (velVirtualRef.current / 3.6) * Math.min(1.5, (performance.now() - m.t) / 1000);
   };
 
+  // ---- Quedada: me he soltado del grupo / sin rebufo mientras vamos todos juntos ----
+  const sueltoQuedadaRef = useRef(false);
+  const sinRebufoRef = useRef(false);
+
   // ---- «Siempre juntos» con un amigo: grupo (uid del amigo) y lo exigente que es mi entreno ----
   const [juntosCon, setJuntosCon] = useState<string | null>(null);
   const juntosRef = useRef<string | null>(null);
@@ -698,6 +702,9 @@ export default function App() {
       distancia: enRecorridoRef.current ? posicionAhora() : distanciaRef.current,
       juntos: enRecorridoRef.current ? juntosRef.current : null,
       exige: exigeRef.current,
+      // Quedada: lo que iría yo solo (para saber quién tira) y si me he soltado del grupo
+      vp: enRecorridoRef.current ? velVirtualRef.current : undefined,
+      suelto: sueltoQuedadaRef.current,
     }),
     perfil.avatar,
   );
@@ -952,6 +959,8 @@ export default function App() {
           ),
         ]);
       }
+      // Quedada, todos juntos: vamos pegados, así que el rebufo no cuenta (tampoco para saber quién tira)
+      if (sinRebufoRef.current) objetivoRebufo = 0;
       // Suavizado: el rebufo entra y sale en ~1 s, sin parpadeos
       rebufoRef.current += (objetivoRebufo - rebufoRef.current) * Math.min(1, dt * 2);
       if (rebufoRef.current < 0.005) rebufoRef.current = 0;
@@ -1088,7 +1097,7 @@ export default function App() {
   // pegados a él.
   const soltadoRef = useRef(false);
   useEffect(() => {
-    if (!enRecorrido || juntosCon || soltadoRef.current || !salida.miUid) return;
+    if (!enRecorrido || juntosCon || soltadoRef.current || !salida.miUid || salida.quedada) return;
     if (salida.ciclistas.some((c) => c.uid !== salida.miUid && c.juntos === salida.miUid)) setJuntosCon(salida.miUid);
   }, [enRecorrido, juntosCon, salida.ciclistas, salida.miUid]);
   useEffect(() => {
@@ -1108,14 +1117,111 @@ export default function App() {
         (a, b) => exigeDe(b) - exigeDe(a) || Number(b.uid === juntosCon) - Number(a.uid === juntosCon) || a.uid.localeCompare(b.uid),
       )[0]
     : null;
+
+  // ---- Quedada: todos juntos por defecto; el anfitrión suelta el grupo, reagrupa y abre los suministros ----
+  // Cada circuito es una quedada. El anfitrión es quien creó la salida programada o, si no, el primero
+  // que llegó; si se va, pasa al siguiente. Con alguien más en el circuito, vamos todos juntos: tira
+  // el que iría más rápido él solo (su `vp`) y los demás van pegados a él, cada uno con sus vatios.
+  const quedada = enRecorrido && salida.estado === 'dentro' ? salida.quedada : null;
+  const presentes = enRecorrido && salida.estado === 'dentro' ? salida.ciclistas : [];
+  const hayOtros = presentes.some((c) => c.uid !== salida.miUid);
+  const enQuedada = !!quedada && hayOtros;
+  const soyAnfitrion = !!quedada && quedada.anfitrion === salida.miUid;
+  const [sueltoQuedada, setSueltoQuedada] = useState(false);
+  sueltoQuedadaRef.current = enQuedada && sueltoQuedada;
+  const juntosQuedada = enQuedada && quedada!.modo === 'juntos' && !sueltoQuedada;
+  const miembrosQuedada = juntosQuedada ? presentes.filter((c) => c.uid === salida.miUid || !c.suelto) : [];
+  // Quién tira: el de más `vp` (todos lo calculan con los mismos datos publicados, así que coinciden)
+  const liderQuedada =
+    miembrosQuedada.length > 1
+      ? [...miembrosQuedada].sort((a, b) => (b.vp ?? b.velocidad ?? 0) - (a.vp ?? a.velocidad ?? 0) || a.uid.localeCompare(b.uid))[0]
+      : null;
+  sinRebufoRef.current = miembrosQuedada.length > 1;
+  // Si se sale de la quedada (o del recorrido), dejo de estar suelto
+  useEffect(() => {
+    if (!enQuedada) setSueltoQuedada(false);
+  }, [enQuedada]);
+  // Anfitrión: si no hay o se ha ido, lo coge el que toca (uno solo: el de uid menor de los presentes;
+  // el creador de la salida programada lo coge siempre). Si estoy solo, empieza una quedada nueva.
+  const creadorProgramadaRef = useRef(false);
+  const intentoAnfitrionRef = useRef(0);
+  useEffect(() => {
+    const yo = salida.miUid;
+    if (!enRecorrido || salida.estado !== 'dentro' || !yo) return;
+    const ids = salida.ciclistas.map((c) => c.uid);
+    if (!ids.includes(yo) || Date.now() - intentoAnfitrionRef.current < 5000) return;
+    const q = salida.quedada;
+    const solo = ids.every((u) => u === yo);
+    let nueva: boolean | null = null;
+    if (creadorProgramadaRef.current && q?.anfitrion !== yo) nueva = !q || solo;
+    else if (!q || !ids.includes(q.anfitrion)) {
+      if (solo) nueva = true;
+      else if ([...ids].sort()[0] === yo) nueva = false;
+    } else if (solo && (q.modo !== 'juntos' || q.suministros)) nueva = true; // solo en el circuito: quedada nueva
+    if (nueva === null) return;
+    intentoAnfitrionRef.current = Date.now();
+    creadorProgramadaRef.current = false;
+    void salida.serAnfitrion(nueva);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enRecorrido, salida.estado, salida.miUid, salida.quedada, salida.ciclistas]);
+  // Avisos para todos: carrera libre, reagrupados y suministros
+  const [avisoQuedada, setAvisoQuedada] = useState<string | null>(null);
+  useEffect(() => {
+    if (!avisoQuedada) return;
+    const id = setTimeout(() => setAvisoQuedada(null), 7000);
+    return () => clearTimeout(id);
+  }, [avisoQuedada]);
+  const vistoQuedadaRef = useRef<{ cambio: number; suministros: boolean } | null>(null);
+  useEffect(() => {
+    const q = quedada;
+    if (!q) {
+      vistoQuedadaRef.current = null;
+      return;
+    }
+    const antes = vistoQuedadaRef.current;
+    vistoQuedadaRef.current = { cambio: q.cambio, suministros: q.suministros };
+    if (!antes) return; // al entrar no se anuncia lo que ya estaba
+    if (q.cambio !== antes.cambio) {
+      if (q.modo === 'juntos') {
+        // Reagrupados: todos al punto que marcó el anfitrión (el de cabeza) y nadie suelto
+        setSueltoQuedada(false);
+        if (q.s > 0) ponerEnPunto(q.s);
+        setAvisoQuedada(`🤝 ¡Reagrupados! Todos juntos otra vez (${q.nombre})`);
+      } else setAvisoQuedada(`🏁 ¡Carrera libre! Lo ha soltado ${q.nombre}: cada uno con sus vatios y a rueda`);
+    } else if (q.suministros !== antes.suministros)
+      setAvisoQuedada(q.suministros ? `🍬 ¡Suministros permitidos! (${q.nombre})` : `🚫 Suministros cerrados (${q.nombre})`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quedada?.cambio, quedada?.suministros]);
+  /** Geles, guayaba y paradas: libres si no estoy en una quedada; en una, solo en carrera libre con suministros. */
+  const suministrosOk = !enQuedada || (quedada!.modo === 'libre' && quedada!.suministros);
+  const suministrosOkRef = useRef(suministrosOk);
+  suministrosOkRef.current = suministrosOk;
+  const reagruparQuedada = () => {
+    // Todos al punto del que va en cabeza
+    const ahoraSrv = Date.now() + salida.desfaseServidor;
+    const cabeza = Math.max(
+      posicionAhora(),
+      ...presentes.map((c) => (c.distancia ?? 0) + ((c.velocidad ?? 0) / 3.6) * Math.min(2, Math.max(0, (ahoraSrv - c.t) / 1000))),
+    );
+    void salida.cambiarQuedada({ modo: 'juntos', s: cabeza });
+  };
+
   const liderJuntosRef = useRef<Ciclista | null>(null);
-  liderJuntosRef.current = marcaRitmo && marcaRitmo.uid !== salida.miUid ? marcaRitmo : null;
+  liderJuntosRef.current = enQuedada
+    ? liderQuedada && liderQuedada.uid !== salida.miUid
+      ? liderQuedada
+      : null
+    : marcaRitmo && marcaRitmo.uid !== salida.miUid
+      ? marcaRitmo
+      : null;
   /** Me suelto del grupo (sigo rodando desde donde estoy). */
   const soltarJuntos = () => {
     soltadoRef.current = true;
     setJuntosCon(null);
   };
-  const companerosJuntos = new Set(grupoActivo ? miembrosJuntos.map((c) => c.uid) : []);
+  const companerosJuntos = new Set(
+    enQuedada ? (miembrosQuedada.length > 1 ? miembrosQuedada.map((c) => c.uid) : []) : grupoActivo ? miembrosJuntos.map((c) => c.uid) : [],
+  );
 
   // Otros ciclistas de la salida, con su avatar (o uno fijo si no lo comparten)
   const otrosCiclistas: OtroCiclista[] = salida.ciclistas
@@ -1664,7 +1770,7 @@ export default function App() {
   const [seguidoEn, setSeguidoEn] = useState<number | null>(null);
   const [dentroParada, setDentroParada] = useState<{ km: number; desde: number } | null>(null);
   const proximaParada =
-    pegadoRef.current || dentroParada || !enRecorrido
+    pegadoRef.current || dentroParada || !enRecorrido || !suministrosOk
       ? null
       : ((PARADAS[circuitoId] ?? [])
           .map((p) => ({ parada: p, metros: p.km * 1000 - enLaVuelta }))
@@ -1745,6 +1851,11 @@ export default function App() {
   /** Entrar a una salida programada: a su circuito y, si ya hay alguien rodando, a su lado. */
   const entrarProgramada = (circuito: string) => {
     const circ = circuitoPorId(circuito);
+    // Si la salida programada que empieza ahora la creé yo, soy el anfitrión de la quedada
+    const ahora = Date.now();
+    creadorProgramadaRef.current = programadas.lista.some(
+      (p) => p.circuito === circ.id && p.autorUid === programadas.miUid && ahora > p.hora - 15 * 60000 && ahora < p.hora + 2 * 3600000,
+    );
     const alguien = conectados.ciclistas.find((c) => c.sala === circ.sala);
     if (alguien) rodarJuntoA(alguien.uid, circ.sala);
     else {
@@ -2110,7 +2221,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuario?.uid, sync.tipo]);
   const tomarNutricion = (n: Nutricion) => {
-    if (existencias(perfil.despensa, n.id) <= 0 || pegadoRef.current) return;
+    if (existencias(perfil.despensa, n.id) <= 0 || pegadoRef.current || !suministrosOkRef.current) return;
     if (efecto && Date.now() < efecto.hasta) return;
     cambiarPerfil({ ...perfil, despensa: tomar(perfil.despensa, n.id) });
     nutricionSesionRef.current.push(n.id);
@@ -2118,7 +2229,7 @@ export default function App() {
   };
   /** En un sitio del recorrido: se compra y se toma en el acto (sustituye al efecto que hubiera). */
   const comprarEnParada = (n: Nutricion) => {
-    if (saldo < n.precio || pegadoRef.current) return;
+    if (saldo < n.precio || pegadoRef.current || !suministrosOkRef.current) return;
     cambiarPerfil({ ...perfil, despensa: tomar(comprar(perfil.despensa, n.id), n.id) });
     nutricionSesionRef.current.push(n.id);
     setEfecto({ id: n.id, hasta: Date.now() + n.duracionS * 1000 });
@@ -2877,8 +2988,31 @@ export default function App() {
             errorSalida={salida.error}
             onUnirseSalida={unirseDesdeRecorrido}
             onJuntoA={ponerEnPunto}
+            quedada={
+              enQuedada
+                ? {
+                    anfitrion: quedada!.nombre,
+                    soyAnfitrion,
+                    modo: quedada!.modo,
+                    suministros: quedada!.suministros,
+                    onLibre: () => void salida.cambiarQuedada({ modo: 'libre' }),
+                    onReagrupar: reagruparQuedada,
+                    onSuministros: (si: boolean) => void salida.cambiarQuedada({ suministros: si }),
+                  }
+                : null
+            }
+            avisoQuedada={avisoQuedada}
             juntos={
-              juntosCon
+              enQuedada
+                ? miembrosQuedada.length > 1
+                  ? {
+                      companeros: miembrosQuedada.filter((c) => c.uid !== salida.miUid).map((c) => c.nombre),
+                      marcaRitmo: liderQuedada && liderQuedada.uid !== salida.miUid ? liderQuedada.nombre : null,
+                      esperando: false,
+                      onSoltar: () => setSueltoQuedada(true),
+                    }
+                  : null
+                : juntosCon
                 ? {
                     companeros: miembrosJuntos.filter((c) => c.uid !== salida.miUid).map((c) => c.nombre),
                     marcaRitmo: marcaRitmo && marcaRitmo.uid !== salida.miUid ? marcaRitmo.nombre : null,
@@ -2976,7 +3110,11 @@ export default function App() {
             nutricion={{
               despensa: NUTRICION_TIENDA.map((n) => ({ n, quedan: existencias(perfil.despensa, n.id) })),
               efecto: efectoActivo,
-              bloqueada: !!pegadoRef.current,
+              bloqueada: pegadoRef.current
+                ? 'Vas pegado al grupo: la nutrición no se nota.'
+                : !suministrosOk
+                  ? 'Quedada: los suministros están cerrados hasta que el anfitrión los permita en carrera libre.'
+                  : null,
               tomadaEn: efecto ? efecto.hasta - nutricionPorId(efecto.id).duracionS * 1000 : null,
               onTomar: tomarNutricion,
             }}

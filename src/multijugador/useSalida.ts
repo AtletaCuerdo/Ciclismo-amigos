@@ -7,6 +7,8 @@
  *   salas/{sala}/chat/{id}       = { uid, nombre, texto, t, audio?, dur? }  (mensajes del grupo;
  *                                   los de voz llevan el audio en texto base64)
  *   salas/{sala}/emojis/{uid}    = { e, t }  (emoji rápido que se ve unos segundos sobre el ciclista)
+ *   salas/{sala}/quedada         = { anfitrion, nombre, modo, suministros, cambio, s }  (quedada: el anfitrión
+ *                                   decide si se va todos juntos o en carrera libre y si hay geles)
  * El avatar va aparte: si las reglas de Firebase aún no lo permiten, falla solo
  * esa escritura y la salida en grupo sigue funcionando (con avatar por defecto). Lo mismo con el
  * nivel: si las reglas aún no lo admiten, mi nodo se publica sin él.
@@ -57,7 +59,27 @@ export interface Ciclista {
   juntos?: string;
   /** Lo exigente que es su entrenamiento ahora (IF × intensidad; 0 en rodar libre). */
   exige?: number;
+  /** Quedada: velocidad que llevaría él solo con lo que pedalea (km/h), para saber quién tira. */
+  vp?: number;
+  /** Quedada: se ha soltado del grupo (rueda por su cuenta hasta que el anfitrión reagrupe). */
+  suelto?: boolean;
   t: number; // hora del servidor (ms)
+}
+
+/**
+ * Quedada de la sala: por defecto todos juntos (tira el que iría más rápido solo); el anfitrión
+ * puede soltar el grupo («carrera libre», cada uno con sus vatios y el rebufo), reagruparlo y
+ * permitir los suministros (geles, paradas…).
+ */
+export interface Quedada {
+  anfitrion: string;
+  nombre: string;
+  modo: 'juntos' | 'libre';
+  suministros: boolean;
+  /** Hora del servidor del último cambio de modo (sirve para saber cuándo se ha reagrupado). */
+  cambio: number;
+  /** Punto del circuito donde se reagrupa (m). */
+  s: number;
 }
 
 export interface MisDatos {
@@ -67,6 +89,8 @@ export interface MisDatos {
   distancia: number; // m
   juntos?: string | null;
   exige?: number;
+  vp?: number;
+  suelto?: boolean;
 }
 
 export interface Mensaje {
@@ -143,6 +167,7 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
   const [grupetas, setGrupetas] = useState<{ leida: boolean; ficha: FichaGrupetas | null }>({ leida: false, ficha: null });
   const [chatRechazado, setChatRechazado] = useState(false);
   const [emojis, setEmojis] = useState<Record<string, { e: string; t: number }>>({});
+  const [quedada, setQuedada] = useState<Quedada | null>(null);
   const avatarRef = useRef(avatar);
   avatarRef.current = avatar;
 
@@ -178,8 +203,9 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
       const miAvatarRef = fb.ref(fb.db, `salas/${sala}/avatares/${uid}`);
       const cancelar: (() => void)[] = [];
 
-      // Se quita el nivel si las reglas de Firebase aún no lo admiten
+      // Se quita el nivel (y los datos de la quedada) si las reglas de Firebase aún no lo admiten
       let mandarNivel = true;
+      let mandarQuedada = true;
       // Construye mi nodo completo (RTDB no admite undefined: se omite)
       const miNodo = () => {
         const d = leerRef.current();
@@ -193,17 +219,23 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
         if (d.cadencia !== undefined) nodo.cadencia = Math.round(Math.max(0, Math.min(250, d.cadencia)));
         if (d.juntos) nodo.juntos = d.juntos.slice(0, 40);
         if (d.exige !== undefined) nodo.exige = Math.round(Math.max(0, Math.min(3, d.exige)) * 1000) / 1000;
+        if (mandarQuedada && d.vp !== undefined) nodo.vp = Math.round(Math.max(0, Math.min(150, d.vp)) * 10) / 10;
+        if (mandarQuedada && d.suelto) nodo.suelto = true;
         const nivel = leerMiNivel();
         if (mandarNivel && nivel) nodo.nivel = nivel;
         return nodo;
       };
       const escribirNodo = async () => {
-        try {
-          await fb.set(miRef, miNodo());
-        } catch (e) {
-          if (!mandarNivel) throw e;
-          mandarNivel = false;
-          await fb.set(miRef, miNodo());
+        for (;;) {
+          try {
+            await fb.set(miRef, miNodo());
+            return;
+          } catch (e) {
+            // Primero sin los datos de la quedada y luego sin el nivel (reglas antiguas)
+            if (mandarQuedada) mandarQuedada = false;
+            else if (mandarNivel) mandarNivel = false;
+            else throw e;
+          }
         }
       };
 
@@ -279,6 +311,29 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
             setGrupetas({ leida: true, ficha: valida ? { t0: v.t0, autor: String(v.autor ?? ''), lista } : null });
           },
           () => setGrupetas({ leida: true, ficha: null }),
+        ),
+      );
+
+      // Quedada de la sala (anfitrión, modo y suministros)
+      cancelar.push(
+        fb.onValue(
+          fb.ref(fb.db, `salas/${sala}/quedada`),
+          (snap) => {
+            const v = snap.val();
+            setQuedada(
+              v && typeof v.anfitrion === 'string'
+                ? {
+                    anfitrion: v.anfitrion,
+                    nombre: String(v.nombre ?? ''),
+                    modo: v.modo === 'libre' ? 'libre' : 'juntos',
+                    suministros: v.suministros === true,
+                    cambio: Number(v.cambio) || 0,
+                    s: Number(v.s) || 0,
+                  }
+                : null,
+            );
+          },
+          () => setQuedada(null),
         ),
       );
 
@@ -361,8 +416,51 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
     setAvatares({});
     setMensajes([]);
     setEmojis({});
+    setQuedada(null);
     setGrupetas({ leida: false, ficha: null });
     setEstado('fuera');
+  };
+
+  /**
+   * Quedada: me hago anfitrión. `nueva`: empieza de cero (todos juntos, sin suministros); si no, solo
+   * cambia el anfitrión y lo demás se queda como estaba.
+   */
+  const serAnfitrion = async (nueva: boolean) => {
+    const s = sesion.current;
+    if (!s) return false;
+    const ref = s.fb.ref(s.fb.db, `salas/${s.sala}/quedada`);
+    try {
+      if (nueva || !quedada)
+        await s.fb.set(ref, {
+          anfitrion: s.uid,
+          nombre: s.nombre,
+          modo: 'juntos',
+          suministros: false,
+          cambio: Date.now(),
+          s: 0,
+        });
+      else await s.fb.update(ref, { anfitrion: s.uid, nombre: s.nombre });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  /** Quedada (solo el anfitrión): cambia el modo (con el punto de reagrupar) o los suministros. */
+  const cambiarQuedada = async (cambio: { modo?: 'juntos' | 'libre'; s?: number; suministros?: boolean }) => {
+    const s = sesion.current;
+    if (!s) return false;
+    try {
+      await s.fb.update(s.fb.ref(s.fb.db, `salas/${s.sala}/quedada`), {
+        ...cambio,
+        ...(cambio.s !== undefined ? { s: Math.round(Math.max(0, cambio.s)) } : {}),
+        // Hora de este aparato (con la del servidor, el valor llega dos veces y se anunciaría doble)
+        ...(cambio.modo ? { cambio: Date.now() } : {}),
+      });
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   /** Crea (o sustituye) las grupetas compartidas de la salida. */
@@ -476,6 +574,9 @@ export function useSalida(leerMisDatos: () => MisDatos, avatar: Avatar) {
     /** Emoji de cada ciclista (solo los recientes, con su hora del servidor). */
     emojis: Object.fromEntries(Object.entries(emojis).filter(([, v]) => ahoraServidor - v.t < EMOJI_MS)),
     enviarEmoji,
+    quedada,
+    serAnfitrion,
+    cambiarQuedada,
     unirse,
     salir,
   };

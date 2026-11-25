@@ -433,6 +433,18 @@ ponía `rodillos.perfil.t` = ahora, así que `Nube.sincronizar` veía el perfil 
 del de la nube (FTP, peso, ciclista, edad…; el historial no se pierde: se junta, y la despensa gana el mayor). Ahora la
 primera sincronización usa la fecha del perfil al abrir la web (`perfilTAlAbrir`) y el regalo de material espera a
 `sync.tipo === 'ok'`. Lo que ya se pisó en la nube no se puede recuperar: Eric tiene que volver a poner FTP, peso y ciclista.
+25-11 (5): **quedadas** (idea de Jesús). Cada circuito es una quedada: `salas/{sala}/quedada` = { anfitrion, nombre, modo
+'juntos'|'libre', suministros, cambio (hora del aparato: con serverTimestamp llega dos veces), s } (useSalida: `quedada`,
+`serAnfitrion(nueva)`, `cambiarQuedada`). Anfitrión: el creador de la salida programada (`creadorProgramadaRef` en
+`entrarProgramada`) o, si falta, el de uid menor de los presentes; solo en el circuito → quedada nueva (juntos, sin
+suministros). Con alguien más (`enQuedada`): por defecto todos juntos, tira el de más `vp` (velocidad que llevaría él solo,
+publicada en su nodo; todos calculan lo mismo con los datos publicados) y los demás van pegados (`liderJuntosRef`, el mismo
+mecanismo de «Siempre juntos»), sin rebufo (`sinRebufoRef`). «Soltarme» → `suelto` (hasta que reagrupen). Mandos del
+anfitrión (`.panel-quedada`): «🏁 ¡Carrera libre!» (cada uno con sus vatios y rebufo, salen del mismo punto), «🤝 Reagrupar»
+(todos al punto del que va en cabeza, `s`) y «🍬 Suministros sí/no». Geles, tienda y paradas solo con `suministrosOk` (sin
+quedada, siempre). Aviso grande para todos (`.aviso-quedada`, 7 s). Reglas: `quedada` la escribe su anfitrión o quien se
+pone de anfitrión; `vp` y `suelto` en los ciclistas (si no están pegadas, el nodo se publica sin ellos). Probado: reglas en el
+emulador (11 casos) y compilación; falta probarlo entre varios. **Necesita las reglas nuevas pegadas.**
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).

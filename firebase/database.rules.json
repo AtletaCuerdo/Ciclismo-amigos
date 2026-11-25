@@ -36,6 +36,12 @@
             "exige": {
               ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3"
             },
+            "vp": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 150"
+            },
+            "suelto": {
+              ".validate": "newData.isBoolean()"
+            },
             "$otro": {
               ".validate": false
             }
@@ -189,6 +195,31 @@
                 ".validate": false
               }
             }
+          }
+        },
+        "quedada": {
+          ".write": "auth != null && auth.provider !== 'anonymous' && (newData.child('anfitrion').val() === auth.uid || data.child('anfitrion').val() === auth.uid)",
+          ".validate": "newData.hasChildren(['anfitrion', 'nombre', 'modo', 'suministros', 'cambio', 's'])",
+          "anfitrion": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40"
+          },
+          "nombre": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+          },
+          "modo": {
+            ".validate": "newData.val() === 'juntos' || newData.val() === 'libre'"
+          },
+          "suministros": {
+            ".validate": "newData.isBoolean()"
+          },
+          "cambio": {
+            ".validate": "newData.isNumber()"
+          },
+          "s": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000"
+          },
+          "$otro": {
+            ".validate": false
           }
         },
         "emojis": {

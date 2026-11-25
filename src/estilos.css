@@ -5269,3 +5269,75 @@ a.boton-secundario {
   min-width: 44px;
   min-height: 36px;
 }
+
+/* Quedada: estado y mandos del anfitrión (encima del aviso de «juntos») y aviso grande para todos */
+.panel-quedada {
+  position: absolute;
+  top: 118px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: calc(100% - 32px);
+  padding: 6px 12px;
+  border-radius: 14px;
+  background: rgba(15, 17, 21, 0.8);
+  border: 1px solid rgba(34, 211, 238, 0.55);
+  color: #fff;
+  font-size: 14px;
+}
+.panel-quedada .quedada-estado small {
+  color: #cbd5e1;
+}
+.panel-quedada .quedada-mandos {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.panel-quedada .boton-secundario {
+  min-height: 36px;
+  padding: 4px 10px;
+  font-size: 14px;
+}
+.aviso-quedada {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 8;
+  pointer-events: none;
+  max-width: calc(100% - 32px);
+  padding: 14px 22px;
+  border-radius: 16px;
+  background: rgba(11, 18, 32, 0.88);
+  border: 2px solid #22d3ee;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+  animation: aviso-quedada-entra 0.35s ease-out;
+}
+@keyframes aviso-quedada-entra {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -40%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+@media (max-width: 760px), (max-height: 520px) {
+  .panel-quedada {
+    top: 96px;
+    font-size: 12px;
+  }
+  .aviso-quedada {
+    font-size: 17px;
+  }
+}

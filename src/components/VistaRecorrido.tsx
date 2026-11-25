@@ -137,6 +137,21 @@ interface Props {
     eleccion: 'izquierda' | 'derecha' | null;
     onElegir: (lado: 'izquierda' | 'derecha' | null) => void;
   } | null;
+  /**
+   * Quedada (hay alguien más en el circuito): quién es el anfitrión, el modo, los suministros y, si soy
+   * el anfitrión, sus mandos. null si ruedo solo.
+   */
+  quedada?: {
+    anfitrion: string;
+    soyAnfitrion: boolean;
+    modo: 'juntos' | 'libre';
+    suministros: boolean;
+    onLibre: () => void;
+    onReagrupar: () => void;
+    onSuministros: (si: boolean) => void;
+  } | null;
+  /** Aviso grande para todos cuando el anfitrión cambia algo (carrera libre, reagrupar, suministros). */
+  avisoQuedada?: string | null;
   /** Velódromo: vueltas dadas dentro y cuántas faltan para que se abra la salida (0: abierta). */
   velodromo?: { hechas: number; faltan: number } | null;
   /** FC máxima (para el color del pulso por zonas). */
@@ -223,8 +238,8 @@ interface Props {
   nutricion: {
     despensa: { n: Nutricion; quedan: number }[];
     efecto: { n: Nutricion; restanteS: number } | null;
-    /** Pegado a otro («Siempre juntos») no sirve de nada. */
-    bloqueada: boolean;
+    /** Por qué no se puede tomar ahora (pegado al grupo, quedada sin suministros) o null. */
+    bloqueada: string | null;
     /** Cuándo se tomó la última (ms), para que el ciclista haga el gesto. */
     tomadaEn: number | null;
     onTomar: (n: Nutricion) => void;
@@ -400,6 +415,8 @@ export default function VistaRecorrido({
   llegadaCruce,
   juntos,
   cruce,
+  quedada,
+  avisoQuedada,
   velodromo,
   avatar,
   calidad,
@@ -1059,7 +1076,7 @@ export default function VistaRecorrido({
                     {mmss(nutricion.efecto.restanteS)} más. Hasta que acabe no puedes tomar otra.
                   </small>
                 )}
-                {nutricion.bloqueada && <small>Vas pegado a tu amigo («Siempre juntos»): la nutrición no se nota.</small>}
+                {nutricion.bloqueada && <small>{nutricion.bloqueada}</small>}
                 {llevaNutricion ? (
                   nutricion.despensa
                     .filter((x) => x.quedan > 0)
@@ -1067,7 +1084,7 @@ export default function VistaRecorrido({
                       <button
                         key={n.id}
                         className="boton-secundario fila-nutricion"
-                        disabled={!!nutricion.efecto || nutricion.bloqueada}
+                        disabled={!!nutricion.efecto || !!nutricion.bloqueada}
                         onClick={() => {
                           nutricion.onTomar(n);
                           setMenuNutricion(false);
@@ -1292,6 +1309,41 @@ export default function VistaRecorrido({
         </div>
       )}
 
+      {avisoQuedada && (
+        <div className="aviso-quedada" role="status">
+          {avisoQuedada}
+        </div>
+      )}
+      {quedada && (
+        <div className="panel-quedada hud">
+          <span className="quedada-estado">
+            {quedada.modo === 'juntos' ? '🤝 Todos juntos' : '🏁 Carrera libre'}
+            {quedada.modo === 'libre' && (quedada.suministros ? ' · 🍬 con suministros' : ' · sin suministros')}
+            <small> · anfitrión: {quedada.soyAnfitrion ? 'tú' : quedada.anfitrion}</small>
+          </span>
+          {quedada.soyAnfitrion && (
+            <span className="quedada-mandos">
+              {quedada.modo === 'juntos' ? (
+                <button className="boton-secundario" onClick={quedada.onLibre} title="Cada uno con sus vatios, su peso y el rebufo">
+                  🏁 ¡Carrera libre!
+                </button>
+              ) : (
+                <button className="boton-secundario" onClick={quedada.onReagrupar} title="Todos juntos otra vez, en el punto del que va en cabeza">
+                  🤝 Reagrupar
+                </button>
+              )}
+              <button
+                className={`boton-secundario ${quedada.suministros ? 'activo' : ''}`}
+                aria-pressed={quedada.suministros}
+                onClick={() => quedada.onSuministros(!quedada.suministros)}
+                title="Geles, guayaba y paradas (solo cuentan en carrera libre)"
+              >
+                🍬 Suministros {quedada.suministros ? 'sí' : 'no'}
+              </button>
+            </span>
+          )}
+        </div>
+      )}
       {juntos && (
         <div className="aviso-juntos">
           <span>
