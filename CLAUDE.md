@@ -445,11 +445,24 @@ anfitrión (`.panel-quedada`): «🏁 ¡Carrera libre!» (cada uno con sus vatio
 quedada, siempre). Aviso grande para todos (`.aviso-quedada`, 7 s). Reglas: `quedada` la escribe su anfitrión o quien se
 pone de anfitrión; `vp` y `suelto` en los ciclistas (si no están pegadas, el nodo se publica sin ellos). Probado: reglas en el
 emulador (11 casos) y compilación; falta probarlo entre varios. **Necesita las reglas nuevas pegadas.**
+25-11 (6): Eric: «pantalla negra al empezar un entreno» tras publicar las quedadas. No se reproduce aquí (probado con el
+emulador de Firebase y cuentas de prueba: empezar, retomar sesión a medias, elegir otro entreno al reabrir, dos cuentas a la
+vez). Añadido `ProteccionErrores` (main.tsx): si React falla al pintar, en vez de negro sale el error y «Recargar» (para la
+captura). Arreglado: al entrar en una sala, durante 4 s no se decide el anfitrión (`dentroDesdeRef`; antes, la lista aún no
+había llegado, parecía estar solo y le quitaba el mando al que ya estaba y reiniciaba la quedada), y «¡Reagrupados!» solo se
+anuncia si venía de carrera libre. **Prueba con el emulador** (solo en desarrollo): `firebase emulators:start --only
+database,auth` (auth 9099, database 9123, proyecto ciclismo-amigos, reglas de firebase/) y abrir `http://localhost:5173/?emulador`
+(firebase.ts conecta al emulador); las cuentas de prueba se crean con `accounts:signUp` del emulador de auth.
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
 ### Próximos pasos
+- **Elite Turbo Muin** (25-11, amigo nuevo): rodillo de fluido sin palanca ni control (el apaño de la palanca 1-8 es del
+  Novo Force de Aitor, magnético: no sirve aquí). Hace falta un sensor: Misuro B+ (vatios con la curva de Elite; en
+  ordenador/Android sale en «Potenciómetro»; en iPhone/iPad, con «Ver todos», sin probar) o, mejor y más barato, un sensor
+  de velocidad Bluetooth normal. Propuesto añadir el preset «Elite Turbo Muin» en `potenciaVirtual.ts` (buscar su curva
+  publicada o calibrar con un dato suyo). Jesús lo guardó para más adelante.
 - **Paco Lara** (25-11, pendiente): Van Rysel D100 (vatios, sin cadencia) + Zwift Cog, sin pedales ni sensor de cadencia. En
   ERG no hay problema (la marcha no cuenta y la protección del ERG mira los vatios). En «Rodar libre» los cambios virtuales
   no hacen nada (`potenciaMarcha` necesita la cadencia) y con una sola marcha física las subidas se le harán muy duras.

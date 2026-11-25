@@ -9,8 +9,8 @@
  * no hacer más pesada la carga inicial de la web.
  */
 import { initializeApp } from 'firebase/app';
-import { getAuth, type User } from 'firebase/auth';
-import { getDatabase } from 'firebase/database';
+import { connectAuthEmulator, getAuth, type User } from 'firebase/auth';
+import { connectDatabaseEmulator, getDatabase } from 'firebase/database';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyCIySBMX4amJBnd_pfEzge7psFnqkbGWSE',
@@ -25,6 +25,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getDatabase(app);
+
+// Solo en desarrollo, con «?emulador» en la dirección: Firebase falso del ordenador (para probar con
+// cuentas de prueba sin tocar los datos de verdad). En la web publicada no existe.
+if (import.meta.env.DEV && new URLSearchParams(location.search).has('emulador')) {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  connectDatabaseEmulator(db, '127.0.0.1', 9123);
+}
 
 /**
  * Devuelve el usuario con cuenta. RideCrew ya no deja usar la web sin cuenta (ni entrar de forma

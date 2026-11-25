@@ -5341,3 +5341,21 @@ a.boton-secundario {
     font-size: 17px;
   }
 }
+
+/* Pantalla de fallo (ProteccionErrores): en lugar de quedarse en negro */
+.pantalla-fallo {
+  max-width: 720px;
+  margin: 40px auto;
+  padding: 24px 16px;
+  color: #e5edf7;
+}
+.pantalla-fallo pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #111c30;
+  border: 1px solid #1f2d47;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 12px;
+  color: #fca5a5;
+}

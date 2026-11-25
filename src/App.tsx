@@ -1145,11 +1145,18 @@ export default function App() {
   // el creador de la salida programada lo coge siempre). Si estoy solo, empieza una quedada nueva.
   const creadorProgramadaRef = useRef(false);
   const intentoAnfitrionRef = useRef(0);
+  // Al entrar, unos segundos de espera antes de decidir nada: si no, la lista de la sala aún no ha
+  // llegado, parece que estoy solo y le quito el mando (y reinicio la quedada) al que ya estaba
+  const dentroDesdeRef = useRef(0);
+  useEffect(() => {
+    dentroDesdeRef.current = salida.estado === 'dentro' ? Date.now() : 0;
+  }, [salida.estado]);
   useEffect(() => {
     const yo = salida.miUid;
     if (!enRecorrido || salida.estado !== 'dentro' || !yo) return;
     const ids = salida.ciclistas.map((c) => c.uid);
     if (!ids.includes(yo) || Date.now() - intentoAnfitrionRef.current < 5000) return;
+    if (!dentroDesdeRef.current || Date.now() - dentroDesdeRef.current < 4000) return;
     const q = salida.quedada;
     const solo = ids.every((u) => u === yo);
     let nueva: boolean | null = null;
@@ -1171,7 +1178,7 @@ export default function App() {
     const id = setTimeout(() => setAvisoQuedada(null), 7000);
     return () => clearTimeout(id);
   }, [avisoQuedada]);
-  const vistoQuedadaRef = useRef<{ cambio: number; suministros: boolean } | null>(null);
+  const vistoQuedadaRef = useRef<{ cambio: number; suministros: boolean; modo: string } | null>(null);
   useEffect(() => {
     const q = quedada;
     if (!q) {
@@ -1179,19 +1186,19 @@ export default function App() {
       return;
     }
     const antes = vistoQuedadaRef.current;
-    vistoQuedadaRef.current = { cambio: q.cambio, suministros: q.suministros };
+    vistoQuedadaRef.current = { cambio: q.cambio, suministros: q.suministros, modo: q.modo };
     if (!antes) return; // al entrar no se anuncia lo que ya estaba
     if (q.cambio !== antes.cambio) {
       if (q.modo === 'juntos') {
         // Reagrupados: todos al punto que marcó el anfitrión (el de cabeza) y nadie suelto
         setSueltoQuedada(false);
         if (q.s > 0) ponerEnPunto(q.s);
-        setAvisoQuedada(`🤝 ¡Reagrupados! Todos juntos otra vez (${q.nombre})`);
+        if (antes.modo === 'libre' || q.s > 0) setAvisoQuedada(`🤝 ¡Reagrupados! Todos juntos otra vez (${q.nombre})`);
       } else setAvisoQuedada(`🏁 ¡Carrera libre! Lo ha soltado ${q.nombre}: cada uno con sus vatios y a rueda`);
     } else if (q.suministros !== antes.suministros)
       setAvisoQuedada(q.suministros ? `🍬 ¡Suministros permitidos! (${q.nombre})` : `🚫 Suministros cerrados (${q.nombre})`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quedada?.cambio, quedada?.suministros]);
+  }, [quedada?.cambio, quedada?.suministros, quedada?.modo]);
   /** Geles, guayaba y paradas: libres si no estoy en una quedada; en una, solo en carrera libre con suministros. */
   const suministrosOk = !enQuedada || (quedada!.modo === 'libre' && quedada!.suministros);
   const suministrosOkRef = useRef(suministrosOk);
