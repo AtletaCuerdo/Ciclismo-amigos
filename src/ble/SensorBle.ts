@@ -69,7 +69,7 @@ function esErrorNativo(e: unknown) {
 }
 
 /** iPhone o iPad (Bluefy): ahí la reconexión sin tocar nada deja conexiones viejas colgadas. */
-function esIos() {
+export function esIos() {
   if (typeof navigator === 'undefined') return false;
   return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }

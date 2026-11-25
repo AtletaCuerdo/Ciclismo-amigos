@@ -415,6 +415,11 @@ del todo antes de reintentar (`soltar`); al fallar siempre se llama a `disconnec
 con `getDevices` (`esIos`); la búsqueda del aparato recordado ya no mezcla `namePrefix` con el nombre. Probado con un
 Bluetooth simulado que se comporta así (la versión anterior daba los mismos mensajes del Registro). Falta confirmarlo con
 José y Raúl.
+25-11 (2): no era eso (el iPad de Jesús seguía igual): el aviso salía sin «No se pudo conectar con…», o sea que fallaba
+`requestDevice` (la búsqueda), no la conexión. Desde el 23-11 (Tacx) el rodillo buscaba también por el servicio de 128 bits
+de Tacx y por `namePrefix`, y Bluefy rechaza esa búsqueda con «2». En iOS (`esIos`) el rodillo vuelve a buscar solo FTMS
+(igual que antes del 23-11) y el potenciómetro solo Cycling Power (sin el servicio de Elite). Los Tacx sin FTMS y los Elite
+antiguos solo se encuentran en ordenador/Android. Pendiente: confirmación de Jesús en su iPad.
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).

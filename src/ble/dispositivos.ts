@@ -2,7 +2,7 @@
  * Los cuatro tipos de dispositivo que soporta la app.
  * Cada uno sabe qué servicio pedir y cómo interpretar sus datos.
  */
-import { EventosSensor, SensorBle, mensajeError } from './SensorBle';
+import { EventosSensor, SensorBle, esIos, mensajeError } from './SensorBle';
 import {
   CalculadoraRevoluciones,
   DatosRodillo,
@@ -124,6 +124,9 @@ export class RodilloFtms extends SensorBle {
 
   /** Rodillos FTMS y, además, los Tacx que solo hablan FE-C por Bluetooth (Flow Smart y otros). */
   protected opcionesBusqueda(): RequestDeviceOptions {
+    // En iPhone/iPad (Bluefy), la búsqueda de siempre (solo FTMS): con el servicio propio de Tacx y el
+    // filtro por nombre, Bluefy rechaza la búsqueda con «Error (2)» y no salía ningún rodillo (25-11)
+    if (esIos()) return { filters: [{ services: [UUID.FTMS] }] };
     return {
       filters: [{ services: [UUID.FTMS] }, { services: [TACX_FEC.SERVICIO] }, { namePrefix: 'Tacx' }],
       optionalServices: [UUID.FTMS, TACX_FEC.SERVICIO, UUID.CYCLING_POWER, UUID.CSC],
@@ -352,6 +355,8 @@ export class Potenciometro extends SensorBle {
 
   /** Potenciómetros y rodillos con potencia, y los Elite antiguos que no la anuncian. */
   protected opcionesBusqueda(): RequestDeviceOptions {
+    // En iPhone/iPad, sin el servicio propio de Elite (Bluefy no lleva bien los servicios de 128 bits al buscar)
+    if (esIos()) return { filters: [{ services: [UUID.CYCLING_POWER] }], optionalServices: [UUID.CSC] };
     return {
       filters: [{ services: [UUID.CYCLING_POWER] }, { services: [ELITE_ANTIGUO] }],
       optionalServices: [UUID.CSC],
