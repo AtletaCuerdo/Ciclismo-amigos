@@ -482,7 +482,11 @@ abre RideCrew desde perfiles de Chrome distintos (él y su mujer). Mirar `chrome
   Soluciones propuestas: sensor de cadencia (20-30 €, lo recomendado) o calcular la cadencia con la velocidad del rodillo
   (con el Cog la relación es fija; calibrar una vez pedaleando a cadencia conocida). Jesús decide. Luis Sendra (KICKR CORE
   + Zwift Cog: el rodillo da cadencia) y Daniel de la Cruz (D100 + Assioma para la cadencia) no tienen problema.
-- **Strava: ampliar plazas** (25-11): la app 257751 (RideCrew + TriCoach Entrenos + generador) está en 10 atletas y casi
+- **Strava: ampliar plazas — SOLICITUD ENVIADA el 25-11-2026** (10/10 conectados, nivel estándar; pedidas 100 plazas;
+  Support URL `https://tricoach.es`, nombre de la app «TriCoach»; descripción: solo RideCrew + Entrenos). Esperar respuesta
+  por correo de Strava. Ese mismo día el generador de tricoach.es (repo `Tri-Coach`) dejó de usar Strava (mandaba 60 días de
+  actividades a Claude: zona gris con las normas de Strava); ahora pide el historial en un formulario. No cambiar el dominio
+  de callback `tricoach.es` de la app de Strava (lo usan RideCrew y Entrenos). Antes: la app 257751 (RideCrew + TriCoach Entrenos + generador) está en 10 atletas y casi
   llena. Solicitud por el formulario del Developer Program de Strava (no por correo); preparada la justificación (RideCrew
   solo `activity:write`, botones y logos oficiales, `public/privacidad.html` es/en). Ojo: Entrenos enseña datos de Strava
   del deportista al entrenador; el acuerdo de la API lo deja en zona gris (más de 9.999 plazas no; por debajo, dudoso):
