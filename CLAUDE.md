@@ -432,6 +432,18 @@ antes. Probado con un Bluefy simulado que rechaza los códigos cortos (la versi�
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 
 ### Próximos pasos
+- **Paco Lara** (25-11, pendiente): Van Rysel D100 (vatios, sin cadencia) + Zwift Cog, sin pedales ni sensor de cadencia. En
+  ERG no hay problema (la marcha no cuenta y la protección del ERG mira los vatios). En «Rodar libre» los cambios virtuales
+  no hacen nada (`potenciaMarcha` necesita la cadencia) y con una sola marcha física las subidas se le harán muy duras.
+  Soluciones propuestas: sensor de cadencia (20-30 €, lo recomendado) o calcular la cadencia con la velocidad del rodillo
+  (con el Cog la relación es fija; calibrar una vez pedaleando a cadencia conocida). Jesús decide. Luis Sendra (KICKR CORE
+  + Zwift Cog: el rodillo da cadencia) y Daniel de la Cruz (D100 + Assioma para la cadencia) no tienen problema.
+- **Strava: ampliar plazas** (25-11): la app 257751 (RideCrew + TriCoach Entrenos + generador) está en 10 atletas y casi
+  llena. Solicitud por el formulario del Developer Program de Strava (no por correo); preparada la justificación (RideCrew
+  solo `activity:write`, botones y logos oficiales, `public/privacidad.html` es/en). Ojo: Entrenos enseña datos de Strava
+  del deportista al entrenador; el acuerdo de la API lo deja en zona gris (más de 9.999 plazas no; por debajo, dudoso):
+  decirlo con claridad en la solicitud. Plan B: una app de Strava aparte para RideCrew (otra cuenta de Strava, 10 plazas
+  sin revisión).
 - Ideas del usuario del 21-11 (el micro ya está hecho, 22-11). 2) **Música según vatios/pulso**: Amazon Music no tiene API para
   webs; Spotify sin «audio features» para apps nuevas y desde 2026 el modo desarrollo exige Premium y máx. 5 usuarios;
   viable: canciones propias subidas una vez a la web (IndexedDB, el BPM lo calcula RideCrew) o dos listas de YouTube

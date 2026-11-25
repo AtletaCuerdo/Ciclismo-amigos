@@ -76,6 +76,11 @@ export function PanelStrava() {
         </>
       )}
       <PoweredByStrava />
+      <p className="detalle">
+        <a href={`${import.meta.env.BASE_URL}privacidad.html`} target="_blank" rel="noreferrer">
+          Privacidad: qué datos guarda RideCrew y qué hace con Strava
+        </a>
+      </p>
     </section>
   );
 }
