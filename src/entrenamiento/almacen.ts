@@ -101,3 +101,11 @@ export function nuevoId() {
     return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }
 }
+
+/** Vacía el historial de este navegador (al cerrar sesión: ya está todo en la nube). No toca la nube. */
+export async function vaciarHistorialLocal() {
+  await transaccion([RESUMENES, MUESTRAS], 'readwrite', (tx) => {
+    tx.objectStore(RESUMENES).clear();
+    tx.objectStore(MUESTRAS).clear();
+  });
+}

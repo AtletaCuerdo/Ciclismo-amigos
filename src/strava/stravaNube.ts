@@ -5,6 +5,7 @@
  * el permiso). Strava a veces cambia el refresh token al subir: el nuevo también se sube aquí.
  */
 import { cargarFirebase } from '../cuenta/cuenta';
+import { cuentaDuena } from '../cuenta/cambioCuenta';
 import { adoptarStravaDeNube, establecerEspejoStrava, estadoLocalStrava, marcaLocalStrava, type NubeStrava } from './strava';
 
 const limpio = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -15,11 +16,15 @@ export function sincronizarStravaConNube(uid: string): () => void {
   void cargarFirebase().then(({ fb }) => {
     if (!vivo) return;
     const ref = fb.ref(fb.db, `usuarios/${uid}/strava`);
-    const subir = (n: NubeStrava) => void fb.set(ref, limpio(n)).catch(() => {});
+    const subir = (n: NubeStrava) => {
+      if (cuentaDuena() === uid) void fb.set(ref, limpio(n)).catch(() => {});
+    };
     establecerEspejoStrava(subir);
     quitar = fb.onValue(
       ref,
       (s) => {
+        // Lo de este navegador es de otra cuenta (se está vaciando): ni se sube ni se baja
+        if (cuentaDuena() !== uid) return;
         const n = s.val() as NubeStrava | null;
         const local = estadoLocalStrava();
         const valida = n && typeof n.t === 'number' && (n.desconectado || typeof n.refresh === 'string');

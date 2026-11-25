@@ -17,11 +17,13 @@ interface Props {
   sync: EstadoSync;
   onRefrescar: () => void;
   onVolver: () => void;
+  /** Cierra la sesión guardando antes todo en la nube y dejando el navegador limpio. */
+  onCerrarSesion?: () => Promise<void>;
   /** Sin cuenta no se puede usar la web: sin «Inicio» y con la bienvenida. */
   obligatoria?: boolean;
 }
 
-export function PantallaCuenta({ usuario, cargando, sync, onRefrescar, onVolver, obligatoria }: Props) {
+export function PantallaCuenta({ usuario, cargando, sync, onRefrescar, onVolver, onCerrarSesion, obligatoria }: Props) {
   const [modo, setModo] = useState<'entrar' | 'crear'>('entrar');
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
@@ -82,12 +84,14 @@ export function PantallaCuenta({ usuario, cargando, sync, onRefrescar, onVolver,
             <button className="boton-secundario" onClick={onRefrescar} disabled={sync.tipo === 'sincronizando'}>
               Sincronizar ahora
             </button>
-            <button className="boton-secundario" onClick={() => void hacer(cerrarSesion)}>
-              Cerrar sesión
+            <button className="boton-secundario" disabled={ocupado} onClick={() => void hacer(onCerrarSesion ?? cerrarSesion)}>
+              {ocupado ? 'Guardando en la nube…' : 'Cerrar sesión'}
             </button>
           </div>
+          {error && <p className="aviso">{error}</p>}
           <p className="detalle">
-            Al cerrar sesión, lo guardado sigue en la nube; para volver a usar RideCrew tendrás que entrar otra vez.
+            Al cerrar sesión se guarda todo en la nube y este navegador queda limpio: otra persona puede entrar aquí con
+            su cuenta (cada uno ve solo lo suyo) y, al volver a entrar, recuperas tu FTP, tu historial y tus entrenos.
           </p>
         </section>
       ) : (

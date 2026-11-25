@@ -41,7 +41,7 @@ function recoger(): number {
       const e = validar({ nombre: s.n, categoria: categoriaSegunIntensidad(s.b, s.n), descripcion: s.d ?? '', bloques: s.b });
       if (!e) continue;
       const id = `ww-${String(s.id ?? s.n).replace(/[^a-z0-9-]/gi, '').slice(0, 50)}`;
-      const nuevo: Entrenamiento = { ...e, id, propio: true, ...(typeof s.f === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.f) ? { fecha: s.f } : {}) };
+      const nuevo: Entrenamiento = { ...e, id, propio: true, recibido: Date.now(), ...(typeof s.f === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.f) ? { fecha: s.f } : {}) };
       const i = propios.findIndex((p) => p.id === id);
       if (i >= 0) propios[i] = nuevo;
       else propios.push(nuevo);

@@ -6,7 +6,8 @@
  *   usuarios/{uid}/propios/{id}    entrenamiento creado o importado
  *   usuarios/{uid}/historial/{id}  resumen de la sesión (sin muestras)
  *   usuarios/{uid}/muestras/{id}   muestras compactadas en texto (para el TCX y Strava)
- *   usuarios/{uid}/borrados/{id}   sesiones borradas (para que no vuelvan desde otro aparato)
+ *   usuarios/{uid}/borrados/{id}   sesiones borradas (para que no vuelvan desde otro aparato) y, con
+ *                                  «p_» delante, entrenos propios borrados
  *
  * Funciona «primero en local»: la web sigue usando lo del navegador y la nube se mantiene al día.
  * Al iniciar sesión se juntan las dos cosas (no se pierde nada de ninguno de los lados).
@@ -16,6 +17,7 @@ import type { Entreno, EntrenoGuardado, Muestra } from '../entrenamiento/tipos';
 import type { Entrenamiento } from '../entrenamientos/tipos';
 import { edadSexo, normalizarAvatar, tokenTricoachValido, type Perfil } from '../recorrido/avatar';
 import { mezclarDespensa, normalizarDespensa } from '../entrenamiento/ridecoins';
+import { claveBorradoPropio, leerPropiosBorrados, olvidarPropiosBorrados } from '../entrenamientos/propios';
 
 type Fb = typeof import('../multijugador/firebase');
 
@@ -63,7 +65,12 @@ export class Nube {
   async subirPropios(lista: Entrenamiento[]) {
     const obj: Record<string, Entrenamiento> = {};
     for (const e of lista) obj[e.id] = limpio({ ...e, propio: true });
-    await this.fb.set(this.ruta('propios'), obj);
+    // Los borrados en este aparato se apuntan a la vez, para que otro aparato no los vuelva a subir
+    const pendientes = leerPropiosBorrados();
+    const cambios: Record<string, unknown> = { propios: obj };
+    for (const [c, t] of Object.entries(pendientes)) cambios[`borrados/${c}`] = t;
+    await this.fb.update(this.fb.ref(this.fb.db, this.base), cambios);
+    olvidarPropiosBorrados(Object.keys(pendientes));
   }
 
   async subirEntreno(e: Entreno) {
@@ -96,12 +103,21 @@ export class Nube {
    */
   async sincronizar(local: { perfil: Perfil; perfilT: number; propios: Entrenamiento[] }): Promise<ResultadoSincronizacion> {
     const r: ResultadoSincronizacion = { historialCambiado: false, subidos: 0, bajados: 0 };
-    const todo = (await this.fb.get(this.fb.ref(this.fb.db, this.base))).val() as {
-      perfil?: Perfil & { t?: number };
-      propios?: Record<string, Entrenamiento>;
-      historial?: Record<string, EntrenoGuardado>;
-      borrados?: Record<string, number>;
-    } | null;
+    // Solo lo necesario para comparar: las muestras de cada segundo (lo que más pesa) no se piden
+    // aquí, solo las de las sesiones que falten en este aparato (bajarEntreno).
+    const leer = async (r: string) => (await this.fb.get(this.ruta(r))).val();
+    const [perfilNube, propiosNube, historialNube, borradosNube] = await Promise.all([
+      leer('perfil'),
+      leer('propios'),
+      leer('historial'),
+      leer('borrados'),
+    ]);
+    const todo = {
+      perfil: (perfilNube ?? undefined) as (Perfil & { t?: number }) | undefined,
+      propios: (propiosNube ?? undefined) as Record<string, Entrenamiento> | undefined,
+      historial: (historialNube ?? undefined) as Record<string, EntrenoGuardado> | undefined,
+      borrados: (borradosNube ?? undefined) as Record<string, number> | undefined,
+    };
 
     // Perfil
     const nubePerfil = todo?.perfil;
@@ -130,14 +146,25 @@ export class Nube {
       await this.subirPerfil(p);
     }
 
-    // Entrenamientos propios (la nube manda si el mismo está en los dos lados)
-    const nubePropios = Object.values(todo?.propios ?? {}).filter((e) => e && Array.isArray(e.bloques));
+    // Entrenamientos propios (la nube manda si el mismo está en los dos lados), sin los borrados en
+    // cualquier aparato (salvo que haya vuelto a llegar después, p. ej. desde Weekend Warriors)
+    const pendientes = leerPropiosBorrados();
+    const borradoEn = (id: string) => Math.max(Number(todo.borrados?.[claveBorradoPropio(id)]) || 0, pendientes[claveBorradoPropio(id)] ?? 0);
+    const vale = (e: Entrenamiento) => {
+      const b = borradoEn(e.id);
+      return !b || (e.recibido ?? 0) > b;
+    };
+    const nubePropios = Object.values(todo.propios ?? {}).filter((e) => e && Array.isArray(e.bloques));
     const juntos = new Map<string, Entrenamiento>();
     for (const e of local.propios) juntos.set(e.id, e);
-    for (const e of nubePropios) juntos.set(e.id, { ...e, propio: true });
-    const listaPropios = [...juntos.values()];
+    for (const e of nubePropios) {
+      const aqui = juntos.get(e.id);
+      // Si aquí ha llegado una versión más nueva (Weekend Warriors), se queda la de aquí
+      if (!aqui || (aqui.recibido ?? 0) <= (e.recibido ?? 0)) juntos.set(e.id, { ...e, propio: true });
+    }
+    const listaPropios = [...juntos.values()].filter(vale);
     r.propios = listaPropios;
-    if (listaPropios.length) await this.subirPropios(listaPropios);
+    if (listaPropios.length || nubePropios.length || Object.keys(pendientes).length) await this.subirPropios(listaPropios);
 
     // Historial
     const borrados = todo?.borrados ?? {};

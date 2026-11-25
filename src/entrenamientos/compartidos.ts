@@ -66,8 +66,60 @@ export function validar(x: unknown): Entrenamiento | null {
 /**
  * Lista en directo de todos los entrenamientos compartidos (también los míos, con `deAmigo.mio`)
  * y funciones para compartir los míos. Los ids de los que he compartido yo van en `misCompartidos`.
+ *
+ * Para no gastar descargas de Firebase (la carpeta crece con cada usuario), la última lista se guarda en
+ * el navegador (`rodillos.compartidosCache`): se enseña al momento y solo se escucha en directo con
+ * `enDirecto` (pantalla de Entrenamientos). Al rodar se usa la guardada; si no hay, se lee una vez.
  */
-export function useCompartidos(activo: boolean) {
+const CLAVE_CACHE = 'rodillos.compartidosCache';
+
+type Fila = { autorUid?: unknown; autor?: unknown; t?: unknown; entreno?: unknown };
+
+function leerCache(): Record<string, Fila> | null {
+  try {
+    const c = JSON.parse(localStorage.getItem(CLAVE_CACHE) ?? 'null');
+    return c && typeof c === 'object' ? c : null;
+  } catch {
+    return null;
+  }
+}
+
+function guardarCache(filas: Record<string, Fila>) {
+  try {
+    localStorage.setItem(CLAVE_CACHE, JSON.stringify(filas));
+  } catch {
+    // sin sitio: la próxima vez se vuelve a leer de la nube
+  }
+}
+
+/** Pasa las filas de la nube (o de la caché) a entrenamientos. */
+function procesar(filas: Record<string, Fila>, miUid: string | null) {
+  const lista: Entrenamiento[] = [];
+  const mios = new Set<string>();
+  for (const [clave, v] of Object.entries(filas)) {
+    if (!v || typeof v.entreno !== 'string') continue;
+    let datos: unknown;
+    try {
+      datos = JSON.parse(v.entreno);
+    } catch {
+      continue;
+    }
+    const idOriginal = (datos as { id?: unknown })?.id;
+    const mio = !!miUid && v.autorUid === miUid;
+    if (mio && typeof idOriginal === 'string') mios.add(idOriginal);
+    const e = validar(datos);
+    if (!e) continue;
+    lista.push({
+      ...e,
+      id: `amigo-${clave}`,
+      deAmigo: { autor: String(v.autor), clave, t: Number(v.t) || 0, ...(mio ? { mio: true } : {}) },
+    });
+  }
+  lista.sort((a, b) => (b.deAmigo?.t ?? 0) - (a.deAmigo?.t ?? 0));
+  return { lista, mios };
+}
+
+export function useCompartidos(activo: boolean, enDirecto = true) {
   const [amigos, setAmigos] = useState<Entrenamiento[]>([]);
   const [misCompartidos, setMisCompartidos] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -76,53 +128,43 @@ export function useCompartidos(activo: boolean) {
     if (!activo) return;
     let cerrado = false;
     let cancelar: (() => void) | null = null;
+    const poner = (filas: Record<string, Fila>, uid: string | null) => {
+      const { lista, mios } = procesar(filas, uid);
+      setAmigos(lista);
+      setMisCompartidos(mios);
+    };
+    const cache = leerCache();
+    if (cache) poner(cache, null);
     (async () => {
       try {
         const fb = await import('../multijugador/firebase');
         const yo = await fb.usuarioActual();
         if (cerrado) return;
-        cancelar = fb.onValue(
-          fb.ref(fb.db, 'compartidos'),
-          (snap) => {
-            const lista: Entrenamiento[] = [];
-            const mios = new Set<string>();
-            snap.forEach((hijo) => {
-              const v = hijo.val();
-              if (!v || typeof v.entreno !== 'string') return;
-              let datos: unknown;
-              try {
-                datos = JSON.parse(v.entreno);
-              } catch {
-                return;
-              }
-              const idOriginal = (datos as { id?: unknown })?.id;
-              const mio = v.autorUid === yo.uid;
-              if (mio && typeof idOriginal === 'string') mios.add(idOriginal);
-              const e = validar(datos);
-              if (!e) return;
-              const clave = hijo.key as string;
-              lista.push({
-                ...e,
-                id: `amigo-${clave}`,
-                deAmigo: { autor: String(v.autor), clave, t: Number(v.t) || 0, ...(mio ? { mio: true } : {}) },
-              });
-            });
-            lista.sort((a, b) => (b.deAmigo?.t ?? 0) - (a.deAmigo?.t ?? 0));
-            setAmigos(lista);
-            setMisCompartidos(mios);
-            setError(null);
-          },
-          () => setError('Firebase no deja ver los entrenamientos compartidos: hay que pegar las reglas nuevas.'),
-        );
+        if (cache) poner(cache, yo.uid);
+        const recibir = (val: unknown) => {
+          const filas = (val ?? {}) as Record<string, Fila>;
+          guardarCache(filas);
+          poner(filas, yo.uid);
+          setError(null);
+        };
+        if (enDirecto) {
+          cancelar = fb.onValue(
+            fb.ref(fb.db, 'compartidos'),
+            (snap) => recibir(snap.val()),
+            () => setError('Firebase no deja ver los entrenamientos compartidos: hay que pegar las reglas nuevas.'),
+          );
+        } else if (!cache) {
+          recibir((await fb.get(fb.ref(fb.db, 'compartidos'))).val());
+        }
       } catch {
-        if (!cerrado) setError('Sin conexión: no se pueden ver los entrenamientos de tus amigos.');
+        if (!cerrado && !cache) setError('Sin conexión: no se pueden ver los entrenamientos de tus amigos.');
       }
     })();
     return () => {
       cerrado = true;
       cancelar?.();
     };
-  }, [activo]);
+  }, [activo, enDirecto]);
 
   /** Comparte (o actualiza) uno de mis entrenamientos con el nombre `autor`. */
   const compartir = async (e: Entrenamiento, autor: string) => {

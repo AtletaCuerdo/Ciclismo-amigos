@@ -59,6 +59,8 @@ export interface Entrenamiento {
   origen?: 'tricoach';
   /** Día para el que lo puso el entrenador («AAAA-MM-DD»), en «Tu semana con TriCoach». */
   fecha?: string;
+  /** Cuándo llegó de fuera (Weekend Warriors): si se borró antes, vuelve a valer. */
+  recibido?: number;
   /** Tests: el FTP estimado es `factor` × la mejor media de `ventanaS` segundos. */
   estimaFtp?: { ventanaS: number; factor: number; texto: string };
 }

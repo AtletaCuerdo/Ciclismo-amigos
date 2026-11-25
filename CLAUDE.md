@@ -476,6 +476,27 @@ emulador (el nuevo la recibe; desconectar en uno desconecta en todos). **Necesit
 Cabecera: el botón de la pantalla en la que se está (🛡️, cuenta o Ajustes) sale en verde (`.en-pantalla`); antes el de la
 cuenta estaba siempre en verde.
 
+26-11 (2): revisión del engranaje y plan para crecer a 100+ ciclistas gratis (Firebase Spark: 10 GB/mes de descarga,
+100 conexiones; el 26-11 iba por ~200 MB/semana). **Sin reglas nuevas.**
+1) `Nube.sincronizar` ya no lee `usuarios/{uid}` entero (bajaba las muestras de todas las sesiones en cada apertura): lee
+perfil, propios, historial y borrados; las muestras solo de las sesiones que falten (`bajarEntreno`).
+2) Varias cuentas en el mismo navegador (matrimonio en el mismo ordenador): `cuenta/cambioCuenta.ts`. `rodillos.cuenta` =
+uid dueño de lo guardado. «Cerrar sesión» (`cerrarSesionSegura` en App) sincroniza y comprueba que todas las sesiones de
+aquí están en la nube (si no hay red, no cierra; máx. 25 s), y con una sesión a medias tampoco; luego `signOut`,
+`vaciarDatosPersonales` (claves `PERSONALES` + `rodillos.fantasma.*` + IndexedDB del historial; lo del aparato se queda) y
+recarga. Si entra una cuenta distinta de la dueña, se vacía y recarga antes de sincronizar; totales, ficha y Strava no se
+publican mientras la dueña no sea la cuenta. Sin dueña (navegador nuevo, vaciado o de antes) el perfil local nunca gana al
+de la nube (`perfilT = 0`). **Fallo grave arreglado**: el regalo de material (`regalarMaterial`) corría en la pantalla de
+entrar (sin cuenta), ponía `rodillos.perfil.t` = ahora y, al entrar en un navegador nuevo o vacío, el perfil por defecto
+(FTP 200, peso 75) pisaba el de la nube: probablemente lo que le pasaba a Eric.
+3) Entrenos propios borrados: `borrados/p_{id}` (`apuntarPropiosBorrados`, pendientes en `rodillos.propiosBorrados` hasta
+subirlos con `subirPropios`); `recibido` (Weekend Warriors) más nuevo que el borrado lo deja volver.
+4) Compartidos: caché en `rodillos.compartidosCache`; en directo solo en Entrenamientos/crear; al rodar, la guardada (o
+una lectura si no hay).
+5) Con la web oculta 2 min y sin rodar, `goOffline` (vuelve con `goOnline`).
+Probado con el emulador: navegador de antes, dos aparatos, borrar propio, sin internet, Ana → Beto → Ana, dueña distinta
+(11 casos) y la caché de compartidos.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

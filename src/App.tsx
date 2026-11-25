@@ -10,6 +10,7 @@ import { procesarVueltaDeStrava } from './strava/strava';
 import { sincronizarStravaConNube } from './strava/stravaNube';
 import { useInstalar } from './instalar';
 import { cargarFirebase, cerrarSesion, useUsuario } from './cuenta/cuenta';
+import { apuntarCuentaDuena, cuentaDuena, vaciarDatosPersonales } from './cuenta/cambioCuenta';
 import { Nube, desactivarEspejo } from './cuenta/sincronizar';
 import { PantallaCuenta, type EstadoSync } from './components/PantallaCuenta';
 import { ControlesRodillo } from './components/ControlesRodillo';
@@ -54,7 +55,7 @@ import { mejorHoraCadencia, mejoresVatios, muestrasDeCortes } from './entrenamie
 import { conNivel } from './entrenamiento/nivelPublico';
 import { borrarSesionEnCurso, guardarSesionEnCurso, leerSesionEnCurso, sesionLogrosVacia, type SesionEnCurso } from './entrenamiento/sesionEnCurso';
 import { CATALOGO } from './entrenamientos/catalogo';
-import { cargarPropios, guardarPropios } from './entrenamientos/propios';
+import { apuntarPropiosBorrados, cargarPropios, guardarPropios } from './entrenamientos/propios';
 import { useCompartidos } from './entrenamientos/compartidos';
 import { VINO_DE_TRICOACH, useSemanaTricoach } from './entrenamientos/tricoach';
 import { LLEGARON_DE_WW } from './entrenamientos/weekendWarriors';
@@ -405,6 +406,8 @@ export default function App() {
   // ---- Entrenamientos ----
   const [propios, setPropios] = useState<Entrenamiento[]>(cargarPropios);
   const cambiarPropios = (lista: Entrenamiento[]) => {
+    // Los que desaparecen se apuntan como borrados (para que otro aparato no los vuelva a traer)
+    apuntarPropiosBorrados(propiosRef.current.filter((e) => !lista.some((x) => x.id === e.id)).map((e) => e.id));
     setPropios(lista);
     guardarPropios(lista);
     void nubeRef.current?.subirPropios(lista).catch(() => {});
@@ -426,11 +429,24 @@ export default function App() {
   const propiosRef = useRef(propios);
   propiosRef.current = propios;
   const sincronizar = async (uid: string) => {
+    // Lo guardado en este navegador es de otra cuenta (se cerró la sesión sin pasar por «Cerrar
+    // sesión»): se vacía antes de nada para no subirlo a esta cuenta, y se recarga la web limpia.
+    const duena = cuentaDuena();
+    if (duena && duena !== uid) {
+      setSync({ tipo: 'sincronizando' });
+      await vaciarDatosPersonales();
+      apuntarCuentaDuena(uid);
+      location.reload();
+      return;
+    }
+    if (!duena) apuntarCuentaDuena(uid);
     setSync({ tipo: 'sincronizando' });
     try {
       const { fb } = await cargarFirebase();
       const nube = new Nube(fb, uid);
-      const perfilT = primeraSyncHecha.current ? leerPerfilT() : perfilTAlAbrir.current;
+      // Navegador sin cuenta dueña (nuevo, vaciado al cerrar sesión o de antes de existir la dueña): su
+      // perfil no puede ganar al de la nube; si la nube no tiene perfil, se sube el de aquí igualmente.
+      const perfilT = !duena ? 0 : primeraSyncHecha.current ? leerPerfilT() : perfilTAlAbrir.current;
       const r = await nube.sincronizar({ perfil: perfilRef.current, perfilT, propios: propiosRef.current });
       primeraSyncHecha.current = true;
       if (r.perfil) {
@@ -473,7 +489,8 @@ export default function App() {
   // ---- Recorrido virtual ----
   const [enRecorrido, setEnRecorrido] = useState(false);
   // Entrenamientos compartidos por el grupo (se leen al entrar en entrenamientos o al rodar)
-  const compartidos = useCompartidos(pantalla === 'entrenamientos' || pantalla === 'crear' || enRecorrido);
+  // Al rodar se usa la lista guardada en el navegador (no se escucha en directo: ahorra descargas de Firebase)
+  const compartidos = useCompartidos(pantalla === 'entrenamientos' || pantalla === 'crear' || enRecorrido, !enRecorrido);
   // Los compartidos por mí ya están en «propios»: no se repiten
   // Sesiones de rodillo que el entrenador ha puesto esta semana en TriCoach Entrenos
   // La conexión con TriCoach va con la cuenta: al conectar en un aparato, sale en todos
@@ -1389,7 +1406,8 @@ export default function App() {
         const t = calcularTotales(lista);
         // Sin sesiones se publica 0 (p. ej. quien borra su única sesión de prueba), pero solo con la
         // nube ya sincronizada: un navegador que perdió lo guardado no debe dejar su ranking a cero
-        if (!cancelado && (t.sesiones > 0 || sync.tipo === 'ok')) return publicarTotales(nombreVisible, t);
+        if (cancelado || !usuario || cuentaDuena() !== usuario.uid) return;
+        if (t.sesiones > 0 || sync.tipo === 'ok') return publicarTotales(nombreVisible, t);
       })
       .catch(() => undefined); // sin conexión o sin las reglas nuevas: se intenta la próxima vez
     return () => {
@@ -1403,6 +1421,8 @@ export default function App() {
     if (!usuario) return;
     listarEntrenos()
       .then((lista) => {
+        // Lo de este navegador es de otra cuenta (se está vaciando): no se publica
+        if (cuentaDuena() !== usuario.uid) return;
         const t = calcularTotales(lista);
         return publicarFicha(usuario.uid, {
           nombre: nombreVisible || usuario.nombre,
@@ -1435,6 +1455,44 @@ export default function App() {
     setSoyAdmin(false);
     if (usuario) void esAdmin(usuario.uid).then(setSoyAdmin);
   }, [usuario?.uid]);
+  /**
+   * «Cerrar sesión» sin perder nada y sin dejar datos para la siguiente cuenta: primero se comprueba que
+   * todo lo de este navegador está en la nube (si no hay conexión, no se cierra) y luego se vacía lo
+   * personal de este navegador y se recarga. La próxima cuenta recupera lo suyo desde la nube.
+   */
+  const cerrarSesionSegura = async () => {
+    if (!usuario) return;
+    if (leerSesionEnCurso()) {
+      throw new Error('Tienes una sesión a medias guardada. Entra en el recorrido para terminarla (o descartarla) antes de cerrar sesión.');
+    }
+    if (cuentaDuena() === usuario.uid) {
+      const sinRed = () => new Error('No se ha podido guardar todo en la nube (¿sin internet?). Conéctate y vuelve a probar: así no se pierde nada.');
+      if (navigator.onLine === false) throw sinRed();
+      try {
+        const { fb } = await cargarFirebase();
+        const nube = new Nube(fb, usuario.uid);
+        const perfilT = primeraSyncHecha.current ? leerPerfilT() : perfilTAlAbrir.current;
+        // Sin conexión, Firebase espera en vez de fallar: como mucho 25 s
+        await Promise.race([
+          (async () => {
+            await nube.sincronizar({ perfil: perfilRef.current, perfilT, propios: propiosRef.current });
+            const aqui = (await listarEntrenos()).map((g) => g.id);
+            const enNube = (await fb.get(fb.ref(fb.db, `usuarios/${usuario.uid}/historial`))).val() ?? {};
+            if (aqui.some((id) => !enNube[id])) throw new Error('faltan sesiones');
+          })(),
+          new Promise((_, no) => setTimeout(() => no(new Error('tiempo')), 25000)),
+        ]);
+      } catch {
+        throw sinRed();
+      }
+    }
+    desactivarEspejo();
+    await cerrarSesion();
+    await vaciarDatosPersonales();
+    apuntarCuentaDuena(null);
+    location.reload();
+  };
+
   // Cuenta borrada por el administrador (cuentas de prueba): se avisa y se cierra la sesión
   useEffect(() => {
     if (!usuario) return;
@@ -2192,6 +2250,32 @@ export default function App() {
     if (!usuario) return;
     return escucharMisRegalos(usuario.uid, setRegaloNube);
   }, [usuario?.uid]);
+  // Firebase gratis admite 100 conexiones a la vez: con la web en segundo plano 2 min y sin estar
+  // rodando, se suelta la conexión; al volver (o al entrar a rodar) se retoma sola en un momento.
+  const desconectadoRef = useRef(false);
+  useEffect(() => {
+    let id: ReturnType<typeof setTimeout> | undefined;
+    const revisar = () => {
+      clearTimeout(id);
+      if (document.hidden && !enRecorrido) {
+        id = setTimeout(() => {
+          void cargarFirebase().then(({ fb }) => {
+            fb.goOffline(fb.db);
+            desconectadoRef.current = true;
+          });
+        }, 2 * 60 * 1000);
+      } else if (desconectadoRef.current) {
+        desconectadoRef.current = false;
+        void cargarFirebase().then(({ fb }) => fb.goOnline(fb.db));
+      }
+    };
+    revisar();
+    document.addEventListener('visibilitychange', revisar);
+    return () => {
+      clearTimeout(id);
+      document.removeEventListener('visibilitychange', revisar);
+    };
+  }, [enRecorrido]);
   // La conexión con Strava va con la cuenta: conectada en un aparato, conectada en todos
   useEffect(() => {
     if (!usuario) return;
@@ -2229,7 +2313,9 @@ export default function App() {
   // Lo que ya se llevaba antes de existir la tienda se regala (sin gastar RideCoins). Con cuenta,
   // después de sincronizar: antes, el perfil podía ser el de por defecto (navegador sin datos)
   useEffect(() => {
-    if (usuario && sync.tipo !== 'ok') return;
+    // Sin cuenta (pantalla de entrar) tampoco: cambiar aquí el perfil lo marcaría como «más nuevo» y, al
+    // entrar, el perfil por defecto pisaría el de la nube (FTP, peso, ciclista…)
+    if (!usuario || sync.tipo !== 'ok') return;
     const a = perfil.avatar;
     const usados = [`bici:${a.modelo}`, `ruedas:${a.ruedas}`, `casco:${a.cascoModelo}`];
     const d = regalarMaterial(perfil.despensa, usados);
@@ -2736,6 +2822,7 @@ export default function App() {
             if (usuario) void sincronizar(usuario.uid);
           }}
           onVolver={volver}
+          onCerrarSesion={cerrarSesionSegura}
         />
       )}
 
