@@ -427,6 +427,12 @@ funcionan, y un número suelto puede ser el estado del Bluetooth de iOS (2 = aú
 reintenta 2 veces (1,2 s) y la última sin `optionalServices`; y `configurar` recibe el servidor envuelto
 (`servidorConCodigosCompletos`) para pedir servicios y características con el código completo. En ordenador, igual que
 antes. Probado con un Bluefy simulado que rechaza los códigos cortos (la versión anterior daba el mismo error de la captura).
+25-11 (4): Eric «otra vez sin datos». Fallo encontrado: con el navegador sin datos (le pasa a menudo), el efecto que regala
+el material que ya se llevaba (`regalarMaterial`) llamaba a `cambiarPerfil` ANTES de terminar la primera sincronización y
+ponía `rodillos.perfil.t` = ahora, así que `Nube.sincronizar` veía el perfil por defecto como «más nuevo» y lo SUBÍA encima
+del de la nube (FTP, peso, ciclista, edad…; el historial no se pierde: se junta, y la despensa gana el mayor). Ahora la
+primera sincronización usa la fecha del perfil al abrir la web (`perfilTAlAbrir`) y el regalo de material espera a
+`sync.tipo === 'ok'`. Lo que ya se pisó en la nube no se puede recuperar: Eric tiene que volver a poner FTP, peso y ciclista.
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).

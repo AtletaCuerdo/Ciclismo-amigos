@@ -414,6 +414,14 @@ export default function App() {
   const [sync, setSync] = useState<EstadoSync>({ tipo: 'nada' });
   const perfilRef = useRef(perfil);
   perfilRef.current = perfil;
+  /**
+   * Fecha del perfil de este navegador AL ABRIR la web. La primera sincronización usa esta y no la
+   * de ahora: si el navegador había perdido lo guardado, algo automático (el material regalado, la
+   * conexión con TriCoach…) podía tocar el perfil antes de sincronizar, marcarlo como «más nuevo» y
+   * pisar el de la nube con el perfil por defecto (FTP, peso, ciclista…). Le pasó a Eric (25-11).
+   */
+  const perfilTAlAbrir = useRef(leerPerfilT());
+  const primeraSyncHecha = useRef(false);
   const propiosRef = useRef(propios);
   propiosRef.current = propios;
   const sincronizar = async (uid: string) => {
@@ -421,7 +429,9 @@ export default function App() {
     try {
       const { fb } = await cargarFirebase();
       const nube = new Nube(fb, uid);
-      const r = await nube.sincronizar({ perfil: perfilRef.current, perfilT: leerPerfilT(), propios: propiosRef.current });
+      const perfilT = primeraSyncHecha.current ? leerPerfilT() : perfilTAlAbrir.current;
+      const r = await nube.sincronizar({ perfil: perfilRef.current, perfilT, propios: propiosRef.current });
+      primeraSyncHecha.current = true;
       if (r.perfil) {
         setPerfilEstado(r.perfil);
         guardarPerfil(r.perfil);
@@ -2088,15 +2098,17 @@ export default function App() {
     const p = perfilRef.current;
     cambiarPerfil({ ...p, avatar: { ...p.avatar, ...avatar }, despensa: comprarMaterial(p.despensa, id) });
   };
-  // Lo que ya se llevaba antes de existir la tienda se regala (sin gastar RideCoins)
+  // Lo que ya se llevaba antes de existir la tienda se regala (sin gastar RideCoins). Con cuenta,
+  // después de sincronizar: antes, el perfil podía ser el de por defecto (navegador sin datos)
   useEffect(() => {
+    if (usuario && sync.tipo !== 'ok') return;
     const a = perfil.avatar;
     const usados = [`bici:${a.modelo}`, `ruedas:${a.ruedas}`, `casco:${a.cascoModelo}`];
     const d = regalarMaterial(perfil.despensa, usados);
     if ((d.material?.length ?? 0) !== (perfil.despensa?.material?.length ?? 0)) cambiarPerfil({ ...perfil, despensa: d });
     // Solo al abrir la web y al entrar con la cuenta (después, lo elegido ya se ha comprado)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [usuario?.uid]);
+  }, [usuario?.uid, sync.tipo]);
   const tomarNutricion = (n: Nutricion) => {
     if (existencias(perfil.despensa, n.id) <= 0 || pegadoRef.current) return;
     if (efecto && Date.now() < efecto.hasta) return;
