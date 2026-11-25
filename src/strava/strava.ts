@@ -4,7 +4,8 @@
  * - «Conectar con Strava» lleva a la página de permisos de Strava; al volver, la web recibe un
  *   código y el intermediario (servidor-strava/worker.js, en Cloudflare) lo canjea usando la
  *   clave secreta, que nunca está en la web.
- * - Cada ciclista guarda en su navegador su permiso (refresh token): no hay cuentas nuestras.
+ * - El permiso (refresh token) se guarda en el navegador y, con la cuenta, en `usuarios/{uid}/strava`
+ *   (solo lo lee su dueño): conectado en un aparato, conectado en todos (stravaNube.ts).
  * - Al terminar un entrenamiento se envía el TCX al intermediario, que lo sube a Strava.
  *
  * Mientras no se rellenen VITE_STRAVA_CLIENT_ID y VITE_STRAVA_INTERMEDIARIO (en el archivo
@@ -21,6 +22,56 @@ export const URL_INTERMEDIARIO: string = import.meta.env.VITE_STRAVA_INTERMEDIAR
 
 const CLAVE = 'rodillos.strava';
 const CLAVE_ESTADO = 'rodillos.strava.estado';
+/** Cuándo se conectó, se renovó el permiso o se desconectó en este aparato (para comparar con la nube). */
+const CLAVE_T = 'rodillos.strava.t';
+
+/** Lo que se guarda en la nube: la conexión o, si se desconectó, solo `desconectado` (para que lo sepan los demás aparatos). */
+export interface NubeStrava {
+  refresh?: string;
+  atleta?: string;
+  atletaId?: number | string;
+  desconectado?: boolean;
+  t: number;
+}
+let espejo: ((n: NubeStrava) => void) | null = null;
+/** La nube se apunta aquí para enterarse de cada cambio hecho en este aparato. */
+export function establecerEspejoStrava(fn: ((n: NubeStrava) => void) | null) {
+  espejo = fn;
+}
+export function marcaLocalStrava(): number {
+  try {
+    return Number(localStorage.getItem(CLAVE_T)) || 0;
+  } catch {
+    return 0;
+  }
+}
+/** Estado de este aparato tal como iría a la nube (null si aquí nunca se ha conectado ni desconectado). */
+export function estadoLocalStrava(): NubeStrava | null {
+  const c = leerConexion();
+  const t = marcaLocalStrava();
+  if (c) return { refresh: c.refresh, atleta: c.atleta, atletaId: c.atletaId, t: t || Date.now() };
+  return t ? { desconectado: true, t } : null;
+}
+/** Pone en este aparato lo que dice la nube (sin volver a subirlo). */
+export function adoptarStravaDeNube(n: NubeStrava) {
+  if (n.desconectado || !n.refresh) {
+    if (leerConexion()) guardarConexion(null, { t: n.t, desdeNube: true });
+    else guardarMarca(n.t);
+    return;
+  }
+  const antes = leerConexion();
+  guardarConexion(
+    { refresh: n.refresh, atleta: n.atleta ?? antes?.atleta ?? '', atletaId: n.atletaId, auto: antes?.auto ?? true },
+    { t: n.t, desdeNube: true },
+  );
+}
+function guardarMarca(t: number) {
+  try {
+    localStorage.setItem(CLAVE_T, String(t));
+  } catch {
+    // sin almacenamiento
+  }
+}
 
 export interface ConexionStrava {
   refresh: string;
@@ -64,20 +115,29 @@ function tocadoAqui() {
   }
 }
 
-function guardarConexion(c: ConexionStrava | null) {
+/**
+ * Guarda la conexión en este aparato. Salvo que venga de la nube o sea solo la casilla de subida
+ * automática (que es de cada aparato), se apunta la hora y se manda a la nube.
+ */
+function guardarConexion(c: ConexionStrava | null, o: { t?: number; desdeNube?: boolean; soloAqui?: boolean } = {}) {
+  const t = o.t ?? Date.now();
   try {
     localStorage.setItem(CLAVE_TOCADO, '1');
     if (c) localStorage.setItem(CLAVE, JSON.stringify(c));
     else localStorage.removeItem(CLAVE);
+    if (!o.soloAqui) localStorage.setItem(CLAVE_T, String(t));
   } catch {
     // sin almacenamiento: la conexión durará solo esta sesión
+  }
+  if (!o.desdeNube && !o.soloAqui && espejo) {
+    espejo(c ? { refresh: c.refresh, atleta: c.atleta, atletaId: c.atletaId, t } : { desconectado: true, t });
   }
   window.dispatchEvent(new Event('strava-cambio'));
 }
 
 export function cambiarAutoSubida(auto: boolean) {
   const c = leerConexion();
-  if (c) guardarConexion({ ...c, auto });
+  if (c) guardarConexion({ ...c, auto }, { soloAqui: true });
 }
 
 /** Dirección de esta web (a la que Strava devuelve al usuario tras dar permiso). */

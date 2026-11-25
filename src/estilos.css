@@ -2106,7 +2106,8 @@ p {
 }
 
 /* Cuenta de usuario */
-.boton-cuenta.con-sesion {
+/* Botón de la cabecera de la pantalla en la que se está (Administración, cuenta o Ajustes) */
+.barra-acciones .en-pantalla {
   border-color: var(--ok);
   color: var(--ok);
   font-weight: 700;

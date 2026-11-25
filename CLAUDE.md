@@ -467,6 +467,15 @@ el navegador. Diagnóstico de Eric: la VPN no borra nada (cambia la IP, no el al
 es del trabajo y Chrome está gestionado por la empresa (política que borra datos al cerrar o cookies «solo de sesión»), o se
 abre RideCrew desde perfiles de Chrome distintos (él y su mujer). Mirar `chrome://policy` y `chrome://management`.
 
+26-11: la conexión con Strava va con la cuenta (Jesús tuvo que conectarla otra vez en el iPhone; a Eric se le borraba con
+los datos del navegador): `usuarios/{uid}/strava` = { refresh, atleta, atletaId, t } o { desconectado: true, t }
+(`strava/stravaNube.ts`, `sincronizarStravaConNube` en App; gana el `t` más reciente, `rodillos.strava.t`). Conectar,
+renovar el token al subir y desconectar se mandan a la nube (`establecerEspejoStrava`); la casilla de subida automática es de
+cada aparato. Solo la lee su dueño (el administrador no). Probado: reglas en el emulador (9 casos) y dos aparatos con el
+emulador (el nuevo la recibe; desconectar en uno desconecta en todos). **Necesita las reglas nuevas pegadas.**
+Cabecera: el botón de la pantalla en la que se está (🛡️, cuenta o Ajustes) sale en verde (`.en-pantalla`); antes el de la
+cuenta estaba siempre en verde.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

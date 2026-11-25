@@ -374,6 +374,9 @@
             ".validate": "newData.isNumber()"
           }
         },
+        "strava": {
+          ".validate": "newData.hasChildren(['t']) && newData.child('t').isNumber() && (!newData.child('refresh').exists() || (newData.child('refresh').isString() && newData.child('refresh').val().length < 200))"
+        },
         "$otro": {
           ".validate": false
         }

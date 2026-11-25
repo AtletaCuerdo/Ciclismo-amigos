@@ -7,6 +7,7 @@ import { Creditos } from './components/Creditos';
 import { PanelStrava } from './components/Strava';
 import { PanelFtp } from './components/PanelFtp';
 import { procesarVueltaDeStrava } from './strava/strava';
+import { sincronizarStravaConNube } from './strava/stravaNube';
 import { useInstalar } from './instalar';
 import { cargarFirebase, cerrarSesion, useUsuario } from './cuenta/cuenta';
 import { Nube, desactivarEspejo } from './cuenta/sincronizar';
@@ -2191,6 +2192,11 @@ export default function App() {
     if (!usuario) return;
     return escucharMisRegalos(usuario.uid, setRegaloNube);
   }, [usuario?.uid]);
+  // La conexión con Strava va con la cuenta: conectada en un aparato, conectada en todos
+  useEffect(() => {
+    if (!usuario) return;
+    return sincronizarStravaConNube(usuario.uid);
+  }, [usuario?.uid]);
   const saldo = Math.max(0, ganadas + (perfil.despensa?.regalo ?? 0) + regaloNube - (perfil.despensa?.gastado ?? 0));
   /** Solo el administrador: RideCoins de regalo para probar la tienda y las paradas. */
   const regalarmeMonedas = (n: number) => {
@@ -2271,7 +2277,7 @@ export default function App() {
         <div className="barra-acciones">
           {usuario && soyAdmin && (
             <button
-              className="boton-secundario boton-admin"
+              className={`boton-secundario boton-admin${pantalla === 'admin' ? ' en-pantalla' : ''}`}
               onClick={() => setPantalla('admin')}
               title={altasNuevas ? `Panel del administrador: ${altasNuevas} cuentas nuevas` : 'Panel del administrador'}
             >
@@ -2281,7 +2287,7 @@ export default function App() {
           )}
           {usuario && (
             <button
-              className="boton-secundario boton-cuenta con-sesion"
+              className={`boton-secundario boton-cuenta${pantalla === 'cuenta' ? ' en-pantalla' : ''}`}
               onClick={() => setPantalla('cuenta')}
               title={`Sesión iniciada: ${usuario.email}`}
             >
@@ -2298,7 +2304,7 @@ export default function App() {
             </button>
           )}
           {usuario && (
-            <button className="boton-secundario" onClick={() => setPantalla('ajustes')}>
+            <button className={`boton-secundario${pantalla === 'ajustes' ? ' en-pantalla' : ''}`} onClick={() => setPantalla('ajustes')}>
               ⚙️ Ajustes
             </button>
           )}
