@@ -420,6 +420,13 @@ José y Raúl.
 de Tacx y por `namePrefix`, y Bluefy rechaza esa búsqueda con «2». En iOS (`esIos`) el rodillo vuelve a buscar solo FTMS
 (igual que antes del 23-11) y el potenciómetro solo Cycling Power (sin el servicio de Elite). Los Tacx sin FTMS y los Elite
 antiguos solo se encuentran en ordenador/Android. Pendiente: confirmación de Jesús en su iPad.
+25-11 (3): seguía fallando en todo, también el CSC (búsqueda sin tocar): Bluefy rechazaba `requestDevice` con «2» fuera cual
+fuera el aparato. Otros proyectos con Bluefy: los códigos cortos en número (0x1826) fallan y con el código completo en texto
+funcionan, y un número suelto puede ser el estado del Bluetooth de iOS (2 = aún no listo). Ahora en iOS (SensorBle):
+`buscar()` manda las opciones con `uuidCompleto` (00001826-0000-1000-8000-00805f9b34fb) y, si rechaza con un número,
+reintenta 2 veces (1,2 s) y la última sin `optionalServices`; y `configurar` recibe el servidor envuelto
+(`servidorConCodigosCompletos`) para pedir servicios y características con el código completo. En ordenador, igual que
+antes. Probado con un Bluefy simulado que rechaza los códigos cortos (la versión anterior daba el mismo error de la captura).
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).

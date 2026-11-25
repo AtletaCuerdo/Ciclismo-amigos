@@ -74,6 +74,69 @@ export function esIos() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
+/**
+ * Código completo de un servicio o característica: «0x1826» → «00001826-0000-1000-8000-00805f9b34fb».
+ * Bluefy (iPhone/iPad) rechaza con «Error (2)» los códigos cortos en número; con el código completo
+ * en texto funciona (es la forma estándar y la aceptan todos los navegadores).
+ */
+export function uuidCompleto(u: BluetoothServiceUUID | BluetoothCharacteristicUUID): string {
+  if (typeof u === 'number') return `${u.toString(16).padStart(8, '0')}-0000-1000-8000-00805f9b34fb`;
+  return /^[0-9a-f]{4}$/i.test(u) ? `0000${u.toLowerCase()}-0000-1000-8000-00805f9b34fb` : u.toLowerCase();
+}
+
+/** Opciones de búsqueda con todos los códigos completos (para Bluefy). */
+function opcionesCompletas(o: RequestDeviceOptions): RequestDeviceOptions {
+  const x = o as RequestDeviceOptions & { filters?: BluetoothLEScanFilter[]; optionalServices?: BluetoothServiceUUID[] };
+  return {
+    ...x,
+    ...(x.filters ? { filters: x.filters.map((f) => (f.services ? { ...f, services: f.services.map(uuidCompleto) } : f)) } : {}),
+    ...(x.optionalServices ? { optionalServices: x.optionalServices.map(uuidCompleto) } : {}),
+  } as RequestDeviceOptions;
+}
+
+/**
+ * En iOS, el servidor GATT envuelto para que los servicios y características se pidan siempre con el
+ * código completo (el resto del código sigue usando los números cortos).
+ */
+function servidorConCodigosCompletos(server: BluetoothRemoteGATTServer): BluetoothRemoteGATTServer {
+  const servicio = (sv: BluetoothRemoteGATTService) =>
+    new Proxy(sv, {
+      get(t, p) {
+        if (p === 'getCharacteristic') return (u: BluetoothCharacteristicUUID) => t.getCharacteristic(uuidCompleto(u));
+        const v = Reflect.get(t, p, t);
+        return typeof v === 'function' ? v.bind(t) : v;
+      },
+    });
+  return new Proxy(server, {
+    get(t, p) {
+      if (p === 'getPrimaryService')
+        return async (u: BluetoothServiceUUID) => servicio(await t.getPrimaryService(uuidCompleto(u)));
+      const v = Reflect.get(t, p, t);
+      return typeof v === 'function' ? v.bind(t) : v;
+    },
+  });
+}
+
+/**
+ * Busca el aparato. En iOS (Bluefy): con los códigos completos y, si rechaza con un número (estado del
+ * Bluetooth de iOS, p. ej. 2 = aún no listo), se reintenta un par de veces y, al final, sin los servicios
+ * opcionales.
+ */
+async function buscar(opciones: RequestDeviceOptions): Promise<BluetoothDevice> {
+  if (!esIos()) return navigator.bluetooth.requestDevice(opciones);
+  const completas = opcionesCompletas(opciones);
+  for (let i = 0; ; i++) {
+    try {
+      const { optionalServices: _sinOpcionales, ...sinOpcionales } = completas as RequestDeviceOptions & { optionalServices?: unknown };
+      const o = i < 2 ? completas : sinOpcionales;
+      return await navigator.bluetooth.requestDevice(o as RequestDeviceOptions);
+    } catch (e) {
+      if (!esErrorNativo(e) || i >= 2) throw e;
+      await esperar(1200);
+    }
+  }
+}
+
 /** Suelta la conexión GATT (aunque el navegador diga que no está conectada) y espera a que iOS la cierre. */
 async function soltar(device: BluetoothDevice, ms = 800) {
   try {
@@ -206,7 +269,7 @@ export abstract class SensorBle {
     const nombre = soloRecordado ? this.recordado : null;
     try {
       try {
-        device = await navigator.bluetooth.requestDevice(
+        device = await buscar(
           todos ? this.busquedaTodos() : nombre ? this.busquedaRecordado(nombre) : this.opcionesBusqueda(),
         );
       } catch (e) {
@@ -216,7 +279,7 @@ export abstract class SensorBle {
           `${this.etiqueta}: búsqueda rápida fallida (${mensajeError(e)}), abro la lista normal`,
           'info',
         );
-        device = await navigator.bluetooth.requestDevice(this.opcionesBusqueda());
+        device = await buscar(this.opcionesBusqueda());
       }
     } catch (e) {
       if (esCancelacion(e)) {
@@ -303,7 +366,7 @@ export abstract class SensorBle {
     for (const [c, f] of this.escuchas) c.removeEventListener('characteristicvaluechanged', f);
     this.escuchas.clear();
     this.cola = Promise.resolve();
-    await this.configurar(server);
+    await this.configurar(esIos() ? servidorConCodigosCompletos(server) : server);
     this.intentos = 0;
     this.recordar(device.name);
     this.cambiarEstado('conectado');
