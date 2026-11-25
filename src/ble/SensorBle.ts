@@ -56,7 +56,32 @@ export function mensajeError(e: unknown): string {
     }
   }
   // Algunos navegadores (Bluefy) rechazan con un número o un texto suelto, p. ej. «2»
-  return `Error de Bluetooth (${String(e)}). Cierra las otras apps que lo usen (Zwift, la de Elite, Garmin…), pedalea para despertarlo y vuelve a tocar «Conectar».`;
+  return `Error de Bluetooth (${String(e)}). Vuelve a tocar el botón. Si sigue: cierra del todo Bluefy y las otras apps que lo usen (Zwift, Wahoo, Elite…), apaga y enciende el Bluetooth del iPhone/iPad, pedalea para despertar el rodillo y prueba otra vez.`;
+}
+
+/**
+ * Error «nativo» de Bluefy (un número o un texto suelto en lugar de un error de Web Bluetooth), p. ej.
+ * «2»: suele ser una conexión vieja que iOS da por buena pero ya no sirve. Hay que soltarla del todo
+ * antes de volver a intentarlo.
+ */
+function esErrorNativo(e: unknown) {
+  return !(e instanceof DOMException || e instanceof Error);
+}
+
+/** iPhone o iPad (Bluefy): ahí la reconexión sin tocar nada deja conexiones viejas colgadas. */
+function esIos() {
+  if (typeof navigator === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+/** Suelta la conexión GATT (aunque el navegador diga que no está conectada) y espera a que iOS la cierre. */
+async function soltar(device: BluetoothDevice, ms = 800) {
+  try {
+    device.gatt?.disconnect();
+  } catch {
+    // ya estaba suelta
+  }
+  await esperar(ms);
 }
 
 export function esCancelacion(e: unknown) {
@@ -118,7 +143,14 @@ export abstract class SensorBle {
     const servicios = new Set<BluetoothServiceUUID>([this.servicio, ...(normal.optionalServices ?? [])]);
     for (const f of normal.filters ?? []) for (const sv of f.services ?? []) servicios.add(sv);
     const filtros = normal.filters?.length ? normal.filters : [{ services: [this.servicio] }];
-    return { filters: filtros.map((f) => ({ ...f, name: nombre })), optionalServices: [...servicios] };
+    // (sin «namePrefix»: junto con el nombre exacto sobra y algún navegador lo lleva mal)
+    const conNombre = filtros
+      .filter((f) => f.services?.length)
+      .map((f) => ({ services: f.services, name: nombre }));
+    return {
+      filters: conNombre.length ? conNombre : [{ services: [this.servicio], name: nombre }],
+      optionalServices: [...servicios],
+    };
   }
 
   /**
@@ -130,7 +162,9 @@ export abstract class SensorBle {
     const bt = bluetoothDisponible()
       ? (navigator.bluetooth as Bluetooth & { getDevices?: () => Promise<BluetoothDevice[]> })
       : null;
-    if (!nombre || !bt?.getDevices || this.conectado || this.estado === 'conectando') return false;
+    // En iPhone/iPad no: Bluefy devuelve aparatos de la visita anterior que fallan con «Error (2)» y lo
+    // dejan medio cogido (se conecta con el botón del aparato recordado, un toque)
+    if (esIos() || !nombre || !bt?.getDevices || this.conectado || this.estado === 'conectando') return false;
     try {
       const device = (await bt.getDevices()).find((d) => d.name === nombre);
       if (!device) return false;
@@ -213,6 +247,9 @@ export abstract class SensorBle {
 
     this.eventos.onError(null);
     this.cambiarEstado('conectando');
+    // Si iOS cree que sigue conectado (de antes de recargar la web), se suelta primero: si no, la
+    // conexión «vieja» responde con «Error (2)» a todo
+    if (device.gatt?.connected) await soltar(device);
     try {
       // Por turnos con los demás sensores y, si falla, se reintenta un par de veces
       for (let i = 1; ; i++) {
@@ -225,7 +262,9 @@ export abstract class SensorBle {
             `${this.etiqueta}: no conectó a la primera (${mensajeError(e)}), lo intento otra vez…`,
             'info',
           );
-          await esperar(1500 * i);
+          // Error nativo de Bluefy: soltar la conexión del todo antes de reintentar
+          if (esErrorNativo(e)) await soltar(device, 1500 * i);
+          else await esperar(1500 * i);
           if (this.device !== device) throw e;
         }
       }
@@ -234,7 +273,12 @@ export abstract class SensorBle {
       if (!silencioso) this.eventos.onError(`No se pudo conectar con ${device.name ?? this.etiqueta}: ${msg}`);
       this.eventos.onLog(`${this.etiqueta}: error al conectar · ${msg}`, 'error');
       this.desconexionManual = true; // no reintentar un primer intento fallido
-      if (device.gatt?.connected) device.gatt.disconnect();
+      // Siempre se suelta (aunque diga que no está conectado): así el siguiente toque empieza limpio
+      try {
+        device.gatt?.disconnect();
+      } catch {
+        // ya estaba suelta
+      }
       this.cambiarEstado('desconectado');
     }
   }
@@ -302,6 +346,8 @@ export abstract class SensorBle {
         // Si quedó medio conectado, al desconectar saltará manejarDesconexion.
         if (this.device?.gatt?.connected) this.device.gatt.disconnect();
         else this.programarReintento();
+        // (con un error nativo de Bluefy, gatt.connected puede mentir: se suelta igualmente)
+        if (esErrorNativo(e) && this.device) void soltar(this.device, 0);
       }
     }, espera);
   }

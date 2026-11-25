@@ -407,6 +407,14 @@ Cuentas de prueba: el administrador no puede borrar datos de otros desde la web;
 administrador y cada uno lee el suyo. Al entrar con una cuenta bloqueada sale un aviso y se cierra la sesión
 (`cuentaBloqueada`). La cuenta de Authentication queda (no se puede borrar la de otro desde la web). Reglas probadas en el
 emulador (10 casos). **Necesita las reglas nuevas pegadas.**
+25-11: «Error de Bluetooth (2)» en iPhone/iPad con Bluefy en todo (KICKR CORE de Raúl, Suito y pulsómetro de José; en
+ordenador iba bien). Causa probable: conexiones GATT «viejas» que iOS da por conectadas (de antes de recargar la web o de
+un intento fallido) y responden 2 a todo; los reintentos se hacían sobre la misma conexión sin soltarla. Ahora (SensorBle):
+si al conectar `gatt.connected` ya es true se suelta antes; ante un error nativo (número suelto, `esErrorNativo`) se suelta
+del todo antes de reintentar (`soltar`); al fallar siempre se llama a `disconnect()`; en iOS no hay reconexión automática
+con `getDevices` (`esIos`); la búsqueda del aparato recordado ya no mezcla `namePrefix` con el nombre. Probado con un
+Bluetooth simulado que se comporta así (la versión anterior daba los mismos mensajes del Registro). Falta confirmarlo con
+José y Raúl.
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
