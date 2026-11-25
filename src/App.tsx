@@ -120,7 +120,7 @@ import {
 import { estadoStravaAqui, leerConexion, URL_INTERMEDIARIO } from './strava/strava';
 import { PantallaResumenes } from './components/PantallaResumenes';
 import { CircuitoElegido, PantallaCircuitos } from './components/PantallaCircuitos';
-import { apuntarMarca, guardarFantasma, leerFantasma, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
+import { apuntarMarca, guardarFantasma, leerFantasma, recuperarMisMarcas, subirMarca, tablaGrupo, type MarcaGrupo } from './recorrido/records';
 import { mantenerPantallaEncendida, soltarPantalla } from './pantallaEncendida';
 import { DjAutomatico, RADIO_APAGADA, Radio, type EstadoRadio, type IdEmisora } from './musica/radio';
 import { AVISO_PARADA_M, INFO_PARADA, PARADAS } from './recorrido/paradas';
@@ -2200,6 +2200,10 @@ export default function App() {
   };
   // Los primeros 10.000 de regalo se le ponen solos al administrador (después, con el botón de la tienda).
   // Tras sincronizar con la nube: si ya los tenía en otro aparato, la mezcla se queda con el mayor.
+  // Mis mejores tiempos en las subidas: si el navegador los perdió, se recuperan de la tabla del grupo
+  useEffect(() => {
+    if (sync.tipo === 'ok') void recuperarMisMarcas();
+  }, [sync.tipo]);
   useEffect(() => {
     if (soyAdmin && sync.tipo === 'ok' && !perfil.despensa?.regalo) regalarmeMonedas(10000);
     // eslint-disable-next-line react-hooks/exhaustive-deps

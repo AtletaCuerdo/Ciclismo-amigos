@@ -460,6 +460,12 @@ vacía. Hoy se publicó muchas veces. Ahora `index.html` (script en línea) reca
 `/assets/` o salta `vite:preloadError` (como mucho una vez cada 30 s, `rodillos.recargaVersion` en sessionStorage) y, si a
 los 15 s no ha arrancado, enseña «RideCrew no ha terminado de cargar» con un botón; `ProteccionErrores` también recarga ante
 un fallo de importación. Probado quitando el archivo principal: recarga una vez y luego enseña el botón.
+25-11 (8): Eric: «tu primer tiempo» en subidas ya hechas. Mis marcas personales solo estaban en el navegador
+(`rodillos.records`); ahora, tras sincronizar, `recuperarMisMarcas()` (records.ts) las rehace con mis filas de
+`records/{circuito}/{segmento}/{uid}` (se queda la mejor). Probado con el emulador. El fantasma (mejor vuelta) sigue solo en
+el navegador. Diagnóstico de Eric: la VPN no borra nada (cambia la IP, no el almacenamiento); sospecha principal: el portátil
+es del trabajo y Chrome está gestionado por la empresa (política que borra datos al cerrar o cookies «solo de sesión»), o se
+abre RideCrew desde perfiles de Chrome distintos (él y su mujer). Mirar `chrome://policy` y `chrome://management`.
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).

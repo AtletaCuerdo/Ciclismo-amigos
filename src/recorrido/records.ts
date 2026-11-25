@@ -97,3 +97,35 @@ export async function tablaGrupo(segmento: string, circuito = CIRCUITO_ID): Prom
   tabla.sort((a, b) => a.ms - b.ms);
   return { tabla, miUid: yo.uid };
 }
+
+/**
+ * Recupera mis mejores marcas de la tabla del grupo (están en la nube con mi uid). Mis marcas
+ * personales solo se guardaban en el navegador: si este perdía lo guardado (le pasa a Eric), cada
+ * subida volvía a ser «tu primer tiempo». Se queda la mejor de las dos.
+ */
+export async function recuperarMisMarcas(): Promise<number> {
+  try {
+    const fb = await import('../multijugador/firebase');
+    const yo = await fb.usuarioActual();
+    const snap = await fb.get(fb.ref(fb.db, 'records'));
+    const nube = (snap.val() ?? {}) as Record<string, Record<string, Record<string, { ms?: unknown; t?: unknown }>>>;
+    const todos = leer<Records>(CLAVE_RECORDS, {});
+    let recuperadas = 0;
+    for (const [circuito, segmentos] of Object.entries(nube)) {
+      for (const [segmento, filas] of Object.entries(segmentos ?? {})) {
+        const mia = filas?.[yo.uid];
+        const ms = typeof mia?.ms === 'number' ? mia.ms : undefined;
+        if (ms === undefined || ms <= 0) continue;
+        const local = todos[circuito]?.[segmento]?.ms;
+        if (local === undefined || ms < local) {
+          todos[circuito] = { ...todos[circuito], [segmento]: { ms, t: Number(mia?.t) || Date.now() } };
+          recuperadas++;
+        }
+      }
+    }
+    if (recuperadas) escribir(CLAVE_RECORDS, todos);
+    return recuperadas;
+  } catch {
+    return 0;
+  }
+}
