@@ -1586,8 +1586,10 @@ export class EscenaRecorrido {
       { tipo: 'frondoso', zonas: frondosos },
       { tipo: 'chopo', zonas: chopos },
     ];
-    // Vegetación cercana con modelos reales; si no se pueden descargar, la versión por código
-    void this.vegetacionReal(instanciar, junto).catch((e) => {
+    // Vegetación cercana con modelos reales; si no se pueden descargar, la versión por código.
+    // En el velódromo no: la pista entera cabe en ~300 m, así que esos ~4000 árboles (con sombra)
+    // quedaban todos «cerca» y se dibujaban a la vez detrás de las gradas, que los tapan.
+    if (!this.ovalo) void this.vegetacionReal(instanciar, junto).catch((e) => {
       console.warn('No se pudieron cargar los modelos de vegetación; se usan los generados por código', e);
       if (!this.destruida) vegetacionCercanaPorCodigo();
     });
@@ -2982,8 +2984,9 @@ export class EscenaRecorrido {
     }
 
     // Público: figuras sencillas sentadas, de cara a la pista (instanciadas)
-    const cuerpo = new THREE.CylinderGeometry(0.15, 0.19, 0.6, 7).scale(1, 1, 0.75).translate(0, 0.3, 0);
-    const cabeza = new THREE.SphereGeometry(0.11, 7, 5).translate(0, 0.74, 0);
+    // (pocas caras: son ~8500 y se ven todas a la vez)
+    const cuerpo = new THREE.CylinderGeometry(0.15, 0.19, 0.6, 6).scale(1, 1, 0.75).translate(0, 0.3, 0);
+    const cabeza = new THREE.SphereGeometry(0.11, 6, 4).translate(0, 0.74, 0);
     // (las dos sin índice: mergeGeometries no junta una con índice y otra sin él)
     const figura = mergeGeometries([cuerpo.toNonIndexed(), cabeza.toNonIndexed()])!;
     const rnd = aleatorio(808);

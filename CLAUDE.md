@@ -531,6 +531,13 @@ y, en Ajustes → «Vatios y cadencia», vatios del rodillo y cadencia automáti
 tarjetas lo dicen ahora (`tarjetas` en App).
 
 26-11 (7): mensajes rápidos del chat nuevos (los eligió Jesús; `RAPIDOS` en ChatGrupo.tsx).
+Son iguales para todos (van en el código); quien tenga la web abierta desde antes de las 17:29 del 26-11 ve los antiguos
+hasta recargar.
+
+26-11 (8): el velódromo iba a saltos. Dibujaba ~10,6 M de triángulos por imagen (el Lago, ~1,7 M): la vegetación con modelos
+reales (~4000 árboles con sombra, `vegetacionReal`) se dibuja a < 260 m del ciclista, y en una pista de 1 km eso es toda la
+vuelta a la vez (detrás de las gradas, que la tapan). En el velódromo ya no se pone (quedan los árboles sencillos lejanos)
+y el público de las gradas lleva menos caras (60 en vez de 84; son ~8500). Ahora ~1,7 M, como el Lago.
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
