@@ -1493,6 +1493,57 @@ p {
   gap: 6px;
 }
 
+/* Paneles plegables (entreno, grupo): una flechita los abre o los cierra */
+.recorrido .boton-plegar {
+  flex: none;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.hud-entreno.plegado {
+  width: auto;
+  max-width: 100%;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+}
+.hud-entreno-linea {
+  min-width: 0;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hud-objetivo-mini {
+  font-size: 20px;
+  color: #4ade80;
+}
+.hud-objetivo-mini.regular {
+  color: #facc15;
+}
+.hud-objetivo-mini.mal {
+  color: #f87171;
+}
+.hud-grupo.plegado {
+  padding: 4px;
+}
+.hud-grupo .hud-grupo-titulo.boton-plegar {
+  text-align: left;
+  border: none;
+  background: transparent;
+}
+.hud-grupo.plegado .hud-grupo-titulo.boton-plegar {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .hud-entreno-cabecera {
   display: flex;
   justify-content: space-between;

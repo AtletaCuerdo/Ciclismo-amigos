@@ -521,6 +521,11 @@ la fila de botones de arriba (con 📻) no cabía ni saltaba de línea y ensanch
 la derecha): `.hud-capa` con `grid-template-columns: minmax(0, 1fr)`, `.hud-botones` con `flex-wrap` y, en ≤ 520 px, la
 zona central con `flex-wrap` (entreno arriba, Grupo en su línea) y cada fila del Grupo en dos líneas.
 
+26-11 (5): paneles plegables en el recorrido (idea de Jesús): entreno y Grupo con flechita (`usePlegado` en
+VistaRecorrido, clave `rodillos.plegado.{entreno|grupo}`; sin elegir, plegados en el móvil y desplegados en iPad/PC).
+Entreno plegado = una línea: objetivo de ahora (color según cumplimiento) · «en 1:45 → 5′ a 170 W» (`durBloque`); Grupo
+plegado = «◂ 👥 Grupo (N)».
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

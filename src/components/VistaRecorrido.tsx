@@ -248,6 +248,34 @@ interface Props {
 
 const pct = (x: number) => `${(x * 100).toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`;
 const mmss = (s: number) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
+/** Duración de un bloque: «5′» si son minutos justos, si no «4:30». */
+const durBloque = (s: number) => (s % 60 === 0 ? `${s / 60}′` : mmss(s));
+
+/**
+ * Panel plegado o desplegado (entreno, grupo). En el móvil empieza plegado; en iPad y ordenador,
+ * desplegado. Cada aparato recuerda lo que eligió (`rodillos.plegado.{clave}`).
+ */
+function usePlegado(clave: string): [boolean, () => void] {
+  const [plegado, setPlegado] = useState(() => {
+    try {
+      const g = localStorage.getItem(`rodillos.plegado.${clave}`);
+      if (g !== null) return g === '1';
+    } catch {
+      // sin almacenamiento
+    }
+    return typeof matchMedia !== 'undefined' && matchMedia('(max-width: 760px), (max-height: 520px)').matches;
+  });
+  const alternar = () =>
+    setPlegado((p) => {
+      try {
+        localStorage.setItem(`rodillos.plegado.${clave}`, p ? '0' : '1');
+      } catch {
+        // sin almacenamiento
+      }
+      return !p;
+    });
+  return [plegado, alternar];
+}
 
 /** Panel del entrenamiento guiado: objetivo, tiempo del tramo, siguiente tramo y gráfica. */
 function PanelEntreno({
@@ -264,6 +292,7 @@ function PanelEntreno({
   const t = e.segundos;
   // La gráfica se amplía al tocarla (para ver bien el pulso de las últimas series)
   const [grande, setGrande] = useState(false);
+  const [plegado, alternarPlegado] = usePlegado('entreno');
   const i = e.tramos.findIndex((x) => t >= x.inicio && t < x.inicio + x.duracion);
   const actual = e.tramos[i];
   const siguiente = i >= 0 ? e.tramos[i + 1] : undefined;
@@ -275,9 +304,37 @@ function PanelEntreno({
     const d = Math.abs(potencia - e.objetivoW) / e.objetivoW;
     clase = d <= 0.05 ? 'bien' : d <= 0.12 ? 'regular' : 'mal';
   }
+  // Plegado: una sola línea con lo de ahora y lo que viene («240 W · en 1:45 → 5′ a 170 W»)
+  if (plegado)
+    return (
+      <div className="hud hud-entreno plegado">
+        <button className="boton-plegar" onClick={alternarPlegado} aria-expanded={false} title="Ver el entreno completo">
+          ▸
+        </button>
+        {acabado ? (
+          <span className="hud-entreno-linea">¡Entrenamiento completado!</span>
+        ) : actual ? (
+          <span className="hud-entreno-linea">
+            <strong className={`hud-objetivo-mini ${clase}`}>{actual.libre ? '¡a tope!' : `${e.objetivoW ?? '--'} W`}</strong>
+            {siguiente ? (
+              <>
+                {' '}
+                · en {mmss(actual.inicio + actual.duracion - t)} → {durBloque(siguiente.duracion)} a {w(siguiente.desde)}
+                {siguiente.desde !== siguiente.hasta ? `→${w(siguiente.hasta)}` : ''} W
+              </>
+            ) : (
+              <> · último tramo: {mmss(actual.inicio + actual.duracion - t)}</>
+            )}
+          </span>
+        ) : null}
+      </div>
+    );
   return (
     <div className="hud hud-entreno">
       <div className="hud-entreno-cabecera">
+        <button className="boton-plegar" onClick={alternarPlegado} aria-expanded title="Plegar el entreno (solo una línea)">
+          ▾
+        </button>
         <strong>{e.entreno.nombre}</strong>
         <span>
           {mmss(Math.min(t, e.total))} / {mmss(e.total)}
@@ -1558,6 +1615,7 @@ function PanelGrupo({
   onUnirse: () => void;
   onJuntoA: (s: number) => void;
 }) {
+  const [plegado, alternarPlegado] = usePlegado('grupo');
   if (!enSalida)
     return (
       <div className="hud hud-grupo">
@@ -1568,9 +1626,19 @@ function PanelGrupo({
       </div>
     );
   const lista = [...otros].sort((a, b) => b.distancia - a.distancia);
+  if (plegado)
+    return (
+      <div className="hud hud-grupo plegado">
+        <button className="boton-plegar hud-grupo-titulo" onClick={alternarPlegado} aria-expanded={false} title="Ver el grupo">
+          ◂ 👥 Grupo ({lista.length})
+        </button>
+      </div>
+    );
   return (
     <div className="hud hud-grupo">
-      <strong className="hud-grupo-titulo">👥 Grupo</strong>
+      <button className="boton-plegar hud-grupo-titulo" onClick={alternarPlegado} aria-expanded title="Plegar el grupo">
+        👥 Grupo ▸
+      </button>
       {lista.length === 0 && <span className="hud-grupo-vacio">Aún no rueda nadie más</span>}
       {lista.map((o) => {
         // En el mismo punto del circuito aunque vaya otra vuelta (como el rebufo)
