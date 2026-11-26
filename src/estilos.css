@@ -1331,6 +1331,8 @@ p {
   right: 12px;
   display: grid;
   grid-template-rows: auto 1fr auto;
+  /* Nunca más ancha que la pantalla (si no, una fila que no cabe ensancha todo y se sale por la derecha) */
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   pointer-events: none;
 }
@@ -4697,6 +4699,7 @@ p {
     order: -1;
     width: 100%;
     justify-content: flex-end;
+    flex-wrap: wrap;
   }
 }
 /* Móvil en horizontal: marcador en una fila compacta y los paneles más pequeños */
@@ -4721,6 +4724,31 @@ p {
   .hud-grupo {
     font-size: 12px;
     max-width: 40vw;
+  }
+}
+
+/* Móvil vertical: el grupo, en dos líneas por ciclista (nombre arriba; distancia y botón debajo) */
+@media (max-width: 520px) {
+  /* El entreno arriba y el grupo en su propia línea, abajo a la derecha (no se reparten el ancho) */
+  .hud-medio {
+    flex-wrap: wrap;
+    align-content: space-between;
+  }
+  .hud-grupo {
+    max-width: 62vw;
+  }
+  .hud-grupo-fila {
+    flex-wrap: wrap;
+    gap: 2px 6px;
+  }
+  .hud-grupo-nombre {
+    flex-basis: 100%;
+  }
+  .recorrido .hud-grupo-boton {
+    min-height: 28px;
+    padding: 0 8px;
+    font-size: 12px;
+    margin-left: auto;
   }
 }
 

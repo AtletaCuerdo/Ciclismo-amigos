@@ -516,8 +516,10 @@ quedada: cualquier cambio automático espera 6 s (`decisionAnfitrionRef`) y quie
 (< 5 min, `anfitrionHastaRef`) recupera el mando; quien lo heredó (`heredadoRef`) no lo reclama. Paradas comprobadas: 4
 por circuito y ninguna en el velódromo. Los km de «juntos»: el punto del circuito sigue al grupo (pegado o reagrupado)
 pero lo grabado es lo pedaleado, por eso las vueltas no cuadran con los km. Pendiente: nuevos mensajes rápidos del chat
-(Jesús los dirá; `RAPIDOS` en ChatGrupo.tsx) y los Favero de Daniel (¿aparato?, ¿salían en la lista?). En el móvil, la
-zona central (`.hud-medio`) es más ancha que la pantalla (entreno y Grupo se salen por la derecha): revisar.
+(Jesús los dirá; `RAPIDOS` en ChatGrupo.tsx) y los Favero de Daniel (¿aparato?, ¿salían en la lista?). Móvil: en una salida
+la fila de botones de arriba (con 📻) no cabía ni saltaba de línea y ensanchaba toda la capa (entreno y Grupo se salían por
+la derecha): `.hud-capa` con `grid-template-columns: minmax(0, 1fr)`, `.hud-botones` con `flex-wrap` y, en ≤ 520 px, la
+zona central con `flex-wrap` (entreno arriba, Grupo en su línea) y cada fila del Grupo en dos líneas.
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
