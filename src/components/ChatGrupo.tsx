@@ -110,7 +110,15 @@ function BotonAudio({ m }: { m: Mensaje }) {
 }
 
 /** Mensajes rápidos: se mandan con un toque, sin dejar de pedalear. */
-const RAPIDOS = ['👍', '¡Vamos!', 'Espérame', 'Tira tú', 'Relevo', 'Subo fuerte', '😅', '🔥'];
+const RAPIDOS = [
+  'Beluga mala',
+  'Celiaco malnacido',
+  'Novio de Javinder',
+  'Lasai',
+  '4Endurance cura el estreñimiento',
+  'Día de calidad en pareja',
+  'Franceseo máximo',
+];
 /** Con el chat cerrado, cada mensaje nuevo se ve este tiempo. */
 const VISIBLE_MS = 12000;
 

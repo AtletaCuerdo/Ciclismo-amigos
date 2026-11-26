@@ -515,8 +515,7 @@ ya no se mueve); los demás ciclistas sin cadencia (D100) se dibujan pedaleando 
 quedada: cualquier cambio automático espera 6 s (`decisionAnfitrionRef`) y quien era anfitrión y vuelve tras un corte
 (< 5 min, `anfitrionHastaRef`) recupera el mando; quien lo heredó (`heredadoRef`) no lo reclama. Paradas comprobadas: 4
 por circuito y ninguna en el velódromo. Los km de «juntos»: el punto del circuito sigue al grupo (pegado o reagrupado)
-pero lo grabado es lo pedaleado, por eso las vueltas no cuadran con los km. Pendiente: nuevos mensajes rápidos del chat
-(Jesús los dirá; `RAPIDOS` en ChatGrupo.tsx) y los Favero de Daniel (¿aparato?, ¿salían en la lista?). Móvil: en una salida
+pero lo grabado es lo pedaleado, por eso las vueltas no cuadran con los km. Los Favero de Daniel (¿aparato?, ¿salían en la lista?). Móvil: en una salida
 la fila de botones de arriba (con 📻) no cabía ni saltaba de línea y ensanchaba toda la capa (entreno y Grupo se salían por
 la derecha): `.hud-capa` con `grid-template-columns: minmax(0, 1fr)`, `.hud-botones` con `flex-wrap` y, en ≤ 520 px, la
 zona central con `flex-wrap` (entreno arriba, Grupo en su línea) y cada fila del Grupo en dos líneas.
@@ -530,6 +529,8 @@ plegado = «◂ 👥 Grupo (N)».
 como potenciómetro, Cycling Power; además admiten una sola conexión Bluetooth). Van en «Potenciómetro» (vatios y cadencia)
 y, en Ajustes → «Vatios y cadencia», vatios del rodillo y cadencia automática o de los pedales. Los textos de las
 tarjetas lo dicen ahora (`tarjetas` en App).
+
+26-11 (7): mensajes rápidos del chat nuevos (los eligió Jesús; `RAPIDOS` en ChatGrupo.tsx).
 
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
