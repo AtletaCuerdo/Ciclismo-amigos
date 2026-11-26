@@ -526,6 +526,11 @@ VistaRecorrido, clave `rodillos.plegado.{entreno|grupo}`; sin elegir, plegados e
 Entreno plegado = una línea: objetivo de ahora (color según cumplimiento) · «en 1:45 → 5′ a 170 W» (`durBloque`); Grupo
 plegado = «◂ 👥 Grupo (N)».
 
+26-11 (6): Favero de Daniel: los buscaba en «Sensor velocidad/cadencia» y no salían (los Assioma solo se anuncian
+como potenciómetro, Cycling Power; además admiten una sola conexión Bluetooth). Van en «Potenciómetro» (vatios y cadencia)
+y, en Ajustes → «Vatios y cadencia», vatios del rodillo y cadencia automática o de los pedales. Los textos de las
+tarjetas lo dicen ahora (`tarjetas` en App).
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

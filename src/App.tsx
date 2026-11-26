@@ -2251,8 +2251,9 @@ export default function App() {
 
   const tarjetas: { fuente: Fuente; titulo: string; detalle: string }[] = [
     { fuente: 'ftms', titulo: 'Rodillo inteligente', detalle: 'FTMS o Tacx FE-C (Flow, Vortex, Neo…)' },
-    { fuente: 'pm', titulo: 'Potenciómetro', detalle: 'Cycling Power · servicio 0x1818' },
-    { fuente: 'csc', titulo: 'Sensor velocidad/cadencia', detalle: 'CSC · servicio 0x1816' },
+    { fuente: 'pm', titulo: 'Potenciómetro', detalle: 'Pedales o bielas con potencia (Favero, Garmin…): dan vatios y cadencia' },
+    // Los pedales con potenciómetro no salen aquí (no se anuncian como sensor de cadencia): van en «Potenciómetro»
+    { fuente: 'csc', titulo: 'Sensor velocidad/cadencia', detalle: 'Sensor suelto de cadencia o velocidad. ¿Pedales con potencia? Conéctalos en «Potenciómetro»' },
     { fuente: 'hr', titulo: 'Pulsómetro', detalle: 'Heart Rate · servicio 0x180D' },
   ];
 
