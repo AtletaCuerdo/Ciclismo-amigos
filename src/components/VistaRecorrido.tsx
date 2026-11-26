@@ -559,6 +559,8 @@ export default function VistaRecorrido({
   const arcenKm = parada?.arcenKm ?? null;
   useEffect(() => escena.current?.irAlArcen(arcenKm), [arcenKm, cargando]);
   const [menuEmojis, setMenuEmojis] = useState(false);
+  /** Móvil: mandos del anfitrión de la quedada desplegados (si no, plegados tras «⚙️»). */
+  const [mandosQuedada, setMandosQuedada] = useState(false);
   const [menuCircuito, setMenuCircuito] = useState(false);
   // Sin nada conectado (p. ej. al retomar una sesión tras cerrarse la web), el panel sale abierto
   const [menuSensores, setMenuSensores] = useState(
@@ -1117,6 +1119,64 @@ export default function VistaRecorrido({
 
       {/* Zona central libre; el entrenamiento guiado va arriba a la izquierda, pegado a la barra */}
       <div className="hud-medio">
+        {/* Quedada y «juntos»: justo debajo de la barra de arriba (en el móvil, abajo) */}
+      {(quedada || juntos) && (
+      <div className="barra-grupo">
+      {quedada && (
+        <div className={`panel-quedada hud ${mandosQuedada ? 'desplegado' : ''}`}>
+          <span className="quedada-estado">
+            {quedada.modo === 'juntos' ? '🤝 Todos juntos' : '🏁 Carrera libre'}
+            {quedada.modo === 'libre' && (quedada.suministros ? ' · 🍬 con suministros' : ' · sin suministros')}
+            <small> · anfitrión: {quedada.soyAnfitrion ? 'tú' : quedada.anfitrion}</small>
+          </span>
+          {quedada.soyAnfitrion && (
+            <button
+              className="boton-secundario quedada-desplegar"
+              onClick={() => setMandosQuedada((m) => !m)}
+              aria-expanded={mandosQuedada}
+              title="Mandos del anfitrión"
+            >
+              {mandosQuedada ? '✕' : '⚙️'}
+            </button>
+          )}
+          {quedada.soyAnfitrion && (
+            <span className="quedada-mandos">
+              {quedada.modo === 'juntos' ? (
+                <button className="boton-secundario" onClick={quedada.onLibre} title="Cada uno con sus vatios, su peso y el rebufo">
+                  🏁 ¡Carrera libre!
+                </button>
+              ) : (
+                <button className="boton-secundario" onClick={quedada.onReagrupar} title="Todos juntos otra vez, en el punto del que va en cabeza">
+                  🤝 Reagrupar
+                </button>
+              )}
+              <button
+                className={`boton-secundario ${quedada.suministros ? 'activo' : ''}`}
+                aria-pressed={quedada.suministros}
+                onClick={() => quedada.onSuministros(!quedada.suministros)}
+                title="Geles, guayaba y paradas (solo cuentan en carrera libre)"
+              >
+                🍬 Suministros {quedada.suministros ? 'sí' : 'no'}
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+      {juntos && (
+        <div className="aviso-juntos">
+          <span>
+            🔗{' '}
+            {juntos.esperando
+              ? 'Siempre juntos: esperando a tu amigo…'
+              : `Juntos con ${juntos.companeros.join(', ')} · ritmo: ${juntos.marcaRitmo ?? 'tú'}`}
+          </span>
+          <button className="aviso-anular" onClick={juntos.onSoltar} title="Seguir cada uno a su ritmo desde aquí">
+            Soltarme
+          </button>
+        </div>
+      )}
+      </div>
+      )}
         {entreno && (
           <PanelEntreno e={entreno} potencia={yo.potencia} onCambiar={() => setEligiendo(true)} onLibre={onSeguirLibre} />
         )}
@@ -1314,49 +1374,6 @@ export default function VistaRecorrido({
           {avisoQuedada}
         </div>
       )}
-      {quedada && (
-        <div className="panel-quedada hud">
-          <span className="quedada-estado">
-            {quedada.modo === 'juntos' ? '🤝 Todos juntos' : '🏁 Carrera libre'}
-            {quedada.modo === 'libre' && (quedada.suministros ? ' · 🍬 con suministros' : ' · sin suministros')}
-            <small> · anfitrión: {quedada.soyAnfitrion ? 'tú' : quedada.anfitrion}</small>
-          </span>
-          {quedada.soyAnfitrion && (
-            <span className="quedada-mandos">
-              {quedada.modo === 'juntos' ? (
-                <button className="boton-secundario" onClick={quedada.onLibre} title="Cada uno con sus vatios, su peso y el rebufo">
-                  🏁 ¡Carrera libre!
-                </button>
-              ) : (
-                <button className="boton-secundario" onClick={quedada.onReagrupar} title="Todos juntos otra vez, en el punto del que va en cabeza">
-                  🤝 Reagrupar
-                </button>
-              )}
-              <button
-                className={`boton-secundario ${quedada.suministros ? 'activo' : ''}`}
-                aria-pressed={quedada.suministros}
-                onClick={() => quedada.onSuministros(!quedada.suministros)}
-                title="Geles, guayaba y paradas (solo cuentan en carrera libre)"
-              >
-                🍬 Suministros {quedada.suministros ? 'sí' : 'no'}
-              </button>
-            </span>
-          )}
-        </div>
-      )}
-      {juntos && (
-        <div className="aviso-juntos">
-          <span>
-            🔗{' '}
-            {juntos.esperando
-              ? 'Siempre juntos: esperando a tu amigo…'
-              : `Juntos con ${juntos.companeros.join(', ')} · ritmo: ${juntos.marcaRitmo ?? 'tú'}`}
-          </span>
-          <button className="aviso-anular" onClick={juntos.onSoltar} title="Seguir cada uno a su ritmo desde aquí">
-            Soltarme
-          </button>
-        </div>
-      )}
 
       {circuito.siguiente && !avisoCircuitoCerrado && (
         <div className="aviso-cambio-circuito">
@@ -1383,13 +1400,15 @@ export default function VistaRecorrido({
       {/* Abajo: el chat del grupo a la izquierda y el perfil de la vuelta a la derecha */}
       <div className="hud-abajo">
       {enSalida && chat && (
-        <ChatGrupo
-          mensajes={chat.mensajes}
-          miUid={chat.miUid}
-          rechazado={chat.rechazado}
-          onEnviar={chat.onEnviar}
-          onEnviarAudio={chat.onEnviarAudio}
-        />
+        <div className="hueco-chat">
+          <ChatGrupo
+            mensajes={chat.mensajes}
+            miUid={chat.miUid}
+            rechazado={chat.rechazado}
+            onEnviar={chat.onEnviar}
+            onEnviarAudio={chat.onEnviarAudio}
+          />
+        </div>
       )}
       {enSalida && emojis && (
         <div className="emojis-rapidos">

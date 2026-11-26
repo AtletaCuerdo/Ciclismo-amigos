@@ -1336,6 +1336,7 @@ p {
 }
 
 .hud-medio {
+  position: relative;
   display: flex;
   justify-content: flex-start;
   align-items: flex-start;
@@ -1358,8 +1359,8 @@ p {
   align-items: center;
   gap: 8px 18px;
   padding: 6px 14px;
-  /* Sus desplegables (Bots, Circuito) por encima del grupo y los segmentos */
-  z-index: 5;
+  /* Sus desplegables (Bots, Radio, Circuito) por encima del grupo, los segmentos y la quedada */
+  z-index: 7;
 }
 
 .hud-filas {
@@ -2481,6 +2482,29 @@ p {
 
 /* ---------- Chat del grupo ---------- */
 
+/* El chat abierto (o sus mensajes) crecen hacia arriba sin hacer más alta la fila de abajo:
+   así el panel del grupo, al otro lado, no se mueve */
+.hueco-chat {
+  position: relative;
+  align-self: flex-end;
+  flex: none;
+  width: 92px;
+  height: 44px;
+}
+.hueco-chat:has(.hud-chat.abierto) {
+  width: min(360px, 50vw);
+}
+.hueco-chat > .hud-chat {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: max-content;
+  z-index: 6;
+}
+.hueco-chat > .hud-chat.abierto {
+  width: min(360px, 50vw);
+}
+
 .hud-chat {
   display: flex;
   flex-direction: column;
@@ -2939,6 +2963,12 @@ p {
   right: 0;
   z-index: 10;
   width: 250px;
+  /* Si no cabe en la pantalla (iPad tumbado, móvil), se desliza con el dedo */
+  max-height: calc(100vh - 150px);
+  max-height: calc(100dvh - 150px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 10px 12px;
   display: grid;
   gap: 8px;
@@ -5271,13 +5301,35 @@ a.boton-secundario {
   min-height: 36px;
 }
 
-/* Quedada: estado y mandos del anfitrión (encima del aviso de «juntos») y aviso grande para todos */
-.panel-quedada {
+/* Quedada y «juntos», apilados en una sola columna en el centro (antes cada uno con su propia altura y se pisaban) */
+.barra-grupo {
   position: absolute;
-  top: 118px;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
   z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  pointer-events: none;
+}
+.barra-grupo > * {
+  pointer-events: auto;
+}
+.barra-grupo .aviso-juntos {
+  position: static;
+  transform: none;
+  max-width: 100%;
+}
+/* El botón para abrir los mandos del anfitrión solo hace falta en el móvil */
+.quedada-desplegar {
+  display: none;
+}
+/* Quedada: estado y mandos del anfitrión y aviso grande para todos */
+.panel-quedada {
   pointer-events: auto;
   display: flex;
   align-items: center;
@@ -5334,9 +5386,26 @@ a.boton-secundario {
   }
 }
 @media (max-width: 760px), (max-height: 520px) {
+  /* En el móvil, abajo del todo de la zona central (arriba va el entreno) */
+  .barra-grupo {
+    position: fixed;
+    top: auto;
+    bottom: calc(max(6px, env(safe-area-inset-bottom)) + 58px);
+  }
   .panel-quedada {
-    top: 96px;
     font-size: 12px;
+    padding: 4px 10px;
+  }
+  .barra-grupo .aviso-juntos {
+    font-size: 12px;
+    padding: 4px 10px;
+  }
+  /* En el móvil, los mandos del anfitrión plegados tras «⚙️» para no tapar al ciclista */
+  .quedada-desplegar {
+    display: inline-flex;
+  }
+  .panel-quedada:not(.desplegado) .quedada-mandos {
+    display: none;
   }
   .aviso-quedada {
     font-size: 17px;

@@ -506,6 +506,19 @@ seguidos sin contextos nuevos y memoria estable. **Arreglado también**: el vel�
 sin subidas → `SUBIDAS[0]` undefined); ahora `proxima: null` y el perfil dice «Circuito llano». Pendiente: que José
 confirme si ya no se cae el Bluetooth en los desvíos (y si reconectó solo o pulsando).
 
+26-11 (4): feedback de la sesión de Jesús con Dani (voz, radio con la voz, chat, juntos y quedada: bien). Cambios:
+menús de Bots/Radio/Circuito se deslizan si no caben (`.menu-bots` con `max-height` y scroll) y van por encima de la
+quedada (`.hud-arriba` z-index 7); quedada y «juntos» en una sola columna `.barra-grupo` dentro de `.hud-medio` (justo
+debajo de la barra en iPad/PC; en el móvil, fija abajo encima de Chat/Hablar, con los mandos del anfitrión plegados tras
+«⚙️», `mandosQuedada`); el chat va en `.hueco-chat` (crece hacia arriba sin alargar la fila de abajo: el panel del Grupo
+ya no se mueve); los demás ciclistas sin cadencia (D100) se dibujan pedaleando a 85 rpm si dan vatios. Anfitrión de la
+quedada: cualquier cambio automático espera 6 s (`decisionAnfitrionRef`) y quien era anfitrión y vuelve tras un corte
+(< 5 min, `anfitrionHastaRef`) recupera el mando; quien lo heredó (`heredadoRef`) no lo reclama. Paradas comprobadas: 4
+por circuito y ninguna en el velódromo. Los km de «juntos»: el punto del circuito sigue al grupo (pegado o reagrupado)
+pero lo grabado es lo pedaleado, por eso las vueltas no cuadran con los km. Pendiente: nuevos mensajes rápidos del chat
+(Jesús los dirá; `RAPIDOS` en ChatGrupo.tsx) y los Favero de Daniel (¿aparato?, ¿salían en la lista?). En el móvil, la
+zona central (`.hud-medio`) es más ancha que la pantalla (entreno y Grupo se salen por la derecha): revisar.
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

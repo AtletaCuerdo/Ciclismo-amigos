@@ -1169,6 +1169,17 @@ export default function App() {
   useEffect(() => {
     dentroDesdeRef.current = salida.estado === 'dentro' ? Date.now() : 0;
   }, [salida.estado]);
+  // Hasta cuándo fui anfitrión «de verdad» (no heredado). Si se me corta internet un momento, otro coge el
+  // mando para que el grupo no se quede sin él; al volver (antes de 5 min) lo recupero. Quien lo heredó
+  // no lo reclama después (si no, se lo pasarían el uno al otro).
+  const anfitrionHastaRef = useRef(0);
+  const heredadoRef = useRef(false);
+  if (salida.estado === 'fuera') {
+    anfitrionHastaRef.current = 0;
+    heredadoRef.current = false;
+  } else if (soyAnfitrion && salida.estado === 'dentro' && !heredadoRef.current) anfitrionHastaRef.current = Date.now();
+  // Lo que se decide debe mantenerse unos segundos: un corte de conexión de un momento no cambia nada
+  const decisionAnfitrionRef = useRef<{ clave: string; desde: number } | null>(null);
   useEffect(() => {
     const yo = salida.miUid;
     if (!enRecorrido || salida.estado !== 'dentro' || !yo) return;
@@ -1178,12 +1189,33 @@ export default function App() {
     const q = salida.quedada;
     const solo = ids.every((u) => u === yo);
     let nueva: boolean | null = null;
+    let heredo = false;
     if (creadorProgramadaRef.current && q?.anfitrion !== yo) nueva = !q || solo;
     else if (!q || !ids.includes(q.anfitrion)) {
       if (solo) nueva = true;
-      else if ([...ids].sort()[0] === yo) nueva = false;
+      else if ([...ids].sort()[0] === yo) {
+        nueva = false;
+        heredo = !!q && q.anfitrion !== yo;
+      }
     } else if (solo && (q.modo !== 'juntos' || q.suministros)) nueva = true; // solo en el circuito: quedada nueva
-    if (nueva === null) return;
+    else if (q.anfitrion !== yo && anfitrionHastaRef.current && Date.now() - anfitrionHastaRef.current < 5 * 60000)
+      nueva = false; // volví tras un corte: recupero el mando (sin reiniciar la quedada)
+    if (nueva === null) {
+      decisionAnfitrionRef.current = null;
+      return;
+    }
+    // Salvo el creador de la salida programada, se espera a que la situación dure 6 s
+    const clave = `${nueva}|${q?.anfitrion ?? ''}`;
+    if (!creadorProgramadaRef.current) {
+      const d = decisionAnfitrionRef.current;
+      if (!d || d.clave !== clave) {
+        decisionAnfitrionRef.current = { clave, desde: Date.now() };
+        return;
+      }
+      if (Date.now() - d.desde < 6000) return;
+    }
+    decisionAnfitrionRef.current = null;
+    heredadoRef.current = heredo;
     intentoAnfitrionRef.current = Date.now();
     creadorProgramadaRef.current = false;
     void salida.serAnfitrion(nueva);
@@ -1258,7 +1290,8 @@ export default function App() {
       avatar: salida.avatares[c.uid] ?? avatarPorDefecto(c.uid),
       distancia: c.distancia ?? 0,
       velocidad: c.velocidad ?? 0,
-      cadencia: c.cadencia ?? 0,
+      // Sin cadencia (rodillo que no la mide, p. ej. Van Rysel D100) se anima a 85 rpm mientras dé vatios
+      cadencia: c.cadencia || ((c.vatios ?? 0) > 20 && (c.velocidad ?? 0) > 3 ? 85 : 0),
       vatios: c.vatios,
       emoji: salida.emojis[c.uid]?.e,
       pegado: companerosJuntos.has(c.uid),
