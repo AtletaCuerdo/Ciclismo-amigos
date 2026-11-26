@@ -156,8 +156,8 @@ export interface InfoSubidas {
   quedanVuelta: number;
   /** Subida en la que estás ahora (null si no estás subiendo). */
   actual: { quedanM: number; quedanDistancia: number } | null;
-  /** Próxima subida por delante (puede ser de la vuelta siguiente). */
-  proxima: { distancia: number; desnivel: number; longitud: number; pendienteMedia: number };
+  /** Próxima subida por delante (puede ser de la vuelta siguiente); null si el circuito es llano (velódromo). */
+  proxima: { distancia: number; desnivel: number; longitud: number; pendienteMedia: number } | null;
 }
 
 export function infoSubidas(s: number): InfoSubidas {
@@ -173,6 +173,7 @@ export function infoSubidas(s: number): InfoSubidas {
     }
   }
   const siguiente = SUBIDAS.find((t) => t.inicio > x) ?? SUBIDAS[0];
+  if (!siguiente) return { quedanVuelta, actual, proxima: null };
   const distancia = siguiente.inicio > x ? siguiente.inicio - x : siguiente.inicio + LONGITUD_VUELTA_M - x;
   return {
     quedanVuelta,

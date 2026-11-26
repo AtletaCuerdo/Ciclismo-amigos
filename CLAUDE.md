@@ -497,6 +497,15 @@ una lectura si no hay).
 Probado con el emulador: navegador de antes, dos aparatos, borrar propio, sin internet, Ana → Beto → Ana, dueña distinta
 (11 casos) y la caché de compartidos.
 
+26-11 (3): José (iPad, Bluefy; ya conecta tras el arreglo de los códigos completos) perdía rodillo y banda a la vez al
+tomar un desvío: cada cambio de circuito (`key={circuitoId}` en App) desmontaba `VistaRecorrido` y la escena destruía
+el WebGLRenderer y forzaba la pérdida del contexto, y la nueva creaba otro (pico de memoria y trabajo en iOS). Ahora el
+motor se reutiliza (`tomarMotor`/`dejarMotor` en escena.ts: queda 8 s guardado al destruir; solo con el mismo suavizado y
+sin contexto perdido; si nadie lo recoge, se libera como antes; los mapas de sombras se sueltan a mano). Probado: 8 cambios
+seguidos sin contextos nuevos y memoria estable. **Arreglado también**: el velódromo rompía el recorrido (`infoSubidas`
+sin subidas → `SUBIDAS[0]` undefined); ahora `proxima: null` y el perfil dice «Circuito llano». Pendiente: que José
+confirme si ya no se cae el Bluetooth en los desvíos (y si reconectó solo o pulsando).
+
 ### Probado
 - iPad con Bluefy: va fluido (confirmado por el usuario el 27-09).
 

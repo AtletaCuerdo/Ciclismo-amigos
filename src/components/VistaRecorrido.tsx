@@ -1435,6 +1435,8 @@ export default function VistaRecorrido({
                 <strong className="subiendo">Subiendo:</strong> {Math.round(subidas.actual.quedanM)} m en{' '}
                 {km(subidas.actual.quedanDistancia)} km
               </>
+            ) : !subidas.proxima ? (
+              <strong>Circuito llano</strong>
             ) : perfilGrande ? (
               <>
                 <strong>Próxima subida</strong> en {km(subidas.proxima.distancia)} km: +{subidas.proxima.desnivel} m en{' '}

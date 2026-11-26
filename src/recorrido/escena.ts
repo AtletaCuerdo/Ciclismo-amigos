@@ -440,6 +440,51 @@ interface PuntoRuta {
 // Escena
 // ---------------------------------------------------------------------------
 
+/**
+ * Motor gráfico (WebGLRenderer con su contexto WebGL) que se reutiliza al cambiar de circuito.
+ * Crear un contexto nuevo y destruir el viejo en cada desvío era lo más pesado para el iPad (pico de
+ * memoria y varios segundos de trabajo) y coincidía con cortes del Bluetooth en Bluefy. Al destruir una
+ * escena el motor queda aquí unos segundos; si la siguiente lo pide con el mismo suavizado, lo usa.
+ * Si nadie lo recoge (se ha salido del recorrido), se libera del todo como antes.
+ */
+let motorLibre: { renderer: THREE.WebGLRenderer; antialias: boolean; temporizador: ReturnType<typeof setTimeout> } | null =
+  null;
+
+function liberarMotor(r: THREE.WebGLRenderer) {
+  r.dispose();
+  // Liberar el contexto ya (si no, en iPad se acumulan hasta que el sistema corta el 3D)
+  r.forceContextLoss();
+}
+
+function tomarMotor(antialias: boolean): THREE.WebGLRenderer {
+  const m = motorLibre;
+  motorLibre = null;
+  if (m) {
+    clearTimeout(m.temporizador);
+    if (m.antialias === antialias && !m.renderer.getContext().isContextLost()) return m.renderer;
+    liberarMotor(m.renderer);
+  }
+  return new THREE.WebGLRenderer({ antialias, powerPreference: 'high-performance' });
+}
+
+function dejarMotor(r: THREE.WebGLRenderer, antialias: boolean) {
+  if (motorLibre) {
+    clearTimeout(motorLibre.temporizador);
+    liberarMotor(motorLibre.renderer);
+    motorLibre = null;
+  }
+  if (r.getContext().isContextLost()) {
+    r.dispose();
+    return;
+  }
+  const temporizador = setTimeout(() => {
+    if (motorLibre?.renderer !== r) return;
+    motorLibre = null;
+    liberarMotor(r);
+  }, 8000);
+  motorLibre = { renderer: r, antialias, temporizador };
+}
+
 export class EscenaRecorrido {
   private renderer: THREE.WebGLRenderer;
   private escena = new THREE.Scene();
@@ -544,6 +589,8 @@ export class EscenaRecorrido {
   private sprintYo = false;
   private ambiente = new THREE.HemisphereLight(0xcfe6ff, 0x55683a, 0.5);
   private destruida = false;
+  /** Suavizado de bordes del motor gráfico (para reutilizarlo solo con el mismo). */
+  private suavizado = false;
   private materialTerreno: THREE.MeshStandardMaterial | null = null;
   private materialGrava: THREE.MeshStandardMaterial | null = null;
   private texturaRuido: THREE.DataTexture | null = null;
@@ -566,7 +613,10 @@ export class EscenaRecorrido {
     // En el iPad, algo menos de vegetación también en calidad alta: en la Ribera (el circuito
     // más largo y alargado) Bluefy se quedaba sin memoria y cerraba la página
     this.factor = alta ? (this.movil ? 0.7 : 1) : 0.5;
-    this.renderer = new THREE.WebGLRenderer({ antialias: alta && !this.movil, powerPreference: 'high-performance' });
+    this.suavizado = alta && !this.movil;
+    this.renderer = tomarMotor(this.suavizado);
+    this.renderer.setRenderTarget(null);
+    this.renderer.info.reset();
     this.renderer.domElement.addEventListener('webglcontextlost', this.alPerderContexto);
     prepararTexturasComprimidas(this.renderer);
     this.ratioMaximo = Math.min(window.devicePixelRatio, this.movil ? (alta ? 1.25 : 1) : alta ? 1.5 : 1);
@@ -3750,12 +3800,19 @@ export class EscenaRecorrido {
     this.texturaRuido?.dispose();
     this.atlasImpostores?.dispose();
     this.impostor?.planos.dispose();
+    // Mapas de sombras (los crea el motor; con el motor reutilizado hay que soltarlos a mano)
+    this.escena.traverse((o) => {
+      const sombra = (o as THREE.Light).shadow as THREE.LightShadow | undefined;
+      if (sombra?.map) {
+        sombra.map.dispose();
+        sombra.map = null;
+      }
+    });
     this.escena.clear();
     this.renderer.renderLists.dispose();
-    this.renderer.dispose();
-    // Liberar el contexto ya (si no, en iPad se acumulan hasta que el sistema corta el 3D)
-    this.renderer.forceContextLoss();
     this.renderer.domElement.removeEventListener('webglcontextlost', this.alPerderContexto);
     this.renderer.domElement.remove();
+    // El motor se guarda unos segundos por si se monta otro circuito (ver tomarMotor)
+    dejarMotor(this.renderer, this.suavizado);
   }
 }
